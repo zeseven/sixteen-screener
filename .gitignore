@@ -1,0 +1,12 @@
+# Service account keys
+*-sa-key.json
+*service-account*.json
+*credentials*.json
+secrets/
+
+# Local configuration
+local.properties
+
+# AI agent instructions
+CLAUDE.md
+GEMINI.md
