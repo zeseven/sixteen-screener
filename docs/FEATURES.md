@@ -14,15 +14,15 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 ### Project and infrastructure
 - [ ] Repo structure: `backend`, `frontend`, `docs`
 - [ ] OpenAPI spec `docs/openapi.yaml` (all milestones, marked with `x-milestone`) used by both backend and frontend; alpha endpoints implemented
-- [ ] Backend: Kotlin + Gradle project with hexagonal architecture (domain, ports, adapters)
-- [ ] Backend: Ktor application compiled into a GraalVM native image and packaged as a Docker image
+- [x] Backend: Kotlin + Gradle project with hexagonal architecture (domain, ports, adapters)
+- [x] Backend: Ktor application compiled into a GraalVM native image and packaged as a Docker image
 - [ ] Backend: Cloud Run deployment via gcloud CLI (min instances = 0, startup CPU boost)
 - [ ] Backend: endpoint access limited to the frontend app's service account and the developer's Google account (Cloud Run IAM)
 - [ ] Backend: Cloud Run max instances cap
 - [ ] Backend: Secret Manager integration for source API tokens
-- [ ] Backend: Firestore integration with TTL for cached data
-- [ ] Backend: GCS bucket for logos
-- [ ] Backend: sources list and per-source client configuration via application properties
+- [x] Backend: Firestore integration with TTL for cached data
+- [x] Backend: GCS bucket for logos
+- [x] Backend: sources list and per-source client configuration via application properties
 - [ ] `backend/README.md` (build + deploy) and `backend/SETUP.md` (Firestore TTL policy, bucket, secrets, service accounts, IAM)
 - [ ] Frontend: Kotlin Android project with Jetpack Compose and Material 3 (min Android 8.0 / API 26, dynamic colors on Android 12+)
 - [ ] Frontend: generated (or spec-aligned) API client and authenticated calls to the backend (ID token minted from the service account key)
@@ -31,31 +31,31 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [ ] `frontend/README.md` (CLI build of APK for USB install) and `frontend/SETUP.md` (service account creation, run.invoker binding, key creation, key location setup, key rotation)
 
 ### Sources
-- [ ] Logo source (logoapi.sh): download SVG logo, store in GCS bucket, serve from bucket on next requests
-- [ ] Logos served as SVG with a long-lived Cache-Control header (no conversion on the backend)
+- [x] Logo source (logoapi.sh): download SVG logo, store in GCS bucket, serve from bucket on next requests
+- [x] Logos served as SVG with a long-lived Cache-Control header (no conversion on the backend)
 - [ ] Logo rendering in the app with Coil and coil-svg; default logo shown when decoding fails
-- [ ] Default logo returned when the logo is not found in the bucket nor in the source
-- [ ] Finnhub client (free plan): symbol search, quote (price), basic financials (ratios), company profile, balance sheet from reported financials (raw, as filed with SEC EDGAR)
-- [ ] Finnhub used as the default source
-- [ ] Exchange directory: symbol lists of the source's exchanges downloaded once per day, kept in the GCS bucket and used to resolve exchange and market of search results
-- [ ] SEC EDGAR client: CIK lookup by ticker, company facts, balance sheet ("source of truth" for US stocks)
-- [ ] Per-source request counters (minute/hour/day/month) stored in Firestore and shared between instances
-- [ ] Rate limiting: no outgoing request when a source limit is reached; cached data is returned instead
+- [x] Default logo returned when the logo is not found in the bucket nor in the source
+- [x] Finnhub client (free plan): symbol search, quote (price), basic financials (ratios), company profile, balance sheet from reported financials (raw, as filed with SEC EDGAR)
+- [x] Finnhub used as the default source
+- [x] Exchange directory: symbol lists of the source's exchanges downloaded once per day, kept in the GCS bucket and used to resolve exchange and market of search results
+- [x] SEC EDGAR client: CIK lookup by ticker, company facts, balance sheet ("source of truth" for US stocks)
+- [x] Per-source request counters (minute/hour/day/month) stored in Firestore and shared between instances
+- [x] Rate limiting: no outgoing request when a source limit is reached; cached data is returned instead
 
 ### Caching and data freshness
-- [ ] Company data cached per ticker and date, shared between users; expires via Firestore TTL after 14 days
-- [ ] Data younger than 1 hour is considered fresh and not refreshed
-- [ ] Stale data refreshed for the watchlist screen (if source limits allow)
+- [x] Company data cached per ticker and date, shared between users; expires via Firestore TTL after 14 days
+- [x] Data younger than 1 hour is considered fresh and not refreshed
+- [x] Stale data refreshed for the watchlist screen (if source limits allow)
 - [ ] Detailed screen shows cached data on open; refresh only on manual request
-- [ ] Detailed screen data requested from the source automatically when nothing is cached
+- [x] Detailed screen data requested from the source automatically when nothing is cached
 - [ ] Source error, timeout or reached limit: cached data returned with the source status; without cached data, empty data shown as '-'
-- [ ] Previous cached price (latest price from yesterday or earlier) available for price coloring
-- [ ] Cache age returned with the data (for the cache indicator)
+- [x] Previous cached price (latest price from yesterday or earlier) available for price coloring
+- [x] Cache age returned with the data (for the cache indicator)
 
 ### Profiles
 - [ ] On first start, the app asks for a profile name, gets the profile ID from the backend (get-or-create by name) and stores both locally
 - [ ] Profile ID used for all per-user requests on next runs without asking again
-- [ ] Per-profile data stored in Firestore (profile with unique name and backend-generated ID, watchlist)
+- [x] Per-profile data stored in Firestore (profile with unique name and backend-generated ID, watchlist)
 
 ### Watchlist screen
 - [ ] List of companies in the profile's watchlist
