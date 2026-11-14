@@ -1,5 +1,7 @@
 package com.sixteenscreener.app.di
 
+import com.sixteenscreener.app.data.repository.CompanyRepository
+import com.sixteenscreener.app.data.repository.DefaultCompanyRepository
 import com.sixteenscreener.app.data.repository.DefaultProfileRepository
 import com.sixteenscreener.app.data.repository.DefaultSearchRepository
 import com.sixteenscreener.app.data.repository.DefaultSourceRepository
@@ -28,4 +30,7 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun bindSourceRepository(repository: DefaultSourceRepository): SourceRepository
+
+    @Binds
+    abstract fun bindCompanyRepository(repository: DefaultCompanyRepository): CompanyRepository
 }
