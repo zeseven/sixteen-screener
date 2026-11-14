@@ -42,7 +42,12 @@ class AppNavHostTest {
             }
         },
         detail = { route, _ -> Text("Detail ${route.symbol.value}: ${route.initialSummary?.name ?: "no summary"}") },
-        settings = { Text("Settings content") },
+        settings = { navigator ->
+            Column {
+                Text("Settings content")
+                Button(onClick = { navigator.showMain(MainTab.WATCHLIST) }) { Text("Switch profile") }
+            }
+        },
     )
 
     private var hasProfile by mutableStateOf(false)
@@ -188,5 +193,19 @@ class AppNavHostTest {
         composeRule.onNodeWithText("Detail AAPL: Apple Inc.").assertExists()
         pressBack()
         composeRule.onNodeWithText("Tab SEARCH").assertExists()
+    }
+
+    @Test
+    fun `profile switch in settings returns to the watchlist tab`() {
+        start(hasProfile = true)
+        clickText("Search")
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+
+        clickText("Switch profile")
+
+        composeRule.onNodeWithText("Settings content").assertDoesNotExist()
+        composeRule.onNodeWithText("Tab WATCHLIST").assertExists()
+        pressBack()
+        composeRule.onNodeWithText("Tab WATCHLIST").assertExists()
     }
 }

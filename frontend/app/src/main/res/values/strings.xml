@@ -86,6 +86,13 @@
     <string name="tab_sources">Sources</string>
     <string name="settings_open">Settings</string>
     <string name="settings_title">Settings</string>
+    <string name="settings_profile_section">Profile</string>
+    <string name="settings_current_profile">Current profile</string>
+    <string name="settings_switch_hint">Enter another profile name. A new name creates an empty watchlist; an existing name opens its watchlist.</string>
+    <string name="settings_switch_profile">Switch profile</string>
+    <string name="settings_app_section">App</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_backend_url">Backend URL</string>
     <string name="detail_title">Company details</string>
     <string name="detail_refresh">Refresh from sources</string>
     <string name="detail_tab_price_and_ratios">Price and ratio</string>

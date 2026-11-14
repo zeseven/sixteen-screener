@@ -36,5 +36,7 @@ private val AppScreens = AppDestinations(
         }
     },
     detail = { route, navigator -> DetailScreen(route = route, onBack = navigator::goBack) },
-    settings = { navigator -> SettingsScreen(onBack = navigator::goBack) },
+    settings = { navigator ->
+        SettingsScreen(onBack = navigator::goBack, onProfileSwitched = { navigator.showMain(MainTab.WATCHLIST) })
+    },
 )

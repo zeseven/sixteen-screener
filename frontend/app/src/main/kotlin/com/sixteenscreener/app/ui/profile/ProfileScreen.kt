@@ -105,7 +105,7 @@ fun ProfileContent(
 }
 
 @Composable
-private fun profileErrorMessage(error: ProfileError): String = when (error) {
+fun profileErrorMessage(error: ProfileError): String = when (error) {
     ProfileError.NameBlank -> stringResource(R.string.profile_error_blank)
     ProfileError.NameTooLong -> stringResource(R.string.profile_error_too_long, ProfileName.MAX_LENGTH)
     is ProfileError.Request -> apiErrorMessage(error.error)
