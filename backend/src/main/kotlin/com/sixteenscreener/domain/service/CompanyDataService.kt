@@ -25,6 +25,7 @@ import com.sixteenscreener.port.outbound.CompanyCache
 import com.sixteenscreener.port.outbound.MarketDataSource
 import com.sixteenscreener.port.outbound.ProfileRepository
 import com.sixteenscreener.port.outbound.SymbolDirectory
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -236,7 +237,7 @@ class CompanyDataService(
         val semaphore = Semaphore(maxConcurrentCalls)
         val rejectedBySource = AtomicBoolean(false)
         fetches.mapIndexed { index, fetch ->
-            async {
+            async(start = CoroutineStart.UNDISPATCHED) {
                 val data = if (index >= granted) {
                     fetch.limitReached()
                 } else {
