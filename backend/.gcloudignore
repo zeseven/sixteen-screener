@@ -1,0 +1,9 @@
+.gcloudignore
+.gradle/
+.kotlin/
+.idea/
+build/
+src/test/
+src/emulatorTest/
+*.iml
+*.md
