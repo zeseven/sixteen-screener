@@ -10,3 +10,8 @@ local.properties
 # AI agent instructions
 CLAUDE.md
 GEMINI.md
+
+# Backend build outputs
+backend/.gradle/
+backend/build/
+backend/.kotlin/
