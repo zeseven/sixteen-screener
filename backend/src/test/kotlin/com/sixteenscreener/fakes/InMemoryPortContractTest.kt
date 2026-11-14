@@ -2,7 +2,9 @@ package com.sixteenscreener.fakes
 
 import com.sixteenscreener.contract.CompanyCacheUnderTest
 import com.sixteenscreener.contract.companyCacheContract
+import com.sixteenscreener.contract.exchangeDirectoryStoreContract
 import com.sixteenscreener.contract.logoMissRepositoryContract
+import com.sixteenscreener.contract.logoStorageContract
 import com.sixteenscreener.contract.profileRepositoryContract
 import com.sixteenscreener.contract.requestCounterRepositoryContract
 import com.sixteenscreener.contract.sourceCallOutcomeRepositoryContract
@@ -35,4 +37,12 @@ class InMemorySourceCallOutcomeRepositoryTest : FunSpec({
 
 class InMemoryLogoMissRepositoryTest : FunSpec({
     include(logoMissRepositoryContract { InMemoryLogoMissRepository() })
+})
+
+class InMemoryExchangeDirectoryStoreTest : FunSpec({
+    include(exchangeDirectoryStoreContract { InMemoryExchangeDirectoryStore() })
+})
+
+class InMemoryLogoStorageTest : FunSpec({
+    include(logoStorageContract { InMemoryLogoStorage() })
 })

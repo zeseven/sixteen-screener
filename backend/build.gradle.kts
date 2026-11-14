@@ -48,11 +48,13 @@ dependencies {
     implementation(libs.ktor.client.content.negotiation)
     implementation(platform(libs.google.cloud.bom))
     implementation(libs.google.cloud.firestore)
+    implementation(libs.google.cloud.storage)
 
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotest.runner.junit5)
     testImplementation(libs.kotest.assertions.core)
     testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.google.cloud.nio)
 }
 
 tasks.test {
