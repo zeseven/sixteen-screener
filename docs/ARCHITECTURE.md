@@ -11,15 +11,16 @@ Spec is built depending on app features described in REQUIREMENTS.md
 ## Frontend
 Android application used latest UI framework: Jetpack Compose with Material 3.
 Minimum Android version: Android 8.0 (API 26). Dynamic colors (Material You) are used on Android 12+ with a static color scheme fallback on older versions.
+Theme: follows the system light/dark setting.
 The app only displays indicators returned by the backend; it doesn't calculate them.
 Language: Kotlin.
-HTTP client: standard Android HTTP libraries; all calls implemented by hand to match docs/openapi.yaml (no generated client, no Ktor Client).
+HTTP client: OkHttp with kotlinx.serialization; all calls implemented by hand to match docs/openapi.yaml (no generated client, no Ktor Client). The same OkHttp client is used by Coil for logos.
 Dependency injection: Hilt.
 Tests: JUnit4.
 UI language: English only. All user-visible texts are kept in string resources to allow translations later.
 Backend URL: passed to the build only via the `SIXTEEN_BACKEND_URL` environment variable; never saved in a repo file or committed. The build fails with a clear message if it is not set.
 Watchlist filter selections are kept in memory while the app is running and are not stored on the device.
-README contains cli command for building apk file which should be uploaded via USB, including how to set the backend URL environment variable.
+README contains cli command for building a debug-signed apk file (`assembleDebug`) which should be uploaded via USB, including how to set the backend URL environment variable.
 
 ## Backend
 Language: Kotlin.
@@ -43,7 +44,7 @@ The service account key is bundled into the APK at build time and is never store
 - Gradle copies the key into generated build assets (under the build directory), not into the source tree.
 - Every build, including unit tests, fails with a clear message if the key location is not configured or the file doesn't exist. Unit tests never use the real key.
 - .gitignore contains patterns for key files as an additional safeguard.
-- The app uses the key to obtain a Google-signed ID token with the Cloud Run service URL as the audience, and sends it with each request.
+- The app uses the key to obtain a Google-signed ID token with the Cloud Run service URL as the audience, and sends it with each request. The app signs the token request (JWT, RS256) itself and exchanges it at the Google token endpoint; no Google auth library is used.
 - Key rotation: create a new key, rebuild and reinstall the APK, then delete the old key.
 Database: Firestore. Cached data is stored with Firestore TTL feature to be automatically removed.
 Secret Manager is used for tokens and credentials. Cloud Run exposes them to the container as environment variables (`--set-secrets`); the backend uses no Secret Manager client library.

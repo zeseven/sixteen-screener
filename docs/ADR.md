@@ -469,3 +469,65 @@ External sources are distributed as follows:
 **Decision:** The balance sheet source dropdown always offers SEC EDGAR, regardless of the company's market. For companies SEC EDGAR doesn't cover, the app renders the `NOT_SUPPORTED` status returned by the backend.
 
 **Consequences:** No market-specific logic in the app. When an EU source of truth appears (future improvement), the same dropdown and status handling apply.
+
+## ADR-048: OkHttp as the Android HTTP library
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Context:** ADR-020 requires a hand-written client on standard Android HTTP libraries. Logos are served by the same IAM-protected backend and are loaded by Coil (ADR-016), which needs an authenticated HTTP client too.
+
+**Decision:** The Android app uses OkHttp with kotlinx.serialization. All calls are still written by hand following `docs/openapi.yaml` (ADR-020). One OkHttp client with an authentication interceptor is shared by the API client and Coil (`coil-network-okhttp`).
+
+**Alternatives:** `HttpURLConnection` only. Rejected: logos would need a custom Coil fetcher, and tests would lack OkHttp's MockWebServer.
+
+**Consequences:** API client tests use MockWebServer.
+
+## ADR-049: ID token minted by the app without Google auth libraries
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Context:** The app needs a Google-signed ID token with the Cloud Run URL as the audience, minted from the bundled service account key (ADR-017).
+
+**Decision:** The app mints the token itself: it builds a JWT (RS256, signed with `java.security` using the key's private key) with `target_audience` set to the backend URL, exchanges it at the key's `token_uri` (`https://oauth2.googleapis.com/token`) and caches the returned ID token in memory until 5 minutes before it expires. No `google-auth-library` or other Google auth dependency is used.
+
+**Alternatives:** `com.google.auth:google-auth-library-oauth2-http` (`ServiceAccountCredentials` + `IdTokenCredentials`). Rejected: large transitive dependencies (Guava, google-http-client) for one small flow.
+
+**Consequences:** Key parsing, JWT signing, token caching and refresh are covered by the app's own unit tests.
+
+## ADR-050: Light and dark theme with dynamic colors
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Decision:** The app follows the system light/dark setting. It uses the dynamic color scheme on Android 12+ and a static light/dark scheme on older versions (ADR-011). An unchanged price (equal to the previous cached price, or no previous price) uses the default text color: white in the dark theme, black in the light theme. Higher and lower prices are shown in green and red, with light and dark variants chosen for readability on the respective background.
+
+**Consequences:** "White" for an unchanged price in REQUIREMENTS.md means the default text color of the current theme.
+
+## ADR-051: Debug-signed APK
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Context:** The APK is installed over USB on a few devices; it is not published to a store.
+
+**Decision:** The app is built and installed as a debug-signed APK (`./gradlew assembleDebug`). No release keystore and no R8 configuration are maintained.
+
+**Consequences:** The debug keystore is per machine (`~/.android/debug.keystore`). An APK built on another machine can't update an installed one; the app has to be uninstalled first, which deletes the locally stored profile (it is restored by entering the same profile name).
+
+## ADR-052: Detailed screen refresh button refreshes all tabs
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Decision:** The refresh button of the detailed screen reloads all tabs with `refresh=true`: price and ratio, balance sheet and company profile. The balance sheet tab refreshes the currently selected source; results of other sources kept on the screen are discarded and loaded again when selected.
+
+**Consequences:** One refresh spends up to one source request per tab.
+
+## ADR-053: Balance sheet shown as a table with one column per year
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Decision:** The balance sheet tab shows a table: one row per line item (label as provided by the source), one column per fiscal year, newest year first. The table scrolls horizontally when the years don't fit the screen width; the label column stays visible. Large values are abbreviated (thousands `K`, millions `M`, billions `B`, trillions `T`, e.g. `352.6 B`); missing values are shown as `-`.

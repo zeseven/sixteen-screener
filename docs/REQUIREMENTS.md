@@ -45,7 +45,7 @@ On the watchlist and search screens, each company has a button to display full i
 That screen contains several tabs:
 - Price and ratio,
 - Dividends,
-- Balance sheet (annual data only),
+- Balance sheet (annual data only; a table with one column per year, scrolled horizontally when the years don't fit),
 - Company profile.
 Each tab displays data from the 'default' source. Each tab contains a dropdown to select the source (balance sheet contains additionally government source, the 'source of truth'). On company profile tab user can append its own tags (for filtering on the Watchlist screen).
 There should be one more 'settings' screen, accessible by 'settings' button, with indicators and other app settings.
@@ -60,7 +60,7 @@ Companies from exchanges outside these markets have no flag and are shown only w
 Stock price is displayed in different colors:
 - green, if current price is bigger than previous cached price;
 - red, if current price is lower than previous cahced price;
-- white, if equals or previous data is absent.
+- default text color (white in the dark theme, black in the light theme), if equals or previous data is absent.
 By 'previous cached price' we consider latest price for yesterday (or days before), excluding today's data.
 Under the stock price lays caching indicator - an Unicode character displaying 'clocks' symbol + number of days.
 For today's data clock number is 1; for yesterday's data it's 2, and so on. If data is fresh (or cached less than 1 hour ago),
@@ -85,5 +85,5 @@ Profile name can be switched in settings at any time (so the user can get access
 ## Data freshness
 If company's data has been collected less than an hour ago, it's considered fresh data and doesn't require a refresh.
 If data collected more than an hour ago, it needs a refresh for a watchlist screen. If our source ran out of request limit, we don't refresh data and show latest cached data only.
-For the 'detailed' screen we don't make a separate request on the screen opening - just display the existing data. If there is no cached data at all, it is requested from the source automatically. At the same time, that screen has a refresh button to be triggered manually at any time user decides to refresh.
+For the 'detailed' screen we don't make a separate request on the screen opening - just display the existing data. If there is no cached data at all, it is requested from the source automatically. At the same time, that screen has a refresh button to be triggered manually at any time user decides to refresh; it refreshes all tabs.
 If a source returns an error, times out or its request limit is reached, the latest cached data is shown. If there is no cached data, the data fields are shown as '-'.

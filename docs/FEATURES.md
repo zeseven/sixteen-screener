@@ -79,13 +79,13 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [ ] Company name limited to half of the card width, truncated with ellipsis
 - [ ] Market flag (US / EU) as a Unicode character right after the company name
 - [ ] Market detection (US / EU) by exchange; UK (LSE) and Swiss (SIX) exchanges count as EU; other exchanges have no market (no flag, shown only with the 'all' filter)
-- [ ] Price color: green if higher than previous cached price, red if lower, white if equal or no previous data
+- [ ] Price color: green if higher than previous cached price, red if lower, default text color (white in dark theme, black in light theme) if equal or no previous data
 - [ ] Cache indicator under the price: clock symbol + number of days; hidden when data is younger than 1 hour
 
 ### Detailed screen
 - [ ] Tabs: Price and ratio, Balance sheet, Company profile (data from the default source)
-- [ ] Balance sheet tab: SEC EDGAR as an additional source selectable from the dropdown, loaded on demand
-- [ ] Manual refresh button
+- [ ] Balance sheet tab: table with one column per year (horizontal scroll, abbreviated large values); SEC EDGAR as an additional source selectable from the dropdown, loaded on demand
+- [ ] Manual refresh button refreshing all tabs
 - [ ] UX investigation: side-by-side comparison of several sources (result in `docs/UX-COMPARISON.md` for developer review, not committed; implementation not in scope)
 
 ### Sources screen
