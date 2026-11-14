@@ -1,0 +1,11 @@
+Financial Modeling Prep (FMP), visit:
+https://site.financialmodelingprep.com/developer/docs
+
+Tiingo, visit:
+https://www.tiingo.com/documentation/general/overview
+
+Alpha Vantage, visit:
+https://www.alphavantage.co/documentation/
+
+EODHD, visit:
+https://eodhd.com/financial-apis/

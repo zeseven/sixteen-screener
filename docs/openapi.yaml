@@ -1,0 +1,1113 @@
+openapi: 3.0.3
+info:
+  title: Sixteen Screener API
+  version: 0.1.0
+  description: |
+    Backend API of the Sixteen Screener app.
+
+    Conventions:
+    - `x-milestone` on operations and schema properties marks the milestone (alpha, beta, rc) in which the element is implemented.
+      Elements without the marker belong to alpha.
+    - Per-user data (watchlist, tags, default source, indicator settings) is scoped by the profile ID (UUID) in the path.
+      The app gets the ID from `POST /profiles` by profile name. Profiles are not protected: any profile name can be used.
+    - Company data is cached and shared between users. Data younger than 1 hour is fresh and is not re-requested from a source.
+      When a source request limit is reached, or the source returns a response outside 2XX, times out or fails with an unexpected
+      application error, the latest cached data is returned with a corresponding status. Without cached data the same status is
+      returned with empty data (nullable fields are null, lists are empty); the app displays missing values as "-".
+      Source failures don't produce error responses for company data.
+    - Detailed screen endpoints return cached data as is; when nothing is cached, the data is requested from the source automatically.
+    - Indicators are calculated by the backend using the profile's indicator settings. The app only renders them.
+    - All timestamps are in UTC (RFC 3339).
+
+servers:
+  - url: https://{service-url}
+    variables:
+      service-url:
+        default: sixteen-screener-backend.a.run.app
+        description: Cloud Run service URL
+
+security:
+  - googleIdToken: []
+
+tags:
+  - name: Profiles
+    description: Profile settings
+  - name: Watchlist
+    description: Per-profile watchlist
+  - name: Search
+    description: Company search
+  - name: Companies
+    description: Detailed company data per source
+  - name: Tags
+    description: Per-profile user tags
+  - name: Indicators
+    description: Per-profile indicator settings
+  - name: Sources
+    description: External data sources and their request limits
+  - name: Logos
+    description: Company logos
+
+paths:
+  /profiles:
+    post:
+      tags: [Profiles]
+      operationId: getOrCreateProfile
+      summary: Get or create a profile by name
+      description: |
+        Returns the profile with the given name, creating it if it doesn't exist.
+        Names are compared after trimming surrounding whitespace, case-insensitively; the name is stored as first entered (trimmed).
+        Used on the first start of the app and when switching profiles in settings. The app stores the returned ID and uses it in all
+        profile-scoped requests.
+      x-milestone: alpha
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileCreate'
+      responses:
+        '200':
+          description: Existing profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '201':
+          description: Created profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /profiles/{profileId}:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+    get:
+      tags: [Profiles]
+      operationId: getProfile
+      summary: Get profile settings
+      description: Returns the profile.
+      x-milestone: alpha
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Profiles]
+      operationId: updateProfile
+      summary: Update profile settings
+      description: Changes the profile's default source.
+      x-milestone: beta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{profileId}/watchlist:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+    get:
+      tags: [Watchlist]
+      operationId: getWatchlist
+      summary: Get watchlist
+      description: |
+        Returns all companies of the profile's watchlist with data from the profile's default source.
+        Stale data (older than 1 hour) is refreshed if the source limits allow; otherwise, or when the source fails,
+        cached data is returned. A company without any cached quote has `quote = null`.
+        Filtering by market, sector and tags is done by the app in memory.
+      x-milestone: alpha
+      responses:
+        '200':
+          description: Watchlist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Watchlist'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{profileId}/watchlist/{symbol}:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+      - $ref: '#/components/parameters/Symbol'
+    put:
+      tags: [Watchlist]
+      operationId: addToWatchlist
+      summary: Add company to watchlist
+      description: Idempotent.
+      x-milestone: alpha
+      responses:
+        '204':
+          description: Company is in the watchlist
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Watchlist]
+      operationId: removeFromWatchlist
+      summary: Remove company from watchlist
+      description: Idempotent.
+      x-milestone: alpha
+      responses:
+        '204':
+          description: Company is not in the watchlist
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{profileId}/search:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+    get:
+      tags: [Search]
+      operationId: searchCompanies
+      summary: Search companies
+      description: |
+        Searches the profile's default source by ticker or the first letters of a company name.
+        No quote requests are made for search results; a quote is included only when it is already cached.
+        The app sends requests after at least 3 letters, no more than 1 request per second.
+        When the source request limit is reached or the source call fails, the response is still `200` with empty items and
+        the corresponding status; the app shows the reason under the search box.
+      x-milestone: alpha
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 50
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResults'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{profileId}/companies/{symbol}/price-ratios:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+      - $ref: '#/components/parameters/Symbol'
+      - $ref: '#/components/parameters/Source'
+      - $ref: '#/components/parameters/Refresh'
+    get:
+      tags: [Companies]
+      operationId: getPriceAndRatios
+      summary: Get price and ratios
+      description: Data for the "Price and ratio" tab of the detailed screen from one source.
+      x-milestone: alpha
+      responses:
+        '200':
+          description: Price and ratios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceAndRatiosResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{profileId}/companies/{symbol}/dividends:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+      - $ref: '#/components/parameters/Symbol'
+      - $ref: '#/components/parameters/Source'
+      - $ref: '#/components/parameters/Refresh'
+    get:
+      tags: [Companies]
+      operationId: getDividends
+      summary: Get dividends
+      description: Data for the "Dividends" tab of the detailed screen from one source.
+      x-milestone: beta
+      responses:
+        '200':
+          description: Dividends
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DividendsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{profileId}/companies/{symbol}/balance-sheet:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+      - $ref: '#/components/parameters/Symbol'
+      - $ref: '#/components/parameters/Source'
+      - $ref: '#/components/parameters/Refresh'
+    get:
+      tags: [Companies]
+      operationId: getBalanceSheet
+      summary: Get balance sheet
+      description: |
+        Data for the "Balance sheet" tab of the detailed screen from one source.
+        In addition to price/ratio sources, `sec-edgar` can be requested as the source of truth for US companies.
+        Data is returned as provided by the source (as-reported line items), without normalisation.
+      x-milestone: alpha
+      responses:
+        '200':
+          description: Balance sheet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceSheetResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{profileId}/companies/{symbol}/profile:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+      - $ref: '#/components/parameters/Symbol'
+      - $ref: '#/components/parameters/Source'
+      - $ref: '#/components/parameters/Refresh'
+    get:
+      tags: [Companies]
+      operationId: getCompanyProfile
+      summary: Get company profile
+      description: Data for the "Company profile" tab of the detailed screen from one source, with the profile's user tags.
+      x-milestone: alpha
+      responses:
+        '200':
+          description: Company profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{profileId}/companies/{symbol}/tags:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+      - $ref: '#/components/parameters/Symbol'
+    put:
+      tags: [Tags]
+      operationId: setCompanyTags
+      summary: Set user tags of a company
+      description: Replaces all profile tags of the company. An empty list removes all tags.
+      x-milestone: beta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagList'
+      responses:
+        '200':
+          description: Tags of the company
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{profileId}/tags:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+    get:
+      tags: [Tags]
+      operationId: getProfileTags
+      summary: Get all user tags of the profile
+      description: All distinct tags used by the profile, sorted alphabetically. Used for the watchlist tag filter.
+      x-milestone: beta
+      responses:
+        '200':
+          description: Tags
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{profileId}/indicator-settings:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+    get:
+      tags: [Indicators]
+      operationId: getIndicatorSettings
+      summary: Get indicator settings
+      description: Returns the profile's indicator settings, or the defaults if the profile has none.
+      x-milestone: beta
+      responses:
+        '200':
+          description: Indicator settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndicatorSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Indicators]
+      operationId: replaceIndicatorSettings
+      summary: Replace indicator settings
+      description: Replaces all indicator settings of the profile.
+      x-milestone: beta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IndicatorSettings'
+      responses:
+        '200':
+          description: Stored indicator settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndicatorSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{profileId}/indicator-settings/reset:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+    post:
+      tags: [Indicators]
+      operationId: resetIndicatorSettings
+      summary: Reset indicator settings to defaults
+      x-milestone: rc
+      responses:
+        '200':
+          description: Default indicator settings, now stored for the profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndicatorSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{profileId}/sources:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+    get:
+      tags: [Sources]
+      operationId: getSources
+      summary: Get sources
+      description: All configured sources with capabilities, request limits and current usage. The profile's default source is marked.
+      x-milestone: alpha
+      responses:
+        '200':
+          description: Sources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sources'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /logos/{symbol}:
+    parameters:
+      - $ref: '#/components/parameters/Symbol'
+    get:
+      tags: [Logos]
+      operationId: getLogo
+      summary: Get company logo
+      description: |
+        Returns the SVG logo from the bucket; downloads it from the logo source on the first request.
+        Returns the default logo if the logo is not found in the source.
+        Responses carry a long-lived `Cache-Control` header.
+      x-milestone: alpha
+      responses:
+        '200':
+          description: Logo
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: public, max-age=2592000
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+components:
+  securitySchemes:
+    googleIdToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Google-signed ID token with the Cloud Run service URL as the audience, checked by Cloud Run IAM (roles/run.invoker).
+        The app mints it from the bundled service account key; the developer uses `gcloud auth print-identity-token`.
+
+  parameters:
+    ProfileId:
+      name: profileId
+      in: path
+      required: true
+      description: Profile ID returned by `POST /profiles`.
+      schema:
+        type: string
+        format: uuid
+      example: 3f2b8c1e-6d4a-4f7e-9b1a-2c5d8e7f9a10
+    Symbol:
+      name: symbol
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Symbol'
+    Source:
+      name: source
+      in: query
+      required: false
+      description: Source to take data from. Defaults to the profile's default source.
+      schema:
+        $ref: '#/components/schemas/SourceId'
+    Refresh:
+      name: refresh
+      in: query
+      required: false
+      description: |
+        Manual refresh from the detailed screen. When true, data is requested from the source even if the cache is fresh,
+        unless the source limit is reached. When false, cached data is returned as is; if nothing is cached, the data is
+        requested from the source.
+      schema:
+        type: boolean
+        default: false
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: Profile, company or source not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+  schemas:
+    Symbol:
+      type: string
+      description: |
+        Canonical company identifier assigned by the backend: ticker for US companies, ticker with exchange suffix for others
+        (e.g. `SAP.DE`, `SHEL.L`, `NESN.SW`). The backend maps it to each source's own symbol format.
+      pattern: '^[A-Z0-9][A-Z0-9.\-]{0,19}$'
+      example: AAPL
+
+    SourceId:
+      type: string
+      description: |
+        Configured source identifier. Known values: `finnhub`, `sec-edgar`, `logoapi` (alpha); `fmp`, `tiingo` (beta);
+        `alpha-vantage`, `eodhd` (rc).
+      pattern: '^[a-z0-9\-]{1,30}$'
+      example: finnhub
+
+    Market:
+      type: string
+      description: |
+        Market detected by exchange. UK (LSE) and Swiss (SIX) exchanges count as EU.
+        Companies listed on exchanges outside both markets have no market (`null`).
+      enum: [US, EU]
+
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      required: [title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+
+    Profile:
+      type: object
+      required: [id, name, defaultSource]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Profile ID assigned by the backend when the profile is created.
+        name:
+          type: string
+        defaultSource:
+          $ref: '#/components/schemas/SourceId'
+
+    ProfileCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Profile name; any characters. Surrounding whitespace is trimmed; must not be blank after trimming.
+          minLength: 1
+          maxLength: 40
+          example: Alice
+
+    ProfileUpdate:
+      type: object
+      required: [defaultSource]
+      properties:
+        defaultSource:
+          $ref: '#/components/schemas/SourceId'
+
+    CompanySummary:
+      type: object
+      description: Data for a company row on the watchlist and search screens.
+      required: [symbol, ticker, exchange, name, market, logoUrl]
+      properties:
+        symbol:
+          $ref: '#/components/schemas/Symbol'
+        ticker:
+          type: string
+          example: AAPL
+        exchange:
+          type: string
+          description: Short exchange name displayed under the ticker.
+          example: NASDAQ
+        name:
+          type: string
+          example: Apple Inc
+        market:
+          allOf:
+            - $ref: '#/components/schemas/Market'
+          nullable: true
+          description: Null for exchanges outside the US and EU markets (no flag; shown only with the "all" market filter).
+        sector:
+          type: string
+          nullable: true
+          description: Sector name as provided by the source.
+          example: Technology
+        sectorGroup:
+          type: string
+          nullable: true
+          description: Sector mapped to the fixed list of predefined sectors (optional feature).
+          x-milestone: beta
+        logoUrl:
+          type: string
+          description: Relative URL of the logo endpoint.
+          example: /logos/AAPL
+        quote:
+          allOf:
+            - $ref: '#/components/schemas/Quote'
+          nullable: true
+          description: Null when no quote is available (e.g. a search result without cached data).
+        indicators:
+          type: array
+          items:
+            $ref: '#/components/schemas/Indicator'
+          x-milestone: beta
+        tags:
+          type: array
+          description: Profile tags of the company.
+          items:
+            type: string
+          x-milestone: beta
+        inWatchlist:
+          type: boolean
+          description: Whether the company is in the profile's watchlist (set in search results).
+
+    Watchlist:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/CompanySummary'
+
+    SearchResults:
+      type: object
+      required: [source, status, items]
+      properties:
+        source:
+          $ref: '#/components/schemas/SourceId'
+        status:
+          type: string
+          description: |
+            OK - the source was searched (or the same query was answered recently); items may be empty when nothing matches;
+            LIMIT_REACHED - the source request limit is reached; items are empty;
+            SOURCE_ERROR - the source call failed (response outside 2XX, timeout, unexpected application error); items are empty.
+          enum: [OK, LIMIT_REACHED, SOURCE_ERROR]
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompanySummary'
+
+    Quote:
+      type: object
+      required: [price, currency, fetchedAt, trend]
+      properties:
+        price:
+          type: number
+          format: double
+        currency:
+          type: string
+          description: ISO 4217 currency code.
+          example: USD
+        fetchedAt:
+          type: string
+          format: date-time
+          description: |
+            When the data was received from the source. The app derives the cache indicator from it:
+            hidden if younger than 1 hour, 1 for today's data, 2 for yesterday's data, and so on.
+        previousCachedPrice:
+          type: number
+          format: double
+          nullable: true
+          description: Latest cached price of the most recent earlier market day (in the exchange time zone), excluding the current day.
+        trend:
+          type: string
+          description: Price compared to the previous cached price. UNCHANGED if equal or the previous price is absent.
+          enum: [UP, DOWN, UNCHANGED]
+        source:
+          $ref: '#/components/schemas/SourceId'
+
+    Ratio:
+      type: object
+      required: [code, name, value]
+      properties:
+        code:
+          type: string
+          description: |
+            Ratio code shared across sources, e.g. `PE`, `PB`, `PS`, `EV_EBITDA`, `ROE`, `ROA`, `NET_MARGIN`,
+            `DEBT_TO_EQUITY`, `CURRENT_RATIO`, `DIVIDEND_YIELD`, `EPS`, `BETA`.
+          example: PE
+        name:
+          type: string
+          description: Display name.
+          example: P/E
+        value:
+          type: number
+          format: double
+          nullable: true
+
+    Indicator:
+      type: object
+      description: A ratio whose value falls into a displayed interval. Ratios in the "ok" interval are not returned.
+      required: [ratioCode, name, level]
+      properties:
+        ratioCode:
+          type: string
+          example: PE
+        name:
+          type: string
+          example: P/E
+        level:
+          type: string
+          enum: [BAD, WARNING, GOOD]
+
+    SourceDataMeta:
+      type: object
+      description: Origin and freshness of the data returned for one source.
+      required: [source, status]
+      properties:
+        source:
+          $ref: '#/components/schemas/SourceId'
+        status:
+          type: string
+          description: |
+            FRESH - data received from the source within the last hour;
+            CACHED - stale cached data, refresh not requested;
+            LIMIT_REACHED - a request was needed but the source limit is reached; cached data returned, or empty data if nothing is cached;
+            SOURCE_ERROR - the source call failed (response outside 2XX, timeout, unexpected application error); cached data returned,
+            or empty data if nothing is cached;
+            NOT_SUPPORTED - the source doesn't provide this data;
+            NO_DATA - the source has no data for the company.
+          enum: [FRESH, CACHED, LIMIT_REACHED, SOURCE_ERROR, NOT_SUPPORTED, NO_DATA]
+        fetchedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the returned data was received from the source; null when no data is returned.
+
+    PriceAndRatiosResponse:
+      type: object
+      required: [meta, ratios]
+      properties:
+        meta:
+          $ref: '#/components/schemas/SourceDataMeta'
+        quote:
+          allOf:
+            - $ref: '#/components/schemas/Quote'
+          nullable: true
+        ratios:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ratio'
+        indicators:
+          type: array
+          items:
+            $ref: '#/components/schemas/Indicator'
+          x-milestone: beta
+
+    Dividend:
+      type: object
+      required: [exDate, amount, currency]
+      properties:
+        exDate:
+          type: string
+          format: date
+        paymentDate:
+          type: string
+          format: date
+          nullable: true
+        recordDate:
+          type: string
+          format: date
+          nullable: true
+        declarationDate:
+          type: string
+          format: date
+          nullable: true
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          example: USD
+
+    DividendsResponse:
+      type: object
+      required: [meta, dividends]
+      properties:
+        meta:
+          $ref: '#/components/schemas/SourceDataMeta'
+        dividendYield:
+          type: number
+          format: double
+          nullable: true
+          description: Trailing twelve months dividend yield, percent.
+        dividends:
+          type: array
+          description: Sorted by ex-date, newest first.
+          items:
+            $ref: '#/components/schemas/Dividend'
+
+    BalanceSheetItem:
+      type: object
+      required: [concept, label, value]
+      properties:
+        concept:
+          type: string
+          description: Line item identifier as provided by the source (e.g. US GAAP concept name).
+          example: AssetsCurrent
+        label:
+          type: string
+          example: Total current assets
+        value:
+          type: number
+          format: double
+        unit:
+          type: string
+          example: USD
+
+    BalanceSheetPeriod:
+      type: object
+      required: [periodEnd, fiscalYear, fiscalPeriod, items]
+      properties:
+        periodEnd:
+          type: string
+          format: date
+        fiscalYear:
+          type: integer
+        fiscalPeriod:
+          type: string
+          enum: [FY, Q1, Q2, Q3, Q4]
+        filedAt:
+          type: string
+          format: date
+          nullable: true
+        form:
+          type: string
+          nullable: true
+          description: Filing form, e.g. 10-K or 10-Q.
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BalanceSheetItem'
+
+    BalanceSheetResponse:
+      type: object
+      required: [meta, periods]
+      properties:
+        meta:
+          $ref: '#/components/schemas/SourceDataMeta'
+        periods:
+          type: array
+          description: Sorted by period end, newest first.
+          items:
+            $ref: '#/components/schemas/BalanceSheetPeriod'
+
+    CompanyProfile:
+      type: object
+      required: [symbol, ticker, exchange, name, market]
+      properties:
+        symbol:
+          $ref: '#/components/schemas/Symbol'
+        ticker:
+          type: string
+        exchange:
+          type: string
+        name:
+          type: string
+        market:
+          allOf:
+            - $ref: '#/components/schemas/Market'
+          nullable: true
+          description: Null for exchanges outside the US and EU markets.
+        country:
+          type: string
+          nullable: true
+          description: ISO 3166-1 alpha-2 country code.
+        currency:
+          type: string
+          nullable: true
+        sector:
+          type: string
+          nullable: true
+        sectorGroup:
+          type: string
+          nullable: true
+          x-milestone: beta
+        industry:
+          type: string
+          nullable: true
+        ipoDate:
+          type: string
+          format: date
+          nullable: true
+        marketCapitalization:
+          type: number
+          format: double
+          nullable: true
+        sharesOutstanding:
+          type: number
+          format: double
+          nullable: true
+        employees:
+          type: integer
+          nullable: true
+        website:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+
+    CompanyProfileResponse:
+      type: object
+      required: [meta]
+      properties:
+        meta:
+          $ref: '#/components/schemas/SourceDataMeta'
+        profile:
+          allOf:
+            - $ref: '#/components/schemas/CompanyProfile'
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+          x-milestone: beta
+
+    TagList:
+      type: object
+      required: [tags]
+      properties:
+        tags:
+          type: array
+          uniqueItems: true
+          maxItems: 50
+          items:
+            type: string
+            minLength: 1
+            maxLength: 30
+
+    Range:
+      type: object
+      description: Value range; `min` is inclusive, `max` is exclusive. A missing bound means unbounded.
+      properties:
+        min:
+          type: number
+          format: double
+          nullable: true
+        max:
+          type: number
+          format: double
+          nullable: true
+
+    IndicatorSetting:
+      type: object
+      description: |
+        Intervals of a ratio. A value falling into none of the bad, warning or good ranges is in the "ok" interval and is not displayed.
+        Ranges of different levels must not overlap.
+      required: [ratioCode, enabled, bad, warning, good]
+      properties:
+        ratioCode:
+          type: string
+          example: PE
+        enabled:
+          type: boolean
+        bad:
+          type: array
+          items:
+            $ref: '#/components/schemas/Range'
+        warning:
+          type: array
+          items:
+            $ref: '#/components/schemas/Range'
+        good:
+          type: array
+          items:
+            $ref: '#/components/schemas/Range'
+
+    IndicatorSettings:
+      type: object
+      required: [settings]
+      properties:
+        settings:
+          type: array
+          items:
+            $ref: '#/components/schemas/IndicatorSetting'
+
+    RequestLimit:
+      type: object
+      required: [interval, unit, limit, used]
+      properties:
+        interval:
+          type: string
+          enum: [MINUTE, HOUR, DAY, MONTH]
+        unit:
+          type: string
+          description: What is counted. UNIQUE_SYMBOLS is used for Tiingo's monthly symbol limit.
+          enum: [REQUESTS, UNIQUE_SYMBOLS]
+        limit:
+          type: integer
+        used:
+          type: integer
+        resetsAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    Capability:
+      type: string
+      enum: [SEARCH, QUOTE, RATIOS, DIVIDENDS, BALANCE_SHEET, COMPANY_PROFILE, LOGO]
+
+    Source:
+      type: object
+      required: [id, name, capabilities, selectableAsDefault, isDefault, limits]
+      properties:
+        id:
+          $ref: '#/components/schemas/SourceId'
+        name:
+          type: string
+          example: Finnhub
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Capability'
+        selectableAsDefault:
+          type: boolean
+          description: True for price and ratio sources; false for SEC EDGAR and the logo source.
+        isDefault:
+          type: boolean
+          description: Whether this is the profile's default source.
+        limits:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequestLimit'
+        lastCall:
+          allOf:
+            - $ref: '#/components/schemas/SourceCallOutcome'
+          nullable: true
+          description: Outcome of the last call to the source, for the connection indicator. Null if the source hasn't been called yet.
+
+    SourceCallOutcome:
+      type: object
+      description: |
+        Outcome of a call to a source. The app displays it as a connection indicator: nothing for SUCCESS, the `httpStatus` code
+        for HTTP_ERROR, "T" for TIMEOUT, "NPE" for APP_ERROR. Requests skipped because a limit is reached are not calls.
+      required: [result, at]
+      properties:
+        result:
+          type: string
+          description: |
+            SUCCESS - response in 2XX;
+            HTTP_ERROR - response outside 2XX;
+            TIMEOUT - no response received (timeout or connection failure);
+            APP_ERROR - unexpected application error while calling the source or processing its response.
+          enum: [SUCCESS, HTTP_ERROR, TIMEOUT, APP_ERROR]
+        httpStatus:
+          type: integer
+          nullable: true
+          description: Response status code; set for HTTP_ERROR.
+          example: 400
+        at:
+          type: string
+          format: date-time
+
+    Sources:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Source'
