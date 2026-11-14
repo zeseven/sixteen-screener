@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "source": "sec-edgar",
+    "status": "CACHED",
+    "fetchedAt": "2026-11-13T07:30:00Z"
+  },
+  "periods": [
+    {
+      "periodEnd": "2026-09-27",
+      "fiscalYear": 2026,
+      "fiscalPeriod": "FY",
+      "filedAt": "2026-10-31",
+      "form": "10-K",
+      "items": [
+        { "concept": "AssetsCurrent", "label": "Total current assets", "value": 152987000000, "unit": "USD" },
+        { "concept": "Assets", "label": "Total assets", "value": 364980000000, "unit": "USD" },
+        { "concept": "LiabilitiesCurrent", "label": "Total current liabilities", "value": 176392000000, "unit": "USD" },
+        { "concept": "StockholdersEquity", "label": "Total shareholders' equity", "value": 56950000000, "unit": "USD" }
+      ]
+    },
+    {
+      "periodEnd": "2025-09-28",
+      "fiscalYear": 2025,
+      "fiscalPeriod": "FY",
+      "filedAt": null,
+      "form": null,
+      "items": [
+        { "concept": "AssetsCurrent", "label": "Total current assets", "value": 143566000000, "unit": "USD" },
+        { "concept": "Assets", "label": "Total assets", "value": 352583000000 }
+      ]
+    }
+  ]
+}

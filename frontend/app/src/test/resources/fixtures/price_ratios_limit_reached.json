@@ -1,0 +1,9 @@
+{
+  "meta": {
+    "source": "finnhub",
+    "status": "LIMIT_REACHED",
+    "fetchedAt": null
+  },
+  "quote": null,
+  "ratios": []
+}

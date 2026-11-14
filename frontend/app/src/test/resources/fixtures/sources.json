@@ -1,0 +1,38 @@
+{
+  "items": [
+    {
+      "id": "finnhub",
+      "name": "Finnhub",
+      "capabilities": ["SEARCH", "QUOTE", "RATIOS", "BALANCE_SHEET", "COMPANY_PROFILE"],
+      "selectableAsDefault": true,
+      "isDefault": true,
+      "limits": [
+        { "interval": "MINUTE", "unit": "REQUESTS", "limit": 60, "used": 12, "resetsAt": "2026-11-14T15:43:00Z" }
+      ],
+      "lastCall": { "result": "HTTP_ERROR", "httpStatus": 429, "at": "2026-11-14T15:42:07Z" }
+    },
+    {
+      "id": "sec-edgar",
+      "name": "SEC EDGAR",
+      "capabilities": ["BALANCE_SHEET"],
+      "selectableAsDefault": false,
+      "isDefault": false,
+      "limits": [
+        { "interval": "DAY", "unit": "REQUESTS", "limit": 10000, "used": 3, "resetsAt": null }
+      ],
+      "lastCall": null
+    },
+    {
+      "id": "logoapi",
+      "name": "Logo API",
+      "capabilities": ["LOGO"],
+      "selectableAsDefault": false,
+      "isDefault": false,
+      "limits": [
+        { "interval": "HOUR", "unit": "REQUESTS", "limit": 500, "used": 0 },
+        { "interval": "MONTH", "unit": "UNIQUE_SYMBOLS", "limit": 5000, "used": 41, "resetsAt": "2026-12-01T00:00:00Z" }
+      ],
+      "lastCall": { "result": "TIMEOUT", "at": "2026-11-14T11:00:00Z" }
+    }
+  ]
+}

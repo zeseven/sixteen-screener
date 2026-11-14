@@ -1,0 +1,13 @@
+{
+  "meta": {
+    "source": "finnhub",
+    "status": "SOURCE_ERROR"
+  },
+  "profile": {
+    "symbol": "7203.T",
+    "ticker": "7203",
+    "exchange": "TSE",
+    "name": "Toyota Motor Corp",
+    "market": null
+  }
+}

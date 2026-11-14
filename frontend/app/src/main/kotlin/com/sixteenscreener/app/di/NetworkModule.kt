@@ -1,6 +1,8 @@
 package com.sixteenscreener.app.di
 
 import com.sixteenscreener.app.BuildConfig
+import com.sixteenscreener.app.data.remote.ApiClient
+import com.sixteenscreener.app.data.remote.OkHttpApiClient
 import com.sixteenscreener.app.data.remote.auth.AssetServiceAccountKeySource
 import com.sixteenscreener.app.data.remote.auth.AuthInterceptor
 import com.sixteenscreener.app.data.remote.auth.IdTokenProvider
@@ -19,6 +21,9 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class NetworkModule {
+
+    @Binds
+    abstract fun bindApiClient(client: OkHttpApiClient): ApiClient
 
     @Binds
     abstract fun bindIdTokenProvider(provider: ServiceAccountIdTokenProvider): IdTokenProvider

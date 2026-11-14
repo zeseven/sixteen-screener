@@ -1,0 +1,26 @@
+{
+  "meta": {
+    "source": "finnhub",
+    "status": "CACHED",
+    "fetchedAt": "2026-11-10T12:00:00Z"
+  },
+  "profile": {
+    "symbol": "AAPL",
+    "ticker": "AAPL",
+    "exchange": "NASDAQ",
+    "name": "Apple Inc",
+    "market": "US",
+    "country": "US",
+    "currency": "USD",
+    "sector": "Technology",
+    "sectorGroup": "Information Technology",
+    "industry": "Consumer Electronics",
+    "ipoDate": "1980-12-12",
+    "marketCapitalization": 3452180.5,
+    "sharesOutstanding": 15115.82,
+    "employees": 164000,
+    "website": "https://www.apple.com/",
+    "description": "Apple Inc. designs, manufactures and markets smartphones, personal computers, tablets, wearables and accessories."
+  },
+  "tags": ["core"]
+}

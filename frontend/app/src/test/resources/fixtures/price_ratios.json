@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "source": "finnhub",
+    "status": "FRESH",
+    "fetchedAt": "2026-11-14T15:42:07Z"
+  },
+  "quote": {
+    "price": 228.52,
+    "currency": "USD",
+    "fetchedAt": "2026-11-14T15:42:07Z",
+    "previousCachedPrice": 226.1,
+    "trend": "UP",
+    "source": "finnhub"
+  },
+  "ratios": [
+    { "code": "PE", "name": "P/E", "value": 34.71 },
+    { "code": "PB", "name": "P/B", "value": 52.3 },
+    { "code": "DIVIDEND_YIELD", "name": "Dividend yield", "value": null },
+    { "code": "BETA", "name": "Beta" }
+  ],
+  "indicators": [
+    { "ratioCode": "PE", "name": "P/E", "level": "BAD" }
+  ]
+}
