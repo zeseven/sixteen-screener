@@ -11,3 +11,13 @@ data class Profile(
     /** Source used when a request names no source. */
     val defaultSource: SourceId,
 )
+
+/**
+ * Profile the app works with, stored on the device after it was selected by name.
+ */
+data class ActiveProfile(
+    /** Backend-generated profile ID used in all profile-scoped requests. */
+    val id: ProfileId,
+    /** Profile name as returned by the backend. */
+    val name: String,
+)
