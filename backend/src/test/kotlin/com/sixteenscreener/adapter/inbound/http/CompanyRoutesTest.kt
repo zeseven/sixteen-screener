@@ -23,6 +23,7 @@ import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.fakes.FakeBalanceSheetSource
 import com.sixteenscreener.testConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
@@ -267,6 +268,44 @@ class CompanyRoutesTest : FunSpec({
                 val returned = body.getValue("periods").jsonArray.single().jsonObject
                 returned["filedAt"] shouldBe JsonPrimitive("2025-10-31")
                 returned["form"] shouldBe JsonPrimitive("10-K")
+            }
+        }
+
+        test("explicit SEC EDGAR source is fetched, cached and counted against its own limit") {
+            val secEdgar = FakeBalanceSheetSource(SourceId.of("sec-edgar"))
+            routeTest(TestPorts(additionalBalanceSheets = listOf(secEdgar)), fullConfig()) { ports ->
+                val saved = ports.savedProfile()
+                ports.listedApple()
+                val period = balanceSheet.periods.single().copy(filedAt = LocalDate.parse("2025-10-31"), form = "10-K")
+                secEdgar.balanceSheets[aapl] = SourceResult.Success(BalanceSheet(listOf(period)), ports.success())
+
+                val body = client.get("/profiles/${saved.id}/companies/AAPL/balance-sheet?source=sec-edgar").json()
+
+                body.meta() shouldBe meta("FRESH", "2026-11-14T12:00:00Z", source = "sec-edgar")
+                body.getValue("periods").jsonArray.single().jsonObject["form"] shouldBe JsonPrimitive("10-K")
+                secEdgar.calls shouldContainExactly listOf(aapl)
+                ports.sourceCallCount() shouldBe 0
+                ports.companyCache.get(CacheKey(SourceId.of("sec-edgar"), aapl, DataType.BALANCE_SHEET))?.data shouldBe
+                    BalanceSheet(listOf(period))
+                ports.requestCounters.usage(SourceId.of("sec-edgar"), listOf(RequestLimit(LimitInterval.MINUTE, 300)), ports.clock.now())
+                    .single().used shouldBe 1
+                ports.sourceCalls.findAll(listOf(SourceId.of("sec-edgar"))) shouldBe
+                    mapOf(SourceId.of("sec-edgar") to ports.success())
+            }
+        }
+
+        test("SEC EDGAR NOT_SUPPORTED answer for a non-US symbol keeps the response empty") {
+            val secEdgar = FakeBalanceSheetSource(SourceId.of("sec-edgar"))
+            routeTest(TestPorts(additionalBalanceSheets = listOf(secEdgar)), fullConfig()) { ports ->
+                val saved = ports.savedProfile()
+                ports.listedApple()
+                secEdgar.balanceSheets[aapl] = SourceResult.NotSupported(outcome = null)
+
+                val body = client.get("/profiles/${saved.id}/companies/AAPL/balance-sheet?source=sec-edgar").json()
+
+                body.meta() shouldBe meta("NOT_SUPPORTED", null, source = "sec-edgar")
+                body["periods"] shouldBe JsonArray(emptyList())
+                ports.sourceCalls.findAll(listOf(SourceId.of("sec-edgar"))) shouldBe emptyMap()
             }
         }
 

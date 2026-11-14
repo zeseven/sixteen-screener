@@ -10,15 +10,19 @@ import com.sixteenscreener.adapter.outbound.firestore.FirestoreCompanyCache
 import com.sixteenscreener.adapter.outbound.firestore.FirestoreLogoMissRepository
 import com.sixteenscreener.adapter.outbound.firestore.FirestoreProfileRepository
 import com.sixteenscreener.adapter.outbound.firestore.FirestoreRequestCounterRepository
+import com.sixteenscreener.adapter.outbound.firestore.FirestoreSecCikRepository
 import com.sixteenscreener.adapter.outbound.firestore.FirestoreSourceCallOutcomeRepository
 import com.sixteenscreener.adapter.outbound.gcs.GcsClientFactory
 import com.sixteenscreener.adapter.outbound.gcs.GcsExchangeDirectoryStore
 import com.sixteenscreener.adapter.outbound.gcs.GcsLogoStorage
 import com.sixteenscreener.adapter.outbound.http.SourceHttpCall
 import com.sixteenscreener.adapter.outbound.http.SourceHttpClient
+import com.sixteenscreener.adapter.outbound.secedgar.SecCikResolver
+import com.sixteenscreener.adapter.outbound.secedgar.SecEdgarClient
 import com.sixteenscreener.adapter.outbound.time.SystemClock
 import com.sixteenscreener.config.AppConfig
 import com.sixteenscreener.config.AppConfigLoader
+import com.sixteenscreener.config.AppConfigLoader.SEC_EDGAR_FILES_BASE_URL
 import com.sixteenscreener.config.InvalidConfigurationException
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.service.CompanyDataService
@@ -46,6 +50,7 @@ import com.sixteenscreener.port.outbound.LogoMissRepository
 import com.sixteenscreener.port.outbound.LogoStorage
 import com.sixteenscreener.port.outbound.MarketDataSource
 import com.sixteenscreener.port.outbound.ProfileRepository
+import com.sixteenscreener.port.outbound.SecCikRepository
 import com.sixteenscreener.port.outbound.SymbolDirectory
 import io.ktor.client.HttpClient
 import io.ktor.server.application.Application
@@ -136,6 +141,7 @@ fun wireServices(config: AppConfig): AppServices {
     val sourceCallOutcomes = SourceCallOutcomes(FirestoreSourceCallOutcomeRepository(firestore))
     val sourceCallGuard = SourceCallGuard(rateLimiter)
     val finnhub = finnhubClient(config, httpClient, clock)
+    val secEdgar = secEdgarClient(config, httpClient, FirestoreSecCikRepository(firestore), rateLimiter, clock)
     val symbolDirectory = finnhub?.let { source ->
         ExchangeDirectoryService(
             source = source,
@@ -155,7 +161,7 @@ fun wireServices(config: AppConfig): AppServices {
         sourceCallOutcomes = sourceCallOutcomes,
         sourceCallGuard = sourceCallGuard,
         marketDataSources = listOfNotNull<MarketDataSource>(finnhub).associateBy { it.id },
-        balanceSheetSources = listOfNotNull<BalanceSheetSource>(finnhub).associateBy { it.id },
+        balanceSheetSources = listOfNotNull<BalanceSheetSource>(finnhub, secEdgar).associateBy { it.id },
         symbolDirectory = symbolDirectory,
         logoStorage = GcsLogoStorage(storage, config.logoBucket),
         resources = listOf(httpClient, storage, firestore),
@@ -172,7 +178,34 @@ private fun finnhubClient(config: AppConfig, httpClient: HttpClient, clock: Cloc
         )
     }
 
+private fun secEdgarClient(
+    config: AppConfig,
+    httpClient: HttpClient,
+    ciks: SecCikRepository,
+    rateLimiter: RateLimiter,
+    clock: Clock,
+): SecEdgarClient? =
+    config.enabledSources.firstOrNull { it.id == SEC_EDGAR }?.let { source ->
+        val userAgent = checkNotNull(config.secrets.secEdgarUserAgent) { "SEC EDGAR user agent missing" }
+        val call = SourceHttpCall(httpClient, source.timeout, clock)
+        SecEdgarClient(
+            id = source.id,
+            baseUrl = source.baseUrl,
+            userAgent = userAgent,
+            call = call,
+            ciks = SecCikResolver(
+                filesBaseUrl = source.additionalBaseUrls.getValue(SEC_EDGAR_FILES_BASE_URL),
+                userAgent = userAgent,
+                call = call,
+                repository = ciks,
+                budget = { rateLimiter.tryAcquire(source.id, 1) == 1 },
+                clock = clock,
+            ),
+        )
+    }
+
 private val FINNHUB = SourceId.of("finnhub")
+private val SEC_EDGAR = SourceId.of("sec-edgar")
 
 fun Application.module(services: AppServices) {
     configureCallLogging()

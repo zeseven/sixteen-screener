@@ -51,6 +51,7 @@ class TestPorts(
     val sourceCalls: InMemorySourceCallOutcomeRepository = InMemorySourceCallOutcomeRepository(),
     val marketData: FakeMarketDataSource = FakeMarketDataSource(),
     val balanceSheets: FakeBalanceSheetSource = FakeBalanceSheetSource(SourceId.of("finnhub")),
+    val additionalBalanceSheets: List<FakeBalanceSheetSource> = emptyList(),
     val symbolDirectory: InMemorySymbolDirectory = InMemorySymbolDirectory(),
     val logoStorage: InMemoryLogoStorage = InMemoryLogoStorage(),
 )
@@ -67,7 +68,7 @@ fun testServices(ports: TestPorts = TestPorts(), config: AppConfig = testConfig(
         sourceCallOutcomes = SourceCallOutcomes(ports.sourceCalls),
         sourceCallGuard = SourceCallGuard(rateLimiter),
         marketDataSources = mapOf(ports.marketData.id to ports.marketData),
-        balanceSheetSources = mapOf(ports.balanceSheets.id to ports.balanceSheets),
+        balanceSheetSources = (listOf(ports.balanceSheets) + ports.additionalBalanceSheets).associateBy { it.id },
         symbolDirectory = ports.symbolDirectory,
         logoStorage = ports.logoStorage,
     )
