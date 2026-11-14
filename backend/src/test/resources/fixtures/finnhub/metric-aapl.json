@@ -1,0 +1,52 @@
+{
+  "metric": {
+    "10DayAverageTradingVolume": 48.21734,
+    "52WeekHigh": 260.1,
+    "52WeekLow": 169.2101,
+    "52WeekLowDate": "2025-04-08",
+    "52WeekPriceReturnDaily": 5.6412,
+    "beta": 1.2381,
+    "bookValuePerShareQuarterly": 4.4378,
+    "currentDividendYieldTTM": 0.4473,
+    "currentRatioAnnual": 0.8673,
+    "currentRatioQuarterly": 0.868,
+    "dividendYieldIndicatedAnnual": 0.4551,
+    "enterpriseValue": 3452870.5,
+    "epsAnnual": 6.0809,
+    "epsBasicExclExtraItemsTTM": 6.5915,
+    "epsExclExtraItemsTTM": 6.5915,
+    "epsTTM": 6.5915,
+    "evEbitdaTTM": 24.8761,
+    "evRevenueTTM": 8.4425,
+    "marketCapitalization": 3393841,
+    "netProfitMarginAnnual": 23.97,
+    "netProfitMarginTTM": 24.3,
+    "pb": 51.4949,
+    "pbAnnual": 54.3157,
+    "pbQuarterly": 51.4949,
+    "peAnnual": 37.5759,
+    "peBasicExclExtraTTM": 34.6693,
+    "peExclExtraTTM": 34.6693,
+    "peTTM": 34.6693,
+    "psAnnual": 8.6218,
+    "psTTM": 8.2981,
+    "roaRfy": 25.6828,
+    "roaTTM": 29.5583,
+    "roeRfy": 164.5901,
+    "roeTTM": 160.5833,
+    "totalDebt/totalEquityAnnual": 1.8723,
+    "totalDebt/totalEquityQuarterly": 1.5408
+  },
+  "metricType": "all",
+  "series": {
+    "annual": {
+      "currentRatio": [
+        {
+          "period": "2024-09-28",
+          "v": 0.8673
+        }
+      ]
+    }
+  },
+  "symbol": "AAPL"
+}

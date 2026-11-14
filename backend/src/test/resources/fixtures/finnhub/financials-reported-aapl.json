@@ -1,0 +1,167 @@
+{
+  "cik": "320193",
+  "data": [
+    {
+      "accessNumber": "0000320193-23-000106",
+      "symbol": "AAPL",
+      "cik": "320193",
+      "year": 2023,
+      "quarter": 0,
+      "form": "10-K",
+      "startDate": "2022-09-30 00:00:00",
+      "endDate": "2023-09-30 00:00:00",
+      "filedDate": "2023-11-03 00:00:00",
+      "acceptedDate": "2023-11-03 18:04:43",
+      "report": {
+        "bs": [
+          {
+            "concept": "us-gaap_AssetsCurrent",
+            "label": "Total current assets",
+            "unit": "usd",
+            "value": 143566000000
+          },
+          {
+            "concept": "us-gaap_Assets",
+            "label": "Total assets",
+            "unit": "usd",
+            "value": 352583000000
+          },
+          {
+            "concept": "us-gaap_LiabilitiesCurrent",
+            "label": "Total current liabilities",
+            "unit": "usd",
+            "value": 145308000000
+          },
+          {
+            "concept": "us-gaap_StockholdersEquity",
+            "label": "Total shareholders' equity",
+            "unit": "usd",
+            "value": 62146000000
+          }
+        ],
+        "cf": [
+          {
+            "concept": "us-gaap_NetIncomeLoss",
+            "label": "Net income",
+            "unit": "usd",
+            "value": 1.0
+          }
+        ],
+        "ic": [
+          {
+            "concept": "us-gaap_Revenues",
+            "label": "Total net sales",
+            "unit": "usd",
+            "value": 2.0
+          }
+        ]
+      }
+    },
+    {
+      "accessNumber": "0000320193-24-000123",
+      "symbol": "AAPL",
+      "cik": "320193",
+      "year": 2024,
+      "quarter": 0,
+      "form": "10-K",
+      "startDate": "2023-09-30 00:00:00",
+      "endDate": "2024-09-28 00:00:00",
+      "filedDate": "2024-11-01 00:00:00",
+      "acceptedDate": "2024-11-01 18:04:43",
+      "report": {
+        "bs": [
+          {
+            "concept": "us-gaap_CashAndCashEquivalentsAtCarryingValue",
+            "label": "Cash and cash equivalents",
+            "unit": "usd",
+            "value": 29943000000
+          },
+          {
+            "concept": "us-gaap_AssetsCurrent",
+            "label": "Total current assets",
+            "unit": "usd",
+            "value": 152987000000
+          },
+          {
+            "concept": "us-gaap_Assets",
+            "label": "Total assets",
+            "unit": "usd",
+            "value": 364980000000
+          },
+          {
+            "concept": "us-gaap_CommonStockSharesOutstanding",
+            "label": "Shares outstanding",
+            "unit": "shares",
+            "value": 15116786000
+          },
+          {
+            "concept": "us-gaap_CommitmentsAndContingencies",
+            "label": "Commitments and contingencies",
+            "unit": "usd",
+            "value": "N/A"
+          },
+          {
+            "concept": "us-gaap_LiabilitiesCurrent",
+            "label": "Total current liabilities",
+            "unit": "usd",
+            "value": 176392000000
+          },
+          {
+            "concept": "us-gaap_StockholdersEquity",
+            "label": "Total shareholders' equity",
+            "unit": "usd",
+            "value": 56950000000
+          }
+        ],
+        "cf": [
+          {
+            "concept": "us-gaap_NetIncomeLoss",
+            "label": "Net income",
+            "unit": "usd",
+            "value": 1.0
+          }
+        ],
+        "ic": [
+          {
+            "concept": "us-gaap_Revenues",
+            "label": "Total net sales",
+            "unit": "usd",
+            "value": 2.0
+          }
+        ]
+      }
+    },
+    {
+      "accessNumber": "0000320193-22-000108",
+      "symbol": "AAPL",
+      "cik": "320193",
+      "year": 2022,
+      "quarter": 0,
+      "form": "10-K",
+      "startDate": "2021-09-30 00:00:00",
+      "endDate": "2022-09-24 00:00:00",
+      "filedDate": "2022-10-28 00:00:00",
+      "acceptedDate": "2022-10-28 18:04:43",
+      "report": {
+        "bs": [],
+        "cf": [
+          {
+            "concept": "us-gaap_NetIncomeLoss",
+            "label": "Net income",
+            "unit": "usd",
+            "value": 1.0
+          }
+        ],
+        "ic": [
+          {
+            "concept": "us-gaap_Revenues",
+            "label": "Total net sales",
+            "unit": "usd",
+            "value": 2.0
+          }
+        ]
+      }
+    }
+  ],
+  "symbol": "AAPL"
+}

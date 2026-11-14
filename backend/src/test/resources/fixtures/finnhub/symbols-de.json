@@ -1,0 +1,62 @@
+[
+  {
+    "currency": "EUR",
+    "description": "SAP SE",
+    "displaySymbol": "SAP.DE",
+    "figi": "BBG000BG7DY8",
+    "isin": null,
+    "mic": "XETR",
+    "shareClassFIGI": "BBG001S5TSH4",
+    "symbol": "SAP.DE",
+    "symbol2": "",
+    "type": "Common Stock"
+  },
+  {
+    "currency": "EUR",
+    "description": "SIEMENS AG-REG",
+    "displaySymbol": "SIE.DE",
+    "figi": "BBG000BCQZJ0",
+    "isin": null,
+    "mic": "XETR",
+    "shareClassFIGI": "BBG001S5S0R4",
+    "symbol": "SIE.DE",
+    "symbol2": "",
+    "type": "Common Stock"
+  },
+  {
+    "currency": "EUR",
+    "description": "",
+    "displaySymbol": "APC.DE",
+    "figi": "BBG000BCRMZ5",
+    "isin": null,
+    "mic": "XETR",
+    "shareClassFIGI": "BBG001S5N8V8",
+    "symbol": "APC.DE",
+    "symbol2": "",
+    "type": "Common Stock"
+  },
+  {
+    "currency": "",
+    "description": "BROKEN ENTRY",
+    "displaySymbol": "BRK1.DE",
+    "figi": "",
+    "isin": null,
+    "mic": "XETR",
+    "shareClassFIGI": "",
+    "symbol": "BRK1.DE",
+    "symbol2": "",
+    "type": "Common Stock"
+  },
+  {
+    "currency": "EUR",
+    "description": "invalid symbol",
+    "displaySymbol": "ab c",
+    "figi": "",
+    "isin": null,
+    "mic": "",
+    "shareClassFIGI": "",
+    "symbol": "ab c",
+    "symbol2": "",
+    "type": ""
+  }
+]

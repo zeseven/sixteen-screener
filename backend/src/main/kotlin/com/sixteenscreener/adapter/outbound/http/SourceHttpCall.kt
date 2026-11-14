@@ -55,12 +55,13 @@ class SourceHttpCall(
     suspend fun <T> execute(
         request: HttpRequestBuilder.() -> Unit,
         errorStatus: ErrorStatusMapping = ErrorStatusMapping.DEFAULT,
+        requestTimeout: Duration? = null,
         mapResponse: suspend (HttpResponse) -> T?,
     ): SourceResult<T> {
         val response = try {
             client.request {
                 request()
-                timeout { requestTimeoutMillis = timeout.inWholeMilliseconds }
+                timeout { requestTimeoutMillis = (requestTimeout ?: timeout).inWholeMilliseconds }
             }
         } catch (e: CancellationException) {
             throw e

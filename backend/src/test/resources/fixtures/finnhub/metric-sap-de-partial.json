@@ -1,0 +1,19 @@
+{
+  "metric": {
+    "52WeekHigh": 283.5,
+    "52WeekLow": 197.1,
+    "beta": 0.9871,
+    "peBasicExclExtraTTM": 48.1203,
+    "pbQuarterly": 7.6614,
+    "psTTM": 7.9052,
+    "roeTTM": 15.9921,
+    "netProfitMarginAnnual": 9.8114,
+    "currentRatioAnnual": 1.1203,
+    "epsTTM": null,
+    "epsExclExtraItemsTTM": 4.8183,
+    "dividendYieldIndicatedAnnual": "N/A"
+  },
+  "metricType": "all",
+  "series": {},
+  "symbol": "SAP.DE"
+}
