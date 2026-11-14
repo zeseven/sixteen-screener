@@ -6,6 +6,7 @@ kotlinx-coroutines = "1.11.0"
 logback = "1.6.7"
 kotest = "6.2.7"
 google-cloud-bom = "26.93.0"
+graalvm-buildtools = "1.1.18"
 
 [libraries]
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
@@ -32,3 +33,4 @@ kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvm-buildtools" }

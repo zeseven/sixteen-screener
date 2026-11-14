@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.graalvm.native)
     application
 }
 
@@ -75,5 +76,21 @@ tasks.register<Test>("emulatorTest") {
         check(firestoreEmulatorHost.isPresent) {
             "Set FIRESTORE_EMULATOR_HOST (e.g. localhost:8085) to a running Firestore emulator"
         }
+    }
+}
+
+graalvmNative {
+    toolchainDetection = false
+    testSupport = false
+    metadataRepository {
+        enabled = true
+    }
+    binaries.named("main") {
+        imageName = "sixteen-screener-backend"
+        buildArgs.addAll(
+            "--no-fallback",
+            "-H:+ReportExceptionStackTraces",
+            "--enable-url-protocols=https",
+        )
     }
 }
