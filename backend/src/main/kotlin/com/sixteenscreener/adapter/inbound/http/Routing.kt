@@ -9,5 +9,6 @@ fun Application.configureRouting(services: AppServices) {
         profileRoutes(services.profileUseCase)
         watchlistRoutes(services.watchlistUseCase, services.profileUseCase)
         searchRoutes(services.searchUseCase)
+        companyRoutes(services.companyDataUseCase)
     }
 }
