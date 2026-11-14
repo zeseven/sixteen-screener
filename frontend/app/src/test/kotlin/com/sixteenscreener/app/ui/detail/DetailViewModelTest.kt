@@ -1,0 +1,366 @@
+package com.sixteenscreener.app.ui.detail
+
+import com.sixteenscreener.app.data.repository.DefaultCompanyRepository
+import com.sixteenscreener.app.data.repository.DefaultSourceRepository
+import com.sixteenscreener.app.data.repository.DefaultWatchlistRepository
+import com.sixteenscreener.app.domain.model.ActiveProfile
+import com.sixteenscreener.app.domain.model.ApiError
+import com.sixteenscreener.app.domain.model.ApiResult
+import com.sixteenscreener.app.domain.model.BalanceSheet
+import com.sixteenscreener.app.domain.model.Capability
+import com.sixteenscreener.app.domain.model.CompanyProfileData
+import com.sixteenscreener.app.domain.model.DataStatus
+import com.sixteenscreener.app.domain.model.ProfileId
+import com.sixteenscreener.app.domain.model.SourceId
+import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.testing.Companies
+import com.sixteenscreener.app.testing.CompanyData
+import com.sixteenscreener.app.testing.CompanyData.item
+import com.sixteenscreener.app.testing.CompanyData.period
+import com.sixteenscreener.app.testing.FakeApiClient
+import com.sixteenscreener.app.testing.FakeProfileRepository
+import com.sixteenscreener.app.testing.MainDispatcherRule
+import com.sixteenscreener.app.testing.Sources.source
+import com.sixteenscreener.app.ui.navigation.DetailRoute
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class DetailViewModelTest {
+
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    private val apiClient = FakeApiClient()
+    private val profileRepository = FakeProfileRepository(ActiveProfile(ProfileId("p1"), "Viktor"))
+    private val apple = Companies.summary("AAPL", name = "Apple Inc.", inWatchlist = false)
+
+    private val finnhub = source("finnhub", "Finnhub", isDefault = true)
+    private val secEdgar = source("sec-edgar", "SEC EDGAR", capabilities = listOf(Capability.BALANCE_SHEET))
+
+    private val finnhubSheet = CompanyData.balanceSheet(period(2026, item("Assets", 1.0)), source = SourceId.FINNHUB)
+    private val secEdgarSheet = CompanyData.balanceSheet(period(2026, item("Assets", 2.0)), source = SourceId.SEC_EDGAR)
+
+    private lateinit var watchlistRepository: DefaultWatchlistRepository
+
+    init {
+        apiClient.getPriceAndRatios = { _, _, _, _ -> ApiResult.Success(CompanyData.priceAndRatios()) }
+        apiClient.getCompanyProfile = { _, _, _, _ -> ApiResult.Success(CompanyData.companyProfileData()) }
+        apiClient.getSources = { ApiResult.Success(listOf(finnhub, secEdgar)) }
+        apiClient.getBalanceSheet = { _, _, source, _ -> ApiResult.Success(if (source == SourceId.SEC_EDGAR) secEdgarSheet else finnhubSheet) }
+    }
+
+    private fun TestScope.viewModel(route: DetailRoute = DetailRoute(apple.symbol, apple)): DetailViewModel {
+        watchlistRepository = DefaultWatchlistRepository(apiClient, profileRepository, backgroundScope)
+        return DetailViewModel(
+            route = route,
+            companyRepository = DefaultCompanyRepository(apiClient, profileRepository),
+            sourceRepository = DefaultSourceRepository(apiClient, profileRepository, backgroundScope),
+            watchlistRepository = watchlistRepository,
+        )
+    }
+
+    private val DetailViewModel.state get() = uiState.value
+
+    private fun callsOf(prefix: String) = apiClient.calls.filter { it.startsWith(prefix) }
+
+    @Test
+    fun `price and ratios load when the screen opens`() = runTest {
+        val viewModel = viewModel()
+
+        assertEquals(listOf("getPriceAndRatios(p1, AAPL, null, false)"), apiClient.calls)
+        assertEquals(CompanyData.priceAndRatios(), viewModel.state.priceAndRatios.value)
+        assertFalse(viewModel.state.priceAndRatios.isLoading)
+    }
+
+    @Test
+    fun `each tab loads once when first shown`() = runTest {
+        val viewModel = viewModel()
+
+        DetailTab.entries.forEach(viewModel::onTabSelected)
+        DetailTab.entries.forEach(viewModel::onTabSelected)
+
+        assertEquals(listOf("getPriceAndRatios(p1, AAPL, null, false)"), callsOf("getPriceAndRatios"))
+        assertEquals(listOf("getBalanceSheet(p1, AAPL, finnhub, false)"), callsOf("getBalanceSheet"))
+        assertEquals(listOf("getCompanyProfile(p1, AAPL, null, false)"), callsOf("getCompanyProfile"))
+        assertEquals(DetailTab.COMPANY_PROFILE, viewModel.state.selectedTab)
+    }
+
+    @Test
+    fun `header shows the initial summary without loading the profile`() = runTest {
+        val viewModel = viewModel()
+
+        assertEquals("Apple Inc.", viewModel.state.header?.name)
+        assertTrue(callsOf("getCompanyProfile").isEmpty())
+    }
+
+    @Test
+    fun `header without a summary is loaded from the company profile`() = runTest {
+        val viewModel = viewModel(DetailRoute(Symbol("AAPL")))
+
+        assertEquals(listOf("getCompanyProfile(p1, AAPL, null, false)"), callsOf("getCompanyProfile"))
+        val header = viewModel.state.header
+        assertEquals("Apple Inc.", header?.name)
+        assertEquals("NASDAQ", header?.exchange)
+        assertEquals("/logos/AAPL", header?.logoUrl)
+        assertEquals(CompanyData.priceAndRatios().quote, header?.quote)
+
+        viewModel.onTabSelected(DetailTab.COMPANY_PROFILE)
+        assertEquals(1, callsOf("getCompanyProfile").size)
+    }
+
+    @Test
+    fun `header is empty while neither summary nor profile is known`() = runTest {
+        apiClient.getCompanyProfile = { _, _, _, _ -> ApiResult.Failure(ApiError.Network(isTimeout = true)) }
+
+        val viewModel = viewModel(DetailRoute(Symbol("AAPL")))
+
+        assertNull(viewModel.state.header)
+        assertEquals(ApiError.Network(isTimeout = true), viewModel.state.companyProfile.error)
+    }
+
+    @Test
+    fun `header is updated when the company profile arrives`() = runTest {
+        apiClient.getCompanyProfile = { _, _, _, _ ->
+            ApiResult.Success(CompanyData.companyProfileData(CompanyData.companyProfile(name = "Apple Incorporated")))
+        }
+        val viewModel = viewModel()
+
+        viewModel.onTabSelected(DetailTab.COMPANY_PROFILE)
+
+        assertEquals("Apple Incorporated", viewModel.state.header?.name)
+        assertEquals(apple.logoUrl, viewModel.state.header?.logoUrl)
+    }
+
+    @Test
+    fun `refresh sends refresh for all three tabs including tabs not opened yet`() = runTest {
+        val viewModel = viewModel()
+        apiClient.calls.clear()
+
+        viewModel.refresh()
+
+        assertEquals(
+            setOf(
+                "getPriceAndRatios(p1, AAPL, null, true)",
+                "getCompanyProfile(p1, AAPL, null, true)",
+                "getBalanceSheet(p1, AAPL, finnhub, true)",
+            ),
+            apiClient.calls.filterNot { it.startsWith("getSources") }.toSet(),
+        )
+        apiClient.calls.clear()
+        DetailTab.entries.forEach(viewModel::onTabSelected)
+        assertTrue(apiClient.calls.isEmpty())
+    }
+
+    @Test
+    fun `balance sheet sources are loaded lazily when the tab is first shown`() = runTest {
+        val viewModel = viewModel()
+        assertTrue(callsOf("getSources").isEmpty())
+        assertTrue(viewModel.state.balanceSheet.sources.isEmpty())
+
+        viewModel.onTabSelected(DetailTab.BALANCE_SHEET)
+
+        assertEquals(listOf("getSources(p1)"), callsOf("getSources"))
+        assertEquals(listOf(finnhub, secEdgar), viewModel.state.balanceSheet.sources)
+        assertEquals(SourceId.FINNHUB, viewModel.state.balanceSheet.selectedSource)
+        assertEquals(finnhubSheet.meta, viewModel.state.balanceSheet.data.value?.meta)
+        assertEquals("SEC EDGAR", viewModel.state.sourceName(SourceId.SEC_EDGAR))
+    }
+
+    @Test
+    fun `balance sheet falls back to Finnhub and SEC EDGAR when sources cannot be loaded`() = runTest {
+        apiClient.getSources = { ApiResult.Failure(ApiError.Network(isTimeout = false)) }
+        val viewModel = viewModel()
+
+        viewModel.onTabSelected(DetailTab.BALANCE_SHEET)
+
+        assertEquals(listOf(SourceId.FINNHUB, SourceId.SEC_EDGAR), viewModel.state.balanceSheet.sources.map { it.id })
+        assertEquals(listOf("getBalanceSheet(p1, AAPL, finnhub, false)"), callsOf("getBalanceSheet"))
+    }
+
+    @Test
+    fun `selecting SEC EDGAR requests it and switching back uses the kept result`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onTabSelected(DetailTab.BALANCE_SHEET)
+
+        viewModel.onSourceSelected(SourceId.SEC_EDGAR)
+        assertEquals(secEdgarSheet.meta, viewModel.state.balanceSheet.data.value?.meta)
+        assertEquals(listOf(2.0), viewModel.state.balanceSheet.data.value?.table?.rows?.single()?.values)
+
+        viewModel.onSourceSelected(SourceId.FINNHUB)
+        viewModel.onSourceSelected(SourceId.SEC_EDGAR)
+
+        assertEquals(
+            listOf("getBalanceSheet(p1, AAPL, finnhub, false)", "getBalanceSheet(p1, AAPL, sec-edgar, false)"),
+            callsOf("getBalanceSheet"),
+        )
+        assertEquals(SourceId.SEC_EDGAR, viewModel.state.balanceSheet.selectedSource)
+    }
+
+    @Test
+    fun `refresh on the balance sheet uses the selected source and drops kept results of other sources`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onTabSelected(DetailTab.BALANCE_SHEET)
+        viewModel.onSourceSelected(SourceId.SEC_EDGAR)
+        apiClient.calls.clear()
+
+        viewModel.refresh()
+        assertEquals(listOf("getBalanceSheet(p1, AAPL, sec-edgar, true)"), callsOf("getBalanceSheet"))
+
+        viewModel.onSourceSelected(SourceId.FINNHUB)
+        assertEquals(
+            listOf("getBalanceSheet(p1, AAPL, sec-edgar, true)", "getBalanceSheet(p1, AAPL, finnhub, false)"),
+            callsOf("getBalanceSheet"),
+        )
+    }
+
+    @Test
+    fun `non US company with SEC EDGAR shows the not supported status`() = runTest {
+        apiClient.getBalanceSheet = { _, _, source, _ ->
+            ApiResult.Success(
+                if (source == SourceId.SEC_EDGAR) {
+                    BalanceSheet(CompanyData.meta(SourceId.SEC_EDGAR, DataStatus.NOT_SUPPORTED, fetchedAt = null), emptyList())
+                } else {
+                    finnhubSheet
+                },
+            )
+        }
+        val viewModel = viewModel(DetailRoute(Symbol("SAP.DE"), Companies.summary("SAP.DE", name = "SAP SE")))
+        viewModel.onTabSelected(DetailTab.BALANCE_SHEET)
+
+        viewModel.onSourceSelected(SourceId.SEC_EDGAR)
+
+        val view = viewModel.state.balanceSheet.data.value
+        assertEquals(DataStatus.NOT_SUPPORTED, view?.meta?.status)
+        assertTrue(view?.table?.isEmpty == true)
+        assertEquals(listOf("getBalanceSheet(p1, SAP.DE, finnhub, false)", "getBalanceSheet(p1, SAP.DE, sec-edgar, false)"), callsOf("getBalanceSheet"))
+    }
+
+    @Test
+    fun `balance sheet with no periods makes an empty table`() = runTest {
+        apiClient.getBalanceSheet = { _, _, _, _ -> ApiResult.Success(CompanyData.balanceSheet(status = DataStatus.NO_DATA)) }
+        val viewModel = viewModel()
+
+        viewModel.onTabSelected(DetailTab.BALANCE_SHEET)
+
+        assertTrue(viewModel.state.balanceSheet.data.value?.table?.isEmpty == true)
+        assertEquals(DataStatus.NO_DATA, viewModel.state.balanceSheet.data.value?.meta?.status)
+    }
+
+    @Test
+    fun `failed load keeps the previous data and reports the error`() = runTest {
+        val viewModel = viewModel()
+        apiClient.getPriceAndRatios = { _, _, _, _ -> ApiResult.Failure(ApiError.Network(isTimeout = false)) }
+
+        viewModel.refresh()
+
+        assertEquals(CompanyData.priceAndRatios(), viewModel.state.priceAndRatios.value)
+        assertEquals(ApiError.Network(isTimeout = false), viewModel.state.priceAndRatios.error)
+    }
+
+    @Test
+    fun `failed balance sheet without a result is loaded again when its source is selected`() = runTest {
+        apiClient.getBalanceSheet = { _, _, _, _ -> ApiResult.Failure(ApiError.Network(isTimeout = false)) }
+        val viewModel = viewModel()
+        viewModel.onTabSelected(DetailTab.BALANCE_SHEET)
+        apiClient.getBalanceSheet = { _, _, _, _ -> ApiResult.Success(finnhubSheet) }
+
+        viewModel.onSourceSelected(SourceId.FINNHUB)
+
+        assertEquals(2, callsOf("getBalanceSheet").size)
+        assertEquals(finnhubSheet.meta, viewModel.state.balanceSheet.data.value?.meta)
+        assertNull(viewModel.state.balanceSheet.data.error)
+    }
+
+    @Test
+    fun `tab shows loading while its request runs`() = runTest {
+        val response = CompletableDeferred<ApiResult<CompanyProfileData>>()
+        apiClient.getCompanyProfile = { _, _, _, _ -> response.await() }
+        val viewModel = viewModel()
+
+        viewModel.onTabSelected(DetailTab.COMPANY_PROFILE)
+        assertTrue(viewModel.state.companyProfile.isLoading)
+
+        response.complete(ApiResult.Success(CompanyData.companyProfileData()))
+        assertFalse(viewModel.state.companyProfile.isLoading)
+    }
+
+    @Test
+    fun `refresh while a tab loads replaces the running request`() = runTest {
+        val firstResponse = CompletableDeferred<ApiResult<CompanyProfileData>>()
+        apiClient.getCompanyProfile = { _, _, _, refresh ->
+            if (refresh) ApiResult.Success(CompanyData.companyProfileData(CompanyData.companyProfile(name = "Fresh"))) else firstResponse.await()
+        }
+        val viewModel = viewModel()
+        viewModel.onTabSelected(DetailTab.COMPANY_PROFILE)
+
+        viewModel.refresh()
+        firstResponse.complete(ApiResult.Success(CompanyData.companyProfileData(CompanyData.companyProfile(name = "Stale"))))
+
+        assertEquals("Fresh", viewModel.state.companyProfile.value?.profile?.name)
+    }
+
+    @Test
+    fun `every status is kept with cached data and with empty data`() = runTest {
+        DataStatus.entries.forEach { status ->
+            apiClient.getPriceAndRatios = { _, _, _, _ -> ApiResult.Success(CompanyData.priceAndRatios(quote = null, ratios = emptyList(), status = status)) }
+            val viewModel = viewModel()
+
+            assertEquals(status, viewModel.state.priceAndRatios.value?.meta?.status)
+            assertNull(viewModel.state.priceAndRatios.value?.quote)
+        }
+    }
+
+    @Test
+    fun `watchlist state follows the initial summary until the watchlist is loaded`() = runTest {
+        val viewModel = viewModel(DetailRoute(apple.symbol, apple.copy(inWatchlist = true)))
+
+        assertTrue(viewModel.state.inWatchlist)
+    }
+
+    @Test
+    fun `toggling adds the company to the watchlist and removes it again`() = runTest {
+        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(Unit) }
+        apiClient.removeFromWatchlist = { _, _ -> ApiResult.Success(Unit) }
+        val viewModel = viewModel()
+
+        viewModel.onToggleWatchlist()
+        assertTrue(viewModel.state.inWatchlist)
+
+        viewModel.onToggleWatchlist()
+        assertFalse(viewModel.state.inWatchlist)
+        assertEquals(listOf("addToWatchlist(p1, AAPL)", "removeFromWatchlist(p1, AAPL)"), callsOf("addToWatchlist") + callsOf("removeFromWatchlist"))
+    }
+
+    @Test
+    fun `failed add reverts and shows a message`() = runTest {
+        apiClient.addToWatchlist = { _, _ -> ApiResult.Failure(ApiError.Http(409, null)) }
+        val viewModel = viewModel()
+
+        viewModel.onToggleWatchlist()
+
+        assertFalse(viewModel.state.inWatchlist)
+        val message = viewModel.state.message
+        assertEquals(DetailMessage.AddFailed(ApiError.Http(409, null)), message)
+        viewModel.onMessageShown(message!!)
+        assertNull(viewModel.state.message)
+    }
+
+    @Test
+    fun `watchlist toggle does nothing while the header is unknown`() = runTest {
+        apiClient.getCompanyProfile = { _, _, _, _ -> ApiResult.Failure(ApiError.Network(isTimeout = false)) }
+        val viewModel = viewModel(DetailRoute(Symbol("AAPL")))
+
+        viewModel.onToggleWatchlist()
+
+        assertTrue(callsOf("addToWatchlist").isEmpty())
+    }
+}
