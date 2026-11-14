@@ -87,5 +87,47 @@
     <string name="settings_open">Settings</string>
     <string name="settings_title">Settings</string>
     <string name="detail_title">Company details</string>
+    <string name="detail_refresh">Refresh from sources</string>
+    <string name="detail_tab_price_and_ratios">Price and ratio</string>
+    <string name="detail_tab_balance_sheet">Balance sheet</string>
+    <string name="detail_tab_company_profile">Company profile</string>
+    <string name="detail_source">Source: %1$s</string>
+    <string name="detail_source_with_age">Source: %1$s, %2$s</string>
+    <string name="data_age_just_now">updated just now</string>
+    <plurals name="data_age_minutes">
+        <item quantity="one">updated %1$d minute ago</item>
+        <item quantity="other">updated %1$d minutes ago</item>
+    </plurals>
+    <plurals name="data_age_hours">
+        <item quantity="one">updated %1$d hour ago</item>
+        <item quantity="other">updated %1$d hours ago</item>
+    </plurals>
+    <plurals name="data_age_days">
+        <item quantity="one">updated %1$d day ago</item>
+        <item quantity="other">updated %1$d days ago</item>
+    </plurals>
+    <string name="status_limit_reached">Source request limit reached. Showing cached data if available.</string>
+    <string name="status_source_error">Source is not available. Showing cached data if available.</string>
+    <string name="status_not_supported">This source does not provide this data for the company.</string>
+    <string name="status_no_data">The source has no data for this company.</string>
+    <string name="status_unknown">Unknown data status.</string>
+    <string name="detail_price">Price</string>
+    <string name="detail_ratios">Ratios</string>
+    <string name="detail_balance_sheet_source">Source</string>
+    <string name="detail_balance_sheet_unit">Values in %1$s</string>
+    <string name="detail_balance_sheet_label_with_unit">%1$s (%2$s)</string>
+    <string name="detail_balance_sheet_quarter">%1$s %2$d</string>
+    <string name="profile_field_country">Country</string>
+    <string name="profile_field_currency">Currency</string>
+    <string name="profile_field_sector">Sector</string>
+    <string name="profile_field_industry">Industry</string>
+    <string name="profile_field_ipo_date">IPO date</string>
+    <string name="profile_field_market_capitalization">Market capitalization</string>
+    <string name="profile_field_shares_outstanding">Shares outstanding</string>
+    <string name="profile_field_employees">Employees</string>
+    <string name="profile_field_website">Website</string>
+    <string name="profile_field_description">Description</string>
+    <string name="detail_add_failed">Cannot add to the watchlist: %1$s</string>
+    <string name="detail_remove_failed">Cannot remove from the watchlist: %1$s</string>
     <string name="navigate_back">Back</string>
 </resources>
