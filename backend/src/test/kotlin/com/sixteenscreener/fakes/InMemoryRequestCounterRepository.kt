@@ -35,8 +35,11 @@ class InMemoryRequestCounterRepository : RequestCounterRepository {
         }
     }
 
+    var failUsage: Boolean = false
+
     override suspend fun usage(source: SourceId, limits: List<RequestLimit>, now: Instant): List<RequestUsage> =
         mutex.withLock {
+            check(!failUsage) { "Simulated counter read failure" }
             limits.map { limit ->
                 RequestUsage(
                     limit = limit,

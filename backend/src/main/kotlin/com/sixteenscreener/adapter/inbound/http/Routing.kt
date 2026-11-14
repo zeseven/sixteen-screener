@@ -10,6 +10,7 @@ fun Application.configureRouting(services: AppServices) {
         watchlistRoutes(services.watchlistUseCase, services.profileUseCase)
         searchRoutes(services.searchUseCase)
         companyRoutes(services.companyDataUseCase)
+        sourceRoutes(services.sourcesUseCase)
         logoRoutes(services.logoUseCase)
     }
 }

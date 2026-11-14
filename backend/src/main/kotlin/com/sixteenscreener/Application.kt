@@ -25,6 +25,7 @@ import com.sixteenscreener.config.AppConfig
 import com.sixteenscreener.config.AppConfigLoader
 import com.sixteenscreener.config.AppConfigLoader.SEC_EDGAR_FILES_BASE_URL
 import com.sixteenscreener.config.InvalidConfigurationException
+import com.sixteenscreener.domain.model.SourceDescription
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.service.CompanyDataService
 import com.sixteenscreener.domain.service.CompanyIdentityResolver
@@ -40,11 +41,13 @@ import com.sixteenscreener.domain.service.SearchService
 import com.sixteenscreener.domain.service.SourceCallGuard
 import com.sixteenscreener.domain.service.SourceCallOutcomes
 import com.sixteenscreener.domain.service.SourceCatalog
+import com.sixteenscreener.domain.service.SourceService
 import com.sixteenscreener.domain.service.WatchlistService
 import com.sixteenscreener.port.inbound.CompanyDataUseCase
 import com.sixteenscreener.port.inbound.LogoUseCase
 import com.sixteenscreener.port.inbound.ProfileUseCase
 import com.sixteenscreener.port.inbound.SearchUseCase
+import com.sixteenscreener.port.inbound.SourcesUseCase
 import com.sixteenscreener.port.inbound.WatchlistUseCase
 import com.sixteenscreener.port.outbound.BalanceSheetSource
 import com.sixteenscreener.port.outbound.Clock
@@ -120,6 +123,15 @@ class AppServices(
         guard = sourceCallGuard,
         outcomes = sourceCallOutcomes,
         responses = SearchResponseCache(clock),
+    )
+
+    val sourcesUseCase: SourcesUseCase = SourceService(
+        sources = config.enabledSources.map { SourceDescription(it.id, it.name, it.capabilities, it.selectableAsDefault) },
+        profiles = profiles,
+        catalog = sourceCatalog,
+        rateLimiter = rateLimiter,
+        outcomes = sourceCallOutcomes,
+        clock = clock,
     )
 
     val logoUseCase: LogoUseCase = LogoService(

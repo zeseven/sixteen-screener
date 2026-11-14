@@ -29,6 +29,6 @@ class RateLimiter(
         return if (limits.isEmpty()) emptyList() else counters.usage(source, limits, clock.now())
     }
 
-    private fun limitsOf(source: SourceId): List<RequestLimit> =
+    fun limitsOf(source: SourceId): List<RequestLimit> =
         requireNotNull(limitsBySource[source]) { "Unknown source '$source'" }
 }

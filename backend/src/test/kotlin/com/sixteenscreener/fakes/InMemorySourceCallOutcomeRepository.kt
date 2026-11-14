@@ -10,6 +10,7 @@ class InMemorySourceCallOutcomeRepository : SourceCallOutcomeRepository {
     private val recorded = mutableListOf<Pair<SourceId, SourceCallOutcome>>()
 
     var failWrites: Boolean = false
+    var failReads: Boolean = false
 
     val writes: List<Pair<SourceId, SourceCallOutcome>> get() = synchronized(recorded) { recorded.toList() }
 
@@ -19,6 +20,8 @@ class InMemorySourceCallOutcomeRepository : SourceCallOutcomeRepository {
         synchronized(recorded) { recorded += source to outcome }
     }
 
-    override suspend fun findAll(sources: Collection<SourceId>): Map<SourceId, SourceCallOutcome> =
-        sources.mapNotNull { source -> outcomes[source]?.let { source to it } }.toMap()
+    override suspend fun findAll(sources: Collection<SourceId>): Map<SourceId, SourceCallOutcome> {
+        check(!failReads) { "Simulated outcome read failure" }
+        return sources.mapNotNull { source -> outcomes[source]?.let { source to it } }.toMap()
+    }
 }
