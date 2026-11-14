@@ -26,6 +26,8 @@ private val FULL_ENV = mapOf(
     "SEC_EDGAR_USER_AGENT" to "Sixteen Screener test@example.com",
 )
 
+private const val SEC_FILES = "additionalBaseUrls = { files = \"https://www.sec.test\" }"
+
 private fun hocon(text: String): ApplicationConfig = HoconApplicationConfig(ConfigFactory.parseString(text))
 
 private fun source(
@@ -73,6 +75,11 @@ class AppConfigLoaderTest : FunSpec({
         finnhub.timeout shouldBe 5.seconds
 
         config.source(SourceId.of("logoapi"))!!.limits shouldContainExactly listOf(RequestLimit(LimitInterval.DAY, 1000))
+
+        val secEdgar = config.source(SourceId.of("sec-edgar"))!!
+        secEdgar.baseUrl shouldBe "https://data.sec.gov"
+        secEdgar.additionalBaseUrls shouldBe mapOf("files" to "https://www.sec.gov")
+        finnhub.additionalBaseUrls shouldBe emptyMap()
     }
 
     test("environment variables override configuration values") {
@@ -143,13 +150,32 @@ class AppConfigLoaderTest : FunSpec({
         ).sources shouldHaveSize 2
     }
 
+    test("fails when an enabled SEC EDGAR source has no files base URL") {
+        val errors = loadErrors(configWith(source("finnhub", selectable = true), source("sec-edgar")))
+        errors shouldContainExactly listOf("Source 'sec-edgar' is enabled but additionalBaseUrls.files is not set")
+    }
+
+    test("fails for a blank additional base URL") {
+        val errors = loadErrors(
+            configWith(source("finnhub", selectable = true, extra = "additionalBaseUrls = { files = \" \", other = \"https://y\" }")),
+        )
+        errors shouldContainExactly listOf("Source 'finnhub': invalid additionalBaseUrls.files")
+    }
+
+    test("fails for additional base URLs that are not an object") {
+        val errors = loadErrors(configWith(source("finnhub", selectable = true, extra = "additionalBaseUrls = \"https://y\"")))
+        errors shouldContainExactly listOf("Source 'finnhub': invalid additionalBaseUrls")
+    }
+
     test("fails for an unknown default source") {
         val errors = loadErrors(configWith(source("finnhub", selectable = true), defaultSource = "tiingo"))
         errors shouldContainExactly listOf("Default source 'tiingo' is not a configured source")
     }
 
     test("fails for a default source that is not selectable as default") {
-        val errors = loadErrors(configWith(source("finnhub", selectable = true), source("sec-edgar"), defaultSource = "sec-edgar"))
+        val errors = loadErrors(
+            configWith(source("finnhub", selectable = true), source("sec-edgar", extra = SEC_FILES), defaultSource = "sec-edgar"),
+        )
         errors shouldContainExactly listOf("Default source 'sec-edgar' is not selectable as default")
     }
 

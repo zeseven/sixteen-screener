@@ -20,6 +20,14 @@ object AppConfigLoader {
     private const val DEFAULT_TIMEOUT_MILLIS = 5000L
     private const val MAX_PORT = 65535
 
+    const val SEC_EDGAR_FILES_BASE_URL = "files"
+
+    private const val ADDITIONAL_BASE_URLS = "additionalBaseUrls"
+
+    private val REQUIRED_ADDITIONAL_BASE_URLS: Map<String, List<String>> = mapOf(
+        "sec-edgar" to listOf(SEC_EDGAR_FILES_BASE_URL),
+    )
+
     private val REQUIRED_SECRETS: Map<String, String> = mapOf(
         "finnhub" to ENV_FINNHUB_API_KEY,
         "sec-edgar" to ENV_SEC_EDGAR_USER_AGENT,
@@ -39,7 +47,8 @@ object AppConfigLoader {
         val errors = reader.errors +
             duplicateIdErrors(sources) +
             defaultSourceErrors(defaultSource.takeUnless { it in reader.invalidSourceIds }, sources) +
-            missingSecretErrors(sources, env)
+            missingSecretErrors(sources, env) +
+            missingBaseUrlErrors(sources)
 
         if (errors.isNotEmpty()) throw InvalidConfigurationException(errors)
 
@@ -78,6 +87,13 @@ object AppConfigLoader {
             .filter { (_, variable) -> env.secret(variable) == null }
             .map { (source, variable) -> "Source '${source.id}' is enabled but environment variable $variable is not set" }
 
+    private fun missingBaseUrlErrors(sources: List<SourceConfig>): List<String> =
+        sources.filter { it.enabled }.flatMap { source ->
+            REQUIRED_ADDITIONAL_BASE_URLS[source.id.value].orEmpty()
+                .filterNot { it in source.additionalBaseUrls }
+                .map { "Source '${source.id}' is enabled but $ADDITIONAL_BASE_URLS.$it is not set" }
+        }
+
     private class ConfigReader(private val config: ApplicationConfig, private val env: Map<String, String>) {
         val errors = mutableListOf<String>()
         val invalidSourceIds = mutableSetOf<String>()
@@ -112,6 +128,7 @@ object AppConfigLoader {
                 ?: null.also { errors += "$label: missing name" }
             val baseUrl = block.stringOrNull("baseUrl")?.takeIf { it.isNotBlank() }
                 ?: null.also { errors += "$label: missing baseUrl" }
+            val additionalBaseUrls = additionalBaseUrls(block, label)
             val enabled = boolean(block, "enabled", default = true, label)
             val selectableAsDefault = boolean(block, "selectableAsDefault", default = false, label)
             val capabilities = capabilities(block, label)
@@ -129,11 +146,23 @@ object AppConfigLoader {
                 name = checkNotNull(name),
                 enabled = enabled,
                 baseUrl = checkNotNull(baseUrl),
+                additionalBaseUrls = additionalBaseUrls,
                 capabilities = capabilities,
                 selectableAsDefault = selectableAsDefault,
                 limits = limits,
                 timeout = timeoutMillis.milliseconds,
             )
+        }
+
+        private fun additionalBaseUrls(block: ApplicationConfig, label: String): Map<String, String> {
+            val raw = block.toMap()[ADDITIONAL_BASE_URLS] ?: return emptyMap()
+            val entries = raw as? Map<*, *> ?: return emptyMap<String, String>().also {
+                errors += "$label: invalid $ADDITIONAL_BASE_URLS"
+            }
+            return entries.mapNotNull { (name, url) ->
+                (url as? String)?.takeIf { it.isNotBlank() }?.let { name.toString() to it }
+                    ?: null.also { errors += "$label: invalid $ADDITIONAL_BASE_URLS.$name" }
+            }.toMap()
         }
 
         private fun boolean(block: ApplicationConfig, key: String, default: Boolean, label: String): Boolean {

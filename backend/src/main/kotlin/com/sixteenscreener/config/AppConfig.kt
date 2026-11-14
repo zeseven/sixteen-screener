@@ -23,6 +23,7 @@ data class SourceConfig(
     val name: String,
     val enabled: Boolean,
     val baseUrl: String,
+    val additionalBaseUrls: Map<String, String> = emptyMap(),
     val capabilities: Set<Capability>,
     val selectableAsDefault: Boolean,
     val limits: List<RequestLimit>,
