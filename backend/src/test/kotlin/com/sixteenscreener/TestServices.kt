@@ -7,6 +7,14 @@ import com.sixteenscreener.domain.model.Capability
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.RequestLimit
 import com.sixteenscreener.domain.model.SourceId
+import com.sixteenscreener.domain.service.RateLimiter
+import com.sixteenscreener.domain.service.SourceCallGuard
+import com.sixteenscreener.domain.service.SourceCallOutcomes
+import com.sixteenscreener.fakes.InMemoryCompanyCache
+import com.sixteenscreener.fakes.InMemoryLogoMissRepository
+import com.sixteenscreener.fakes.InMemoryProfileRepository
+import com.sixteenscreener.fakes.InMemoryRequestCounterRepository
+import com.sixteenscreener.fakes.InMemorySourceCallOutcomeRepository
 import com.sixteenscreener.fakes.MutableClock
 import kotlin.time.Duration.Companion.seconds
 
@@ -30,4 +38,25 @@ fun testConfig(): AppConfig = AppConfig(
     secrets = SourceSecrets(finnhubApiKey = "test-key", secEdgarUserAgent = "test agent"),
 )
 
-fun testServices(clock: MutableClock = MutableClock()): AppServices = AppServices(config = testConfig(), clock = clock)
+class TestPorts(
+    val clock: MutableClock = MutableClock(),
+    val profiles: InMemoryProfileRepository = InMemoryProfileRepository(),
+    val companyCache: InMemoryCompanyCache = InMemoryCompanyCache(),
+    val logoMisses: InMemoryLogoMissRepository = InMemoryLogoMissRepository(),
+    val requestCounters: InMemoryRequestCounterRepository = InMemoryRequestCounterRepository(),
+    val sourceCalls: InMemorySourceCallOutcomeRepository = InMemorySourceCallOutcomeRepository(),
+)
+
+fun testServices(ports: TestPorts = TestPorts(), config: AppConfig = testConfig()): AppServices {
+    val rateLimiter = RateLimiter(config.sources.associate { it.id to it.limits }, ports.requestCounters, ports.clock)
+    return AppServices(
+        config = config,
+        clock = ports.clock,
+        profiles = ports.profiles,
+        companyCache = ports.companyCache,
+        logoMisses = ports.logoMisses,
+        rateLimiter = rateLimiter,
+        sourceCallOutcomes = SourceCallOutcomes(ports.sourceCalls),
+        sourceCallGuard = SourceCallGuard(rateLimiter),
+    )
+}
