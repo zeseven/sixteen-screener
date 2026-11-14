@@ -1,0 +1,419 @@
+{
+ "cik": 320193,
+ "entityName": "Apple Inc.",
+ "facts": {
+  "dei": {
+   "EntityCommonStockSharesOutstanding": {
+    "label": "Entity Common Stock, Shares Outstanding",
+    "description": "Shares outstanding on the cover page.",
+    "units": {
+     "shares": [
+      {
+       "end": "2025-10-17",
+       "val": 14776353000,
+       "accn": "0000320193-25-000079",
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2025-10-31"
+      }
+     ]
+    }
+   }
+  },
+  "us-gaap": {
+   "Assets": {
+    "label": "Assets",
+    "description": "Description as provided by the SEC.",
+    "units": {
+     "USD": [
+      {
+       "end": "2024-09-28",
+       "val": 364980000000,
+       "accn": "0000320193-24-000123",
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2024-11-01",
+       "frame": "CY2024Q3I"
+      },
+      {
+       "end": "2023-09-30",
+       "val": 352583000000,
+       "accn": "0000320193-24-000123",
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2024-11-01"
+      },
+      {
+       "end": "2025-06-28",
+       "val": 331495000000,
+       "accn": "0000320193-25-000073",
+       "fy": 2025,
+       "fp": "Q3",
+       "form": "10-Q",
+       "filed": "2025-08-01",
+       "frame": "CY2025Q2I"
+      },
+      {
+       "end": "2024-09-28",
+       "val": 364980000000,
+       "accn": "0000320193-25-000079",
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2025-10-31"
+      },
+      {
+       "end": "2025-09-27",
+       "val": 359241000000,
+       "accn": "0000320193-25-000079",
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2025-10-31",
+       "frame": "CY2025Q3I"
+      }
+     ]
+    }
+   },
+   "AssetsCurrent": {
+    "label": "Assets, Current",
+    "description": "Description as provided by the SEC.",
+    "units": {
+     "USD": [
+      {
+       "end": "2024-09-28",
+       "val": 152987000000,
+       "accn": "0000320193-24-000123",
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2024-11-01",
+       "frame": "CY2024Q3I"
+      },
+      {
+       "end": "2023-09-30",
+       "val": 143566000000,
+       "accn": "0000320193-24-000123",
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2024-11-01"
+      },
+      {
+       "end": "2025-06-28",
+       "val": 122491000000,
+       "accn": "0000320193-25-000073",
+       "fy": 2025,
+       "fp": "Q3",
+       "form": "10-Q",
+       "filed": "2025-08-01",
+       "frame": "CY2025Q2I"
+      },
+      {
+       "end": "2024-09-28",
+       "val": 152987000000,
+       "accn": "0000320193-25-000079",
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2025-10-31"
+      },
+      {
+       "end": "2025-09-27",
+       "val": 147957000000,
+       "accn": "0000320193-25-000079",
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2025-10-31",
+       "frame": "CY2025Q3I"
+      }
+     ]
+    }
+   },
+   "CashAndCashEquivalentsAtCarryingValue": {
+    "label": "Cash and Cash Equivalents, at Carrying Value",
+    "description": "Description as provided by the SEC.",
+    "units": {
+     "USD": [
+      {
+       "end": "2024-09-28",
+       "val": 29943000000,
+       "accn": "0000320193-24-000123",
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2024-11-01",
+       "frame": "CY2024Q3I"
+      },
+      {
+       "end": "2023-09-30",
+       "val": 29965000000,
+       "accn": "0000320193-24-000123",
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2024-11-01"
+      },
+      {
+       "end": "2025-06-28",
+       "val": 36269000000,
+       "accn": "0000320193-25-000073",
+       "fy": 2025,
+       "fp": "Q3",
+       "form": "10-Q",
+       "filed": "2025-08-01",
+       "frame": "CY2025Q2I"
+      },
+      {
+       "end": "2024-09-28",
+       "val": 29943000000,
+       "accn": "0000320193-25-000079",
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2025-10-31"
+      },
+      {
+       "end": "2025-09-27",
+       "val": 35934000000,
+       "accn": "0000320193-25-000079",
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2025-10-31",
+       "frame": "CY2025Q3I"
+      }
+     ]
+    }
+   },
+   "Liabilities": {
+    "label": "Liabilities",
+    "description": "Description as provided by the SEC.",
+    "units": {
+     "USD": [
+      {
+       "end": "2024-09-28",
+       "val": 308030000000,
+       "accn": "0000320193-24-000123",
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2024-11-01",
+       "frame": "CY2024Q3I"
+      },
+      {
+       "end": "2023-09-30",
+       "val": 290437000000,
+       "accn": "0000320193-24-000123",
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2024-11-01"
+      },
+      {
+       "end": "2025-06-28",
+       "val": 265665000000,
+       "accn": "0000320193-25-000073",
+       "fy": 2025,
+       "fp": "Q3",
+       "form": "10-Q",
+       "filed": "2025-08-01",
+       "frame": "CY2025Q2I"
+      },
+      {
+       "end": "2024-09-28",
+       "val": 308030000000,
+       "accn": "0000320193-25-000079",
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2025-10-31"
+      },
+      {
+       "end": "2025-09-27",
+       "val": 285508000000,
+       "accn": "0000320193-25-000079",
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2025-10-31",
+       "frame": "CY2025Q3I"
+      }
+     ]
+    }
+   },
+   "StockholdersEquity": {
+    "label": "Stockholders' Equity Attributable to Parent",
+    "description": "Description as provided by the SEC.",
+    "units": {
+     "USD": [
+      {
+       "end": "2024-09-28",
+       "val": 56950000000,
+       "accn": "0000320193-24-000123",
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2024-11-01",
+       "frame": "CY2024Q3I"
+      },
+      {
+       "end": "2023-09-30",
+       "val": 62146000000,
+       "accn": "0000320193-24-000123",
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2024-11-01"
+      },
+      {
+       "end": "2022-09-24",
+       "val": 50672000000,
+       "accn": "0000320193-24-000123",
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2024-11-01"
+      },
+      {
+       "end": "2025-06-28",
+       "val": 65830000000,
+       "accn": "0000320193-25-000073",
+       "fy": 2025,
+       "fp": "Q3",
+       "form": "10-Q",
+       "filed": "2025-08-01",
+       "frame": "CY2025Q2I"
+      },
+      {
+       "end": "2024-09-28",
+       "val": 56950000000,
+       "accn": "0000320193-25-000079",
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2025-10-31"
+      },
+      {
+       "end": "2025-09-27",
+       "val": 73733000000,
+       "accn": "0000320193-25-000079",
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2025-10-31",
+       "frame": "CY2025Q3I"
+      }
+     ]
+    }
+   },
+   "CommonStockSharesOutstanding": {
+    "label": "Common Stock, Shares, Outstanding",
+    "description": "Description as provided by the SEC.",
+    "units": {
+     "shares": [
+      {
+       "end": "2024-09-28",
+       "val": 15116786000,
+       "accn": "0000320193-24-000123",
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2024-11-01",
+       "frame": "CY2024Q3I"
+      },
+      {
+       "end": "2023-09-30",
+       "val": 15550061000,
+       "accn": "0000320193-24-000123",
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2024-11-01"
+      },
+      {
+       "end": "2025-06-28",
+       "val": 14840390000,
+       "accn": "0000320193-25-000073",
+       "fy": 2025,
+       "fp": "Q3",
+       "form": "10-Q",
+       "filed": "2025-08-01",
+       "frame": "CY2025Q2I"
+      },
+      {
+       "end": "2024-09-28",
+       "val": 15116786000,
+       "accn": "0000320193-25-000079",
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2025-10-31"
+      },
+      {
+       "end": "2025-09-27",
+       "val": 14776353000,
+       "accn": "0000320193-25-000079",
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2025-10-31",
+       "frame": "CY2025Q3I"
+      }
+     ]
+    }
+   },
+   "Revenues": {
+    "label": "Revenues",
+    "description": "Description as provided by the SEC.",
+    "units": {
+     "USD": [
+      {
+       "start": "2024-09-29",
+       "end": "2025-09-27",
+       "val": 416161000000,
+       "accn": "0000320193-25-000079",
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2025-10-31",
+       "frame": "CY2025"
+      },
+      {
+       "start": "2023-10-01",
+       "end": "2024-09-28",
+       "val": 391035000000,
+       "accn": "0000320193-24-000123",
+       "fy": 2024,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2024-11-01",
+       "frame": "CY2024"
+      }
+     ]
+    }
+   },
+   "AccountsPayableCurrent": {
+    "label": "Accounts Payable, Current",
+    "description": "Description as provided by the SEC.",
+    "units": {
+     "USD": [
+      {
+       "end": "2025-06-28",
+       "val": 50374000000,
+       "accn": "0000320193-25-000073",
+       "fy": 2025,
+       "fp": "Q3",
+       "form": "10-Q",
+       "filed": "2025-08-01"
+      }
+     ]
+    }
+   }
+  }
+ }
+}

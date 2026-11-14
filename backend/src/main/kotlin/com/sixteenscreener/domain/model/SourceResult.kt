@@ -20,8 +20,11 @@ sealed interface SourceResult<out T> {
         override val dataStatus: DataStatus get() = DataStatus.FRESH
     }
 
-    /** The source answered but has no data for the request (e.g. unknown symbol, empty quote). */
-    data class NoData(override val outcome: SourceCallOutcome) : SourceResult<Nothing> {
+    /**
+     * The source has no data for the request (e.g. unknown symbol, empty quote); [outcome] is null when this was decided
+     * without a call (e.g. a ticker missing from the SEC ticker table downloaded earlier).
+     */
+    data class NoData(override val outcome: SourceCallOutcome?) : SourceResult<Nothing> {
         override val dataStatus: DataStatus get() = DataStatus.NO_DATA
     }
 

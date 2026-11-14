@@ -8,8 +8,9 @@ import com.sixteenscreener.domain.model.Symbol
 /**
  * Source of annual balance sheets (e.g. Finnhub reported financials, SEC EDGAR company facts).
  *
- * Makes at most one billable call per request (lookups cached by the implementation, such as the SEC ticker-to-CIK table,
- * don't count); request limits are checked by the caller. Source failures are returned as [SourceResult] variants, never thrown.
+ * The caller reserves one call per request against the request limits of the source. An implementation that needs a further
+ * call for a lookup (the SEC ticker table download) reserves it itself; the returned [SourceResult.outcome] is the outcome of
+ * the last call made. Source failures are returned as [SourceResult] variants, never thrown.
  */
 interface BalanceSheetSource {
     /** Configured ID of the source. */

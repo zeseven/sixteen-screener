@@ -1,0 +1,52 @@
+{
+ "cik": 1000003,
+ "entityName": "Quarterly Only Corp",
+ "facts": {
+  "us-gaap": {
+   "Assets": {
+    "label": "Assets",
+    "description": "Description as provided by the SEC.",
+    "units": {
+     "USD": [
+      {
+       "end": "2025-03-31",
+       "val": 80000,
+       "accn": "0001000003-25-000011",
+       "fy": 2025,
+       "fp": "Q1",
+       "form": "10-Q",
+       "filed": "2025-05-09"
+      },
+      {
+       "end": "2025-06-30",
+       "val": 82000,
+       "accn": "0001000003-25-000017",
+       "fy": 2025,
+       "fp": "Q2",
+       "form": "10-Q",
+       "filed": "2025-08-08"
+      }
+     ]
+    }
+   },
+   "Revenues": {
+    "label": "Revenues",
+    "description": "Description as provided by the SEC.",
+    "units": {
+     "USD": [
+      {
+       "start": "2024-07-01",
+       "end": "2025-06-30",
+       "val": 9000,
+       "accn": "0001000003-25-000020",
+       "fy": 2025,
+       "fp": "FY",
+       "form": "10-K",
+       "filed": "2025-09-01"
+      }
+     ]
+    }
+   }
+  }
+ }
+}
