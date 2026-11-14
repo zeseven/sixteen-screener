@@ -93,7 +93,6 @@
     <string name="settings_app_section">App</string>
     <string name="settings_version">Version</string>
     <string name="settings_backend_url">Backend URL</string>
-    <string name="detail_title">Company details</string>
     <string name="detail_refresh">Refresh from sources</string>
     <string name="detail_tab_price_and_ratios">Price and ratio</string>
     <string name="detail_tab_balance_sheet">Balance sheet</string>
