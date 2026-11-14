@@ -10,11 +10,15 @@ import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.service.RateLimiter
 import com.sixteenscreener.domain.service.SourceCallGuard
 import com.sixteenscreener.domain.service.SourceCallOutcomes
+import com.sixteenscreener.fakes.FakeBalanceSheetSource
+import com.sixteenscreener.fakes.FakeMarketDataSource
 import com.sixteenscreener.fakes.InMemoryCompanyCache
 import com.sixteenscreener.fakes.InMemoryLogoMissRepository
+import com.sixteenscreener.fakes.InMemoryLogoStorage
 import com.sixteenscreener.fakes.InMemoryProfileRepository
 import com.sixteenscreener.fakes.InMemoryRequestCounterRepository
 import com.sixteenscreener.fakes.InMemorySourceCallOutcomeRepository
+import com.sixteenscreener.fakes.InMemorySymbolDirectory
 import com.sixteenscreener.fakes.MutableClock
 import kotlin.time.Duration.Companion.seconds
 
@@ -45,6 +49,10 @@ class TestPorts(
     val logoMisses: InMemoryLogoMissRepository = InMemoryLogoMissRepository(),
     val requestCounters: InMemoryRequestCounterRepository = InMemoryRequestCounterRepository(),
     val sourceCalls: InMemorySourceCallOutcomeRepository = InMemorySourceCallOutcomeRepository(),
+    val marketData: FakeMarketDataSource = FakeMarketDataSource(),
+    val balanceSheets: FakeBalanceSheetSource = FakeBalanceSheetSource(SourceId.of("finnhub")),
+    val symbolDirectory: InMemorySymbolDirectory = InMemorySymbolDirectory(),
+    val logoStorage: InMemoryLogoStorage = InMemoryLogoStorage(),
 )
 
 fun testServices(ports: TestPorts = TestPorts(), config: AppConfig = testConfig()): AppServices {
@@ -58,5 +66,9 @@ fun testServices(ports: TestPorts = TestPorts(), config: AppConfig = testConfig(
         rateLimiter = rateLimiter,
         sourceCallOutcomes = SourceCallOutcomes(ports.sourceCalls),
         sourceCallGuard = SourceCallGuard(rateLimiter),
+        marketDataSources = mapOf(ports.marketData.id to ports.marketData),
+        balanceSheetSources = mapOf(ports.balanceSheets.id to ports.balanceSheets),
+        symbolDirectory = ports.symbolDirectory,
+        logoStorage = ports.logoStorage,
     )
 }
