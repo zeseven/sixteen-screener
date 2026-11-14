@@ -261,6 +261,36 @@ class CompanyDataServiceTest : FunSpec({
             quote.trend shouldBe PriceTrend.UP
         }
 
+        test("failed cache write still returns the fresh data with FRESH") {
+            val f = fixture()
+            f.cachedQuote("AAPL", 180.0, age = Duration.ofDays(1))
+            f.quoteFromSource("AAPL", 190.0)
+            f.ratiosFromSource("AAPL")
+            f.cache.failWrites = true
+
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = true)
+
+            result.status shouldBe DataStatus.FRESH
+            result.fetchedAt shouldBe f.now
+            result.quote.data?.quote shouldBe Quote(190.0, "USD")
+            result.quote.data?.previousPrice?.price shouldBe 180.0
+            result.ratios.data shouldBe sampleRatios()
+            f.cache.get(quoteKey("AAPL"))?.data?.quote?.price shouldBe 180.0
+            f.cache.get(ratiosKey("AAPL")).shouldBeNull()
+        }
+
+        test("failed cache write of a quote without cache has no previous price") {
+            val f = fixture()
+            f.quoteFromSource("AAPL", 190.0)
+            f.cache.failWrites = true
+
+            val quote = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false).quote
+
+            quote.status shouldBe DataStatus.FRESH
+            quote.data?.previousPrice.shouldBeNull()
+            quote.data?.marketDate shouldBe java.time.LocalDate.parse("2026-11-14")
+        }
+
         test("one call outcome is recorded per request") {
             val f = fixture()
             f.quoteFromSource("AAPL", 190.0)
@@ -283,6 +313,18 @@ class CompanyDataServiceTest : FunSpec({
             result.data shouldBe sampleBalanceSheet()
             result.fetchedAt shouldBe f.now
             f.cache.get(balanceSheetKey("AAPL"))?.data shouldBe sampleBalanceSheet()
+        }
+
+        test("failed cache write still returns the fresh balance sheet") {
+            val f = fixture()
+            f.finnhubBalanceSheets.balanceSheets[AAPL] = SourceResult.Success(sampleBalanceSheet(), f.success())
+            f.cache.failWrites = true
+
+            val result = f.service.balanceSheet(f.profile.id, AAPL, source = null, refresh = false)
+
+            result.status shouldBe DataStatus.FRESH
+            result.data shouldBe sampleBalanceSheet()
+            result.fetchedAt shouldBe f.now
         }
 
         test("explicit SEC EDGAR source is used instead of the default source") {

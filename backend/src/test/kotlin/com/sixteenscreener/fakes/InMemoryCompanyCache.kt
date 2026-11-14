@@ -24,6 +24,8 @@ class InMemoryCompanyCache : CompanyCache {
     var getAllCalls: Int = 0
         private set
 
+    var failWrites: Boolean = false
+
     override suspend fun <T : Any> get(key: CacheKey<T>): CacheEntry<T>? = mutex.withLock {
         CacheEntries(entries)[key]
     }
@@ -35,6 +37,7 @@ class InMemoryCompanyCache : CompanyCache {
 
     override suspend fun <T : Any> put(key: CacheKey<T>, entry: CacheEntry<T>) {
         require(key.type != DataType.QUOTE) { "Quotes must be written with putQuote" }
+        failIfRequested()
         mutex.withLock { entries[key] = entry }
     }
 
@@ -45,6 +48,7 @@ class InMemoryCompanyCache : CompanyCache {
         fetchedAt: Instant,
         exchangeZone: ZoneId,
     ): CacheEntry<QuoteRecord> = mutex.withLock {
+        failIfRequested()
         val key = CacheKey(source, symbol, DataType.QUOTE)
         val marketDate = LocalDate.ofInstant(fetchedAt, exchangeZone)
         val current = CacheEntries(entries)[key]?.data
@@ -52,6 +56,10 @@ class InMemoryCompanyCache : CompanyCache {
         history[Triple(source, symbol, marketDate)] = QuoteHistoryEntry(source, symbol, marketDate, quote, fetchedAt)
         entries[key] = entry
         entry
+    }
+
+    private fun failIfRequested() {
+        if (failWrites) throw IllegalStateException("Cache write failed")
     }
 
     fun seedQuote(key: CacheKey<QuoteRecord>, entry: CacheEntry<QuoteRecord>) {

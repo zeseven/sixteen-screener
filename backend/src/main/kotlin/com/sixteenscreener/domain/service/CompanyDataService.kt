@@ -25,13 +25,16 @@ import com.sixteenscreener.port.outbound.CompanyCache
 import com.sixteenscreener.port.outbound.MarketDataSource
 import com.sixteenscreener.port.outbound.ProfileRepository
 import com.sixteenscreener.port.outbound.SymbolDirectory
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import org.slf4j.LoggerFactory
 import java.time.Instant
+import java.time.LocalDate
 import java.util.concurrent.atomic.AtomicBoolean
 
 data class WatchlistCompanyData(
@@ -187,25 +190,28 @@ class CompanyDataService(
             store = { quote: Quote, at ->
                 cache.putQuote(key.source, key.symbol, quote, at, marketResolver.timeZoneOf(listing))
             },
+            unstored = { quote, at ->
+                QuoteRecord.next(cached?.data, quote, LocalDate.ofInstant(at, marketResolver.timeZoneOf(listing)))
+            },
         )
 
     private fun ratiosFetch(key: CacheKey<Ratios>, cached: CacheEntry<Ratios>?) =
-        Fetch(key, cached, call = { marketData(key.source).ratios(key.symbol) }, store = stored(key))
+        storedAsIs(key, cached) { marketData(key.source).ratios(key.symbol) }
 
     private fun profileFetch(key: CacheKey<CompanyProfile>, cached: CacheEntry<CompanyProfile>?) =
-        Fetch(key, cached, call = { marketData(key.source).companyProfile(key.symbol) }, store = stored(key))
+        storedAsIs(key, cached) { marketData(key.source).companyProfile(key.symbol) }
 
     private fun balanceSheetFetch(key: CacheKey<BalanceSheet>, cached: CacheEntry<BalanceSheet>?) =
+        storedAsIs(key, cached) { balanceSheetSources.getValue(key.source).balanceSheet(key.symbol) }
+
+    private fun <T : Any> storedAsIs(key: CacheKey<T>, cached: CacheEntry<T>?, call: suspend () -> SourceResult<T>) =
         Fetch(
             key = key,
             cached = cached,
-            call = { balanceSheetSources.getValue(key.source).balanceSheet(key.symbol) },
-            store = stored(key),
+            call = call,
+            store = { data: T, at -> CacheEntry(data, at).also { cache.put(key, it) } },
+            unstored = { data, _ -> data },
         )
-
-    private fun <T : Any> stored(key: CacheKey<T>): suspend (T, Instant) -> CacheEntry<T> = { data, at ->
-        CacheEntry(data, at).also { cache.put(key, it) }
-    }
 
     private fun marketData(source: SourceId): MarketDataSource = marketDataSources.getValue(source)
 
@@ -273,6 +279,7 @@ class CompanyDataService(
         val cached: CacheEntry<T>?,
         private val call: suspend () -> SourceResult<R>,
         private val store: suspend (R, Instant) -> CacheEntry<T>,
+        private val unstored: (R, Instant) -> T,
     ) : Plan<T> {
 
         fun limitReached(): SourceData<T> = fallback(key, cached, DataStatus.LIMIT_REACHED)
@@ -282,12 +289,22 @@ class CompanyDataService(
             if (result is SourceResult.LimitReached && result.rejectedBySource) onRejectedBySource()
             return when (result) {
                 is SourceResult.Success -> {
-                    val entry = store(result.data, clock.now())
+                    val entry = storeOrKeep(result.data, clock.now())
                     SourceData(key.source, DataStatus.FRESH, entry.data, entry.fetchedAt)
                 }
                 else -> fallback(key, cached, result.dataStatus)
             }
         }
+
+        private suspend fun storeOrKeep(data: R, at: Instant): CacheEntry<T> =
+            try {
+                store(data, at)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn("Failed to cache {} of '{}' from source '{}'", key.type, key.symbol, key.source, e)
+                CacheEntry(unstored(data, at), at)
+            }
     }
 
     private class Loaded(private val byKey: Map<CacheKey<*>, SourceData<*>>) {
@@ -297,6 +314,8 @@ class CompanyDataService(
 
     private companion object {
         const val DEFAULT_MAX_CONCURRENT_CALLS = 5
+
+        private val logger = LoggerFactory.getLogger(CompanyDataService::class.java)
 
         fun <T : Any> fallback(key: CacheKey<T>, cached: CacheEntry<T>?, status: DataStatus): SourceData<T> =
             SourceData(key.source, status, cached?.data, cached?.fetchedAt)

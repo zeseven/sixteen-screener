@@ -276,6 +276,23 @@ class CompanyDataServiceWatchlistTest : FunSpec({
         quote.data?.quote shouldBe Quote(200.0, "EUR")
     }
 
+    test("failed cache writes still return the refreshed quotes and profiles as FRESH") {
+        val f = CompanyDataFixture()
+        f.listedWithQuotes(listOf("AAPL"))
+        f.cachedQuote("AAPL", 90.0, age = Duration.ofDays(1))
+        f.profileFromSource("AAPL")
+        f.cache.failWrites = true
+
+        val result = f.watchlist("AAPL").getValue(Symbol.of("AAPL"))
+
+        result.quote.status shouldBe DataStatus.FRESH
+        result.quote.fetchedAt shouldBe f.now
+        result.quote.data?.quote?.price shouldBe 100.0
+        result.quote.data?.previousPrice?.price shouldBe 90.0
+        result.profile.status shouldBe DataStatus.FRESH
+        result.profile.data shouldBe sampleProfile()
+    }
+
     test("watchlist without supported data types makes no calls") {
         val f = CompanyDataFixture(capabilities = emptySet())
         f.listedWithQuotes(listOf("AAPL"))

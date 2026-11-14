@@ -208,6 +208,20 @@ class WatchlistRoutesTest : FunSpec({
         }
     }
 
+    test("failed cache write still answers the refreshed quote") {
+        routeTest { ports ->
+            val profile = ports.savedProfile(watchlist = listOf("AAPL"))
+            ports.listed("AAPL")
+            ports.quoteFromSource("AAPL", 7.0)
+            ports.companyCache.failWrites = true
+
+            val response = client.get("/profiles/${profile.id}/watchlist")
+
+            response.status shouldBe HttpStatusCode.OK
+            response.json().items().single().quote()!!["price"] shouldBe JsonPrimitive(7.0)
+        }
+    }
+
     test("symbol missing from the directory is returned with best-effort data") {
         routeTest { ports ->
             val profile = ports.savedProfile(watchlist = listOf("GONE"))
