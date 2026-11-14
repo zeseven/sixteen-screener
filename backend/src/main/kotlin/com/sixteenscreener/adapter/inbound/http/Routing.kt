@@ -8,5 +8,6 @@ fun Application.configureRouting(services: AppServices) {
     routing {
         profileRoutes(services.profileUseCase)
         watchlistRoutes(services.watchlistUseCase, services.profileUseCase)
+        searchRoutes(services.searchUseCase)
     }
 }

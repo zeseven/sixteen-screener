@@ -29,12 +29,15 @@ import com.sixteenscreener.domain.service.MarketResolver
 import com.sixteenscreener.domain.service.NoSymbolDirectory
 import com.sixteenscreener.domain.service.ProfileService
 import com.sixteenscreener.domain.service.RateLimiter
+import com.sixteenscreener.domain.service.SearchResponseCache
+import com.sixteenscreener.domain.service.SearchService
 import com.sixteenscreener.domain.service.SourceCallGuard
 import com.sixteenscreener.domain.service.SourceCallOutcomes
 import com.sixteenscreener.domain.service.SourceCatalog
 import com.sixteenscreener.domain.service.WatchlistService
 import com.sixteenscreener.port.inbound.CompanyDataUseCase
 import com.sixteenscreener.port.inbound.ProfileUseCase
+import com.sixteenscreener.port.inbound.SearchUseCase
 import com.sixteenscreener.port.inbound.WatchlistUseCase
 import com.sixteenscreener.port.outbound.BalanceSheetSource
 import com.sixteenscreener.port.outbound.Clock
@@ -95,6 +98,18 @@ class AppServices(
         WatchlistService(profiles, sourceCatalog, symbolDirectory, companyData, identities)
 
     val companyDataUseCase: CompanyDataUseCase get() = companyData
+
+    val searchUseCase: SearchUseCase = SearchService(
+        profiles = profiles,
+        catalog = sourceCatalog,
+        marketDataSources = marketDataSources,
+        symbolDirectory = symbolDirectory,
+        companyData = companyData,
+        identities = identities,
+        guard = sourceCallGuard,
+        outcomes = sourceCallOutcomes,
+        responses = SearchResponseCache(clock),
+    )
 
     override fun close() = resources.forEach(AutoCloseable::close)
 }
