@@ -1,5 +1,6 @@
 package com.sixteenscreener.app.di
 
+import com.sixteenscreener.app.domain.DeviceClock
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -10,5 +11,5 @@ import java.time.Clock
 @InstallIn(SingletonComponent::class)
 object ClockModule {
     @Provides
-    fun provideClock(): Clock = Clock.systemDefaultZone()
+    fun provideClock(): Clock = DeviceClock()
 }

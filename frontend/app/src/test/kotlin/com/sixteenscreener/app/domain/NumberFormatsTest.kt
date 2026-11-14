@@ -1,0 +1,88 @@
+package com.sixteenscreener.app.domain
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class NumberFormatsTest {
+
+    @Test
+    fun `price has two decimals and the currency`() {
+        assertEquals("189.84 USD", NumberFormats.price(189.84, "USD"))
+        assertEquals("190.00 EUR", NumberFormats.price(190.0, "EUR"))
+        assertEquals("0.13 USD", NumberFormats.price(0.125, "USD"))
+    }
+
+    @Test
+    fun `price groups thousands`() {
+        assertEquals("1,234,567.89 USD", NumberFormats.price(1_234_567.891, "USD"))
+    }
+
+    @Test
+    fun `price without currency is the number only`() {
+        assertEquals("12.50", NumberFormats.price(12.5, null))
+        assertEquals("12.50", NumberFormats.price(12.5, " "))
+    }
+
+    @Test
+    fun `missing price is a dash`() {
+        assertEquals("-", NumberFormats.price(null, "USD"))
+    }
+
+    @Test
+    fun `abbreviation boundaries`() {
+        assertEquals("999", NumberFormats.abbreviated(999.0))
+        assertEquals("1 K", NumberFormats.abbreviated(1_000.0))
+        assertEquals("1 M", NumberFormats.abbreviated(999_999.0))
+        assertEquals("1 M", NumberFormats.abbreviated(1_000_000.0))
+        assertEquals("1 B", NumberFormats.abbreviated(999_999_999.0))
+        assertEquals("1 T", NumberFormats.abbreviated(1e12))
+    }
+
+    @Test
+    fun `abbreviation keeps one decimal`() {
+        assertEquals("352.6 B", NumberFormats.abbreviated(352_583_000_000.0))
+        assertEquals("1.5 K", NumberFormats.abbreviated(1_500.0))
+        assertEquals("2.5 T", NumberFormats.abbreviated(2.45e12))
+    }
+
+    @Test
+    fun `values below one thousand keep one decimal`() {
+        assertEquals("12.3", NumberFormats.abbreviated(12.34))
+        assertEquals("1 K", NumberFormats.abbreviated(999.96))
+        assertEquals("0", NumberFormats.abbreviated(0.0))
+    }
+
+    @Test
+    fun `negative values are abbreviated with a sign`() {
+        assertEquals("-1.5 M", NumberFormats.abbreviated(-1_500_000.0))
+        assertEquals("-999", NumberFormats.abbreviated(-999.0))
+        assertEquals("-1 K", NumberFormats.abbreviated(-1_000.0))
+        assertEquals("0", NumberFormats.abbreviated(-0.01))
+    }
+
+    @Test
+    fun `trillions beyond one thousand stay in T`() {
+        assertEquals("1,500 T", NumberFormats.abbreviated(1.5e15))
+    }
+
+    @Test
+    fun `missing values are dashes`() {
+        assertEquals("-", NumberFormats.abbreviated(null))
+        assertEquals("-", NumberFormats.decimal(null))
+        assertEquals("-", NumberFormats.integer(null))
+    }
+
+    @Test
+    fun `decimal keeps up to two fraction digits`() {
+        assertEquals("28.5", NumberFormats.decimal(28.5))
+        assertEquals("1.23", NumberFormats.decimal(1.2345))
+        assertEquals("1,234", NumberFormats.decimal(1234.0))
+        assertEquals("0", NumberFormats.decimal(-0.001))
+        assertEquals("-0.5", NumberFormats.decimal(-0.5))
+    }
+
+    @Test
+    fun `integer groups thousands`() {
+        assertEquals("164,000", NumberFormats.integer(164_000))
+    }
+}
