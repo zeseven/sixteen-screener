@@ -1,5 +1,6 @@
 package com.sixteenscreener.adapter.outbound.gcs
 
+import com.google.cloud.NoCredentials
 import com.google.cloud.storage.BlobId
 import com.google.cloud.storage.contrib.nio.testing.LocalStorageHelper
 import com.sixteenscreener.contract.exchangeDirectoryStoreContract
@@ -47,5 +48,15 @@ class GcsLogoStorageTest : FunSpec({
         val blob = storage.get(BlobId.of(BUCKET, "logos/SAP.DE.svg"))
         blob.contentType shouldBe "image/svg+xml"
         blob.getContent().decodeToString() shouldBe "<svg/>"
+    }
+})
+
+class GcsClientFactoryTest : FunSpec({
+    test("emulator host replaces the API host and disables credentials") {
+        GcsClientFactory.create("test-project", "http://localhost:4443").use { storage ->
+            storage.options.host shouldBe "http://localhost:4443"
+            storage.options.projectId shouldBe "test-project"
+            storage.options.credentials shouldBe NoCredentials.getInstance()
+        }
     }
 })

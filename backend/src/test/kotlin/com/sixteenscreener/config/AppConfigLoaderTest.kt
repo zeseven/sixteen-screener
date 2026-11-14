@@ -251,4 +251,20 @@ class AppConfigLoaderTest : FunSpec({
         val config = AppConfigLoader.load(ApplicationConfig("application.conf"), FULL_ENV)
         config.toString() shouldNotContain "finnhub-key"
     }
+
+    test("storage emulator host is taken from STORAGE_EMULATOR_HOST") {
+        val config = AppConfigLoader.load(
+            ApplicationConfig("application.conf"),
+            FULL_ENV + ("STORAGE_EMULATOR_HOST" to "http://localhost:4443"),
+        )
+        config.storageEmulatorHost shouldBe "http://localhost:4443"
+    }
+
+    test("storage emulator host is absent when STORAGE_EMULATOR_HOST is unset or blank") {
+        AppConfigLoader.load(ApplicationConfig("application.conf"), FULL_ENV).storageEmulatorHost shouldBe null
+        AppConfigLoader.load(
+            ApplicationConfig("application.conf"),
+            FULL_ENV + ("STORAGE_EMULATOR_HOST" to " "),
+        ).storageEmulatorHost shouldBe null
+    }
 })

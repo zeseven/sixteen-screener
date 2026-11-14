@@ -16,6 +16,7 @@ object AppConfigLoader {
     const val ENV_DEFAULT_SOURCE = "DEFAULT_SOURCE"
     const val ENV_FINNHUB_API_KEY = "FINNHUB_API_KEY"
     const val ENV_SEC_EDGAR_USER_AGENT = "SEC_EDGAR_USER_AGENT"
+    const val ENV_STORAGE_EMULATOR_HOST = "STORAGE_EMULATOR_HOST"
 
     private const val DEFAULT_TIMEOUT_MILLIS = 5000L
     private const val MAX_PORT = 65535
@@ -59,6 +60,7 @@ object AppConfigLoader {
             defaultSource = SourceId.of(checkNotNull(defaultSource)),
             sources = sources,
             secrets = secrets,
+            storageEmulatorHost = env.secret(ENV_STORAGE_EMULATOR_HOST),
         )
     }
 

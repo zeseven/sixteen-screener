@@ -12,6 +12,7 @@ data class AppConfig(
     val defaultSource: SourceId,
     val sources: List<SourceConfig>,
     val secrets: SourceSecrets,
+    val storageEmulatorHost: String? = null,
 ) {
     val enabledSources: List<SourceConfig> get() = sources.filter { it.enabled }
 
