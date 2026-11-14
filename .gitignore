@@ -15,3 +15,13 @@ GEMINI.md
 backend/.gradle/
 backend/build/
 backend/.kotlin/
+
+# Frontend build outputs
+frontend/.gradle/
+frontend/build/
+frontend/app/build/
+frontend/.kotlin/
+frontend/local.properties
+*.jks
+*.keystore
+frontend/.idea/
