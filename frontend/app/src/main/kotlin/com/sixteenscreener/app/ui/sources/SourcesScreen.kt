@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -55,6 +56,7 @@ import java.time.Instant
 
 object SourcesScreenTags {
     const val CARD = "source_card"
+    const val NAME = "source_name"
     const val DEFAULT_MARKER = "source_default_marker"
     const val CONNECTION_INDICATOR = "source_connection_indicator"
     const val LIMIT = "source_limit"
@@ -131,7 +133,14 @@ fun SourceCard(source: Source, modifier: Modifier = Modifier) {
     Card(modifier = modifier.fillMaxWidth().testTag(SourcesScreenTags.CARD)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(text = source.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f, fill = false))
+                Text(
+                    text = source.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .semantics { heading() }
+                        .testTag(SourcesScreenTags.NAME),
+                )
                 if (source.isDefault) DefaultMarker()
                 Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
                     ConnectionIndicatorText(source.lastCall)

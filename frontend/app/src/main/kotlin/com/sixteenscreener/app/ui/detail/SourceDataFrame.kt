@@ -15,6 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.sixteenscreener.app.R
 import com.sixteenscreener.app.domain.DataAge
@@ -117,6 +120,7 @@ private fun StatusNotice(text: String) {
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier
                 .padding(12.dp)
+                .semantics { liveRegion = LiveRegionMode.Polite }
                 .testTag(SourceDataFrameTags.STATUS_NOTICE),
         )
     }
@@ -130,6 +134,7 @@ private fun ErrorLine(text: String) {
         color = MaterialTheme.colorScheme.error,
         modifier = Modifier
             .padding(horizontal = 16.dp, vertical = 4.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite }
             .testTag(SourceDataFrameTags.ERROR),
     )
 }

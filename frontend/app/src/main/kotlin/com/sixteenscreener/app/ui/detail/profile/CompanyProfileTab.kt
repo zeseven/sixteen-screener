@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -37,6 +38,7 @@ object CompanyProfileTags {
     const val FIELD = "company_profile_field"
     const val WEBSITE = "company_profile_website"
     const val DESCRIPTION = "company_profile_description"
+    const val DESCRIPTION_TITLE = "company_profile_description_title"
 }
 
 /** "Company profile" tab: every field of the profile, `-` for missing values, the website as a link. */
@@ -63,7 +65,10 @@ fun CompanyProfileTab(profile: CompanyProfile?, modifier: Modifier = Modifier) {
             text = stringResource(R.string.profile_field_description),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+            modifier = Modifier
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp)
+                .semantics { heading() }
+                .testTag(CompanyProfileTags.DESCRIPTION_TITLE),
         )
         Text(
             text = profile?.description?.takeIf { it.isNotBlank() } ?: NumberFormats.MISSING,

@@ -1,5 +1,6 @@
 package com.sixteenscreener.app.ui.search
 
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -11,6 +12,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.CompanySummary
 import com.sixteenscreener.app.domain.model.ProblemDetails
+import com.sixteenscreener.app.testing.AccessibilityMatchers
 import com.sixteenscreener.app.testing.Companies.summary
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 import org.junit.Assert.assertEquals
@@ -112,5 +114,12 @@ class SearchContentTest {
         composeRule.onNodeWithContentDescription("Clear search").performClick()
 
         assertEquals(listOf(""), typed)
+    }
+
+    @Test
+    fun `notice is announced as a live region`() {
+        setContent(SearchUiState(query = "app", notice = SearchNotice.LIMIT_REACHED))
+
+        composeRule.onNodeWithTag(SearchScreenTags.NOTICE).assert(AccessibilityMatchers.isPoliteLiveRegion)
     }
 }

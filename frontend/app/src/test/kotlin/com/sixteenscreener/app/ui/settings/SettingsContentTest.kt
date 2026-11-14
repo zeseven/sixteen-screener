@@ -1,8 +1,12 @@
 package com.sixteenscreener.app.ui.settings
 
+import androidx.compose.ui.test.assertAll
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -92,5 +96,14 @@ class SettingsContentTest {
         setContent(state(isSwitching = true))
 
         tagged(SettingsScreenTags.SWITCH_BUTTON).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `section titles are headings`() {
+        setContent(state())
+
+        val titles = composeRule.onAllNodesWithTag(SettingsScreenTags.SECTION_TITLE, useUnmergedTree = true)
+        titles.assertCountEquals(2)
+        titles.assertAll(isHeading())
     }
 }

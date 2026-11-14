@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -46,6 +47,7 @@ object SettingsScreenTags {
     const val SWITCH_BUTTON = "settings_switch_button"
     const val VERSION = "settings_version"
     const val BACKEND_URL = "settings_backend_url"
+    const val SECTION_TITLE = "settings_section_title"
 }
 
 /** Settings screen; [onProfileSwitched] is called once another profile has been selected. */
@@ -152,7 +154,14 @@ private fun ProfileSwitch(
 
 @Composable
 private fun SectionTitle(text: String) {
-    Text(text = text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .semantics { heading() }
+            .testTag(SettingsScreenTags.SECTION_TITLE),
+    )
 }
 
 @Composable

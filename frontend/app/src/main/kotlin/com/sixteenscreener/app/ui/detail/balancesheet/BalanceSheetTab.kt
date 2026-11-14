@@ -18,6 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -103,9 +106,13 @@ fun BalanceSheetGrid(table: BalanceSheetTable, modifier: Modifier = Modifier) {
                 .testTag(BalanceSheetTags.YEAR_COLUMNS),
         ) {
             table.columns.forEachIndexed { index, column ->
+                val title = columnTitle(column)
                 Column(modifier = Modifier.width(YearColumnWidth)) {
-                    HeaderCell(columnTitle(column), TextAlign.End, Modifier.testTag(BalanceSheetTags.YEAR_HEADER))
-                    table.rows.forEach { row -> ValueCell(NumberFormats.abbreviated(row.values[index])) }
+                    HeaderCell(title, TextAlign.End, Modifier.testTag(BalanceSheetTags.YEAR_HEADER))
+                    table.rows.forEach { row ->
+                        val value = NumberFormats.abbreviated(row.values[index])
+                        ValueCell(value, stringResource(R.string.detail_balance_sheet_cell_description, row.label, title, value))
+                    }
                 }
             }
         }
@@ -129,7 +136,9 @@ private fun HeaderCell(text: String, textAlign: TextAlign, modifier: Modifier = 
             fontWeight = FontWeight.Bold,
             textAlign = textAlign,
             maxLines = 1,
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier
+                .fillMaxWidth()
+                .semantics { heading() },
         )
     }
 }
@@ -151,14 +160,17 @@ private fun LabelCell(row: BalanceSheetRow, showUnit: Boolean) {
 }
 
 @Composable
-private fun ValueCell(text: String) {
+private fun ValueCell(text: String, description: String) {
     Cell {
         Text(
             text = text,
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.End,
             maxLines = 1,
-            modifier = Modifier.fillMaxWidth().testTag(BalanceSheetTags.VALUE),
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = description }
+                .testTag(BalanceSheetTags.VALUE),
         )
     }
 }

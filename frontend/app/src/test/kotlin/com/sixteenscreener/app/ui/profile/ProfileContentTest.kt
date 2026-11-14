@@ -1,7 +1,9 @@
 package com.sixteenscreener.app.ui.profile
 
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -73,5 +75,12 @@ class ProfileContentTest {
         setContent(ProfileUiState(name = "Viktor", isSubmitting = true))
 
         composeRule.onNodeWithTag(ProfileScreenTags.CONTINUE_BUTTON).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `title is a heading`() {
+        setContent(ProfileUiState())
+
+        composeRule.onNodeWithTag(ProfileScreenTags.TITLE).assert(isHeading())
     }
 }

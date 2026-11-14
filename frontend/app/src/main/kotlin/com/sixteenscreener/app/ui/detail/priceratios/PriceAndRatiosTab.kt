@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -37,6 +38,7 @@ object PriceAndRatiosTags {
     const val PRICE = "price_and_ratios_price"
     const val CACHE_INDICATOR = "price_and_ratios_cache_indicator"
     const val RATIO = "price_and_ratios_ratio"
+    const val SECTION_TITLE = "price_and_ratios_section_title"
 }
 
 /** "Price and ratio" tab: price with currency, trend color and cache indicator, then the ratio list. */
@@ -59,7 +61,10 @@ private fun SectionTitle(text: String) {
         text = text,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+        modifier = Modifier
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)
+            .semantics { heading() }
+            .testTag(PriceAndRatiosTags.SECTION_TITLE),
     )
 }
 

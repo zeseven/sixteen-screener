@@ -2,8 +2,10 @@ package com.sixteenscreener.app.ui.sources
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -21,11 +23,11 @@ import com.sixteenscreener.app.testing.Sources.outcome
 import com.sixteenscreener.app.testing.Sources.source
 import com.sixteenscreener.app.ui.component.LocalClock
 import com.sixteenscreener.app.ui.theme.SixteenTheme
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.time.Instant
 
 @RunWith(AndroidJUnit4::class)
 class SourcesContentTest {
@@ -138,5 +140,12 @@ class SourcesContentTest {
         setContent(SourcesUiState(loadError = ApiError.Network(isTimeout = true)))
 
         composeRule.onNodeWithText("Cannot reach server. Check connection").assertExists()
+    }
+
+    @Test
+    fun `source name is a heading`() {
+        setSources(source())
+
+        composeRule.onNodeWithTag(SourcesScreenTags.NAME, useUnmergedTree = true).assert(isHeading())
     }
 }

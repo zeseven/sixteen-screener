@@ -6,9 +6,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertAll
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -26,6 +30,7 @@ import com.sixteenscreener.app.domain.model.DataStatus
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.testing.AccessibilityMatchers
 import com.sixteenscreener.app.testing.Companies
 import com.sixteenscreener.app.testing.CompanyData
 import com.sixteenscreener.app.testing.CompanyData.item
@@ -37,11 +42,11 @@ import com.sixteenscreener.app.ui.detail.balancesheet.BalanceSheetTags
 import com.sixteenscreener.app.ui.detail.priceratios.PriceAndRatiosTags
 import com.sixteenscreener.app.ui.detail.profile.CompanyProfileTags
 import com.sixteenscreener.app.ui.theme.SixteenTheme
+import java.time.Duration
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.time.Duration
 
 @RunWith(AndroidJUnit4::class)
 class DetailContentTest {
@@ -318,5 +323,54 @@ class DetailContentTest {
         val link = composeRule.onNodeWithTag(CompanyProfileTags.WEBSITE, useUnmergedTree = true).fetchSemanticsNode()
             .config[SemanticsProperties.Text].single().getLinkAnnotations(0, Int.MAX_VALUE).single().item
         assertEquals("https://www.apple.com", (link as LinkAnnotation.Url).url)
+    }
+
+    @Test
+    fun `price and ratio section titles are headings`() {
+        setContent(state())
+
+        val titles = composeRule.onAllNodesWithTag(PriceAndRatiosTags.SECTION_TITLE, useUnmergedTree = true)
+        titles.assertCountEquals(2)
+        titles.assertAll(isHeading())
+    }
+
+    @Test
+    fun `company profile description title is a heading`() {
+        setContent(state(selectedTab = DetailTab.COMPANY_PROFILE, companyProfile = TabData(CompanyData.companyProfileData())))
+
+        tagged(CompanyProfileTags.DESCRIPTION_TITLE).assert(isHeading())
+    }
+
+    @Test
+    fun `status notice and request error are announced as live regions`() {
+        setContent(
+            state(
+                priceAndRatios = TabData(
+                    CompanyData.priceAndRatios(status = DataStatus.LIMIT_REACHED),
+                    error = ApiError.Network(isTimeout = false),
+                ),
+            ),
+        )
+
+        tagged(SourceDataFrameTags.STATUS_NOTICE).assert(AccessibilityMatchers.isPoliteLiveRegion)
+        tagged(SourceDataFrameTags.ERROR).assert(AccessibilityMatchers.isPoliteLiveRegion)
+    }
+
+    @Test
+    fun `balance sheet headers are headings and values are described with their row and year`() {
+        val sheet = CompanyData.balanceSheet(
+            period(2026, item("Assets", 2e12, label = "Total assets"), item("Goodwill", 1_000.0)),
+            period(2025, item("Assets", 1e12, label = "Total assets")),
+        )
+        setContent(state(selectedTab = DetailTab.BALANCE_SHEET, balanceSheet = balanceSheetState(sheet)))
+
+        composeRule.onAllNodesWithTag(BalanceSheetTags.YEAR_HEADER, useUnmergedTree = true).assertAll(isHeading())
+        composeRule.onNodeWithText("Values in USD").assert(isHeading())
+        val descriptions = composeRule.onAllNodesWithTag(BalanceSheetTags.VALUE, useUnmergedTree = true).fetchSemanticsNodes()
+            .map { node -> node.config[SemanticsProperties.ContentDescription].single() }
+        assertEquals(
+            listOf("Total assets, 2026: 2 T", "Goodwill, 2026: 1 K", "Total assets, 2025: 1 T", "Goodwill, 2025: -"),
+            descriptions,
+        )
     }
 }

@@ -23,6 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.tooling.preview.Preview
@@ -38,6 +40,7 @@ import com.sixteenscreener.app.ui.theme.SixteenTheme
 object ProfileScreenTags {
     const val NAME_FIELD = "profile_name_field"
     const val CONTINUE_BUTTON = "profile_continue_button"
+    const val TITLE = "profile_title"
 }
 
 @Composable
@@ -69,7 +72,13 @@ fun ProfileContent(
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         ) {
-            Text(text = stringResource(R.string.profile_title), style = MaterialTheme.typography.headlineMedium)
+            Text(
+                text = stringResource(R.string.profile_title),
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier
+                    .semantics { heading() }
+                    .testTag(ProfileScreenTags.TITLE),
+            )
             Text(text = stringResource(R.string.profile_prompt), style = MaterialTheme.typography.bodyLarge)
             OutlinedTextField(
                 value = uiState.name,
