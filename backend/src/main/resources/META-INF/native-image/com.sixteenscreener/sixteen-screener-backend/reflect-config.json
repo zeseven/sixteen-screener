@@ -1,0 +1,1474 @@
+[
+  {
+    "name": "ch.qos.logback.classic.encoder.PatternLayoutEncoder",
+    "queryAllPublicMethods": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "ch.qos.logback.classic.util.DefaultJoranConfigurator",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "ch.qos.logback.core.ConsoleAppender",
+    "queryAllPublicMethods": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "ch.qos.logback.core.Layout",
+    "methods": [
+      {
+        "name": "valueOf",
+        "parameterTypes": [
+          "java.lang.String"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ch.qos.logback.core.OutputStreamAppender",
+    "methods": [
+      {
+        "name": "setEncoder",
+        "parameterTypes": [
+          "ch.qos.logback.core.encoder.Encoder"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ch.qos.logback.core.encoder.Encoder",
+    "methods": [
+      {
+        "name": "valueOf",
+        "parameterTypes": [
+          "java.lang.String"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ch.qos.logback.core.encoder.LayoutWrappingEncoder",
+    "queryAllPublicMethods": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      },
+      {
+        "name": "setLayout",
+        "parameterTypes": [
+          "ch.qos.logback.core.Layout"
+        ]
+      },
+      {
+        "name": "setParent",
+        "parameterTypes": [
+          "ch.qos.logback.core.spi.ContextAware"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ch.qos.logback.core.pattern.PatternLayoutEncoderBase",
+    "methods": [
+      {
+        "name": "setPattern",
+        "parameterTypes": [
+          "java.lang.String"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ch.qos.logback.core.spi.ContextAware",
+    "methods": [
+      {
+        "name": "valueOf",
+        "parameterTypes": [
+          "java.lang.String"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.BalanceSheetResponseDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.BalanceSheetResponseDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.CompanyProfileResponseDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.CompanyProfileResponseDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.PriceAndRatiosResponseDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.PriceAndRatiosResponseDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.ProfileCreateDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.ProfileCreateDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.ProfileDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.ProfileDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.SearchResultsDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.SearchResultsDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.SourceRoutesKt$sourceRoutes$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.SourcesDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.SourcesDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.WatchlistDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.WatchlistDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.finnhub.BasicFinancialsDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.finnhub.BasicFinancialsDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.finnhub.CompanyProfile2Dto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.finnhub.CompanyProfile2Dto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.finnhub.FinancialsReportedDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.finnhub.FinancialsReportedDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.finnhub.QuoteDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.finnhub.QuoteDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.finnhub.SearchResponseDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.finnhub.SearchResponseDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.http.SourceHttpCall$execute$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.logging.CloudLoggingJsonLayout",
+    "queryAllPublicMethods": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.secedgar.SecCikResolver$download$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.secedgar.SecCikResolver$resolve$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.secedgar.SecCikResolver$resolveFromTable$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.secedgar.SecEdgarClient$balanceSheet$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.secedgar.SecTickerDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.secedgar.SecTickerDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.domain.model.InvalidInputException",
+    "allDeclaredFields": true,
+    "queryAllPublicConstructors": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String"
+        ]
+      },
+      {
+        "name": "copyForStackTraceRecovery",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.domain.model.ResourceNotFoundException",
+    "allDeclaredFields": true,
+    "queryAllPublicConstructors": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String"
+        ]
+      },
+      {
+        "name": "copyForStackTraceRecovery",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.domain.service.SearchService$answer$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.domain.service.SearchService$answer$result$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.domain.service.SearchService$answer$result$1$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.domain.service.SearchService$search$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.domain.service.SourceCallGuard$single$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.domain.service.SourceCallOutcomes$recording$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.HttpClient",
+    "fields": [
+      {
+        "name": "closed"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.HttpClient$execute$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.HttpClientConfig"
+  },
+  {
+    "name": "io.ktor.client.call.HttpClientCall",
+    "fields": [
+      {
+        "name": "received"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.content.ProgressListener"
+  },
+  {
+    "name": "io.ktor.client.engine.HttpClientEngine$executeWithinCallContext$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.engine.HttpClientEngine$executeWithinCallContext$2",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.engine.HttpClientEngine$install$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.engine.HttpClientEngineBase",
+    "fields": [
+      {
+        "name": "clientRefCount$internal"
+      },
+      {
+        "name": "closed"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.engine.HttpClientEngineCapability"
+  },
+  {
+    "name": "io.ktor.client.engine.HttpClientEngineConfig"
+  },
+  {
+    "name": "io.ktor.client.engine.cio.CIOEngine$execute$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.engine.cio.Endpoint",
+    "fields": [
+      {
+        "name": "connections"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.engine.cio.Endpoint$connect$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.engine.cio.Endpoint$connectWithTimeout$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.engine.cio.Endpoint$execute$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.engine.cio.Endpoint$makeDedicatedRequest$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.plugins.HttpCallValidatorKt$HttpCallValidator$2$2",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.plugins.HttpRequestLifecycleKt$HttpRequestLifecycle$1$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.plugins.HttpRetryDelayContext"
+  },
+  {
+    "name": "io.ktor.client.plugins.HttpRetryModifyRequestContext"
+  },
+  {
+    "name": "io.ktor.client.plugins.HttpRetryShouldRetryContext"
+  },
+  {
+    "name": "io.ktor.client.plugins.HttpSend"
+  },
+  {
+    "name": "io.ktor.client.plugins.HttpSend$DefaultSender$execute$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.plugins.HttpSend$Plugin$install$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.plugins.HttpTimeoutConfig"
+  },
+  {
+    "name": "io.ktor.client.plugins.HttpTimeoutKt$HttpTimeout$3$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.plugins.HttpTimeoutKt$applyRequestTimeout$killer$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.plugins.RequestError$install$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.plugins.SetupRequestContext$install$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.plugins.api.ClientPluginImpl"
+  },
+  {
+    "name": "io.ktor.client.plugins.api.ClientPluginInstance"
+  },
+  {
+    "name": "io.ktor.client.plugins.api.Send$install$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.client.request.HttpRequest"
+  },
+  {
+    "name": "io.ktor.client.request.HttpRequestBuilder"
+  },
+  {
+    "name": "io.ktor.client.request.ResponseAdapter"
+  },
+  {
+    "name": "io.ktor.client.statement.HttpResponse"
+  },
+  {
+    "name": "io.ktor.client.statement.HttpStatement$fetchResponse$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.http.ContentType"
+  },
+  {
+    "name": "io.ktor.http.HttpMethod"
+  },
+  {
+    "name": "io.ktor.http.HttpStatusCode"
+  },
+  {
+    "name": "io.ktor.http.content.ByteArrayContent"
+  },
+  {
+    "name": "io.ktor.http.content.TextContent"
+  },
+  {
+    "name": "io.ktor.network.selector.InterestSuspensionsMap",
+    "fields": [
+      {
+        "name": "acceptHandlerReference"
+      },
+      {
+        "name": "connectHandlerReference"
+      },
+      {
+        "name": "readHandlerReference"
+      },
+      {
+        "name": "writeHandlerReference"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.network.selector.LockFreeMPSCQueue",
+    "fields": [
+      {
+        "name": "curRef"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.network.selector.LockFreeMPSCQueueCore",
+    "fields": [
+      {
+        "name": "nextRef"
+      },
+      {
+        "name": "stateRef"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.network.selector.SelectableBase",
+    "fields": [
+      {
+        "name": "_interestedOps"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.network.sockets.SocketBase",
+    "fields": [
+      {
+        "name": "actualCloseFlag"
+      },
+      {
+        "name": "closeFlag"
+      },
+      {
+        "name": "readerJob"
+      },
+      {
+        "name": "writerJob"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.openapi.JsonSchemaInference"
+  },
+  {
+    "name": "io.ktor.openapi.Operation"
+  },
+  {
+    "name": "io.ktor.openapi.Operation$Builder"
+  },
+  {
+    "name": "io.ktor.server.application.PluginInstance"
+  },
+  {
+    "name": "io.ktor.server.application.ReceiveGuard",
+    "fields": [
+      {
+        "name": "inProgress"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.server.application.hooks.CallFailed$install$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.server.application.hooks.CallFailed$install$1$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.server.engine.BaseApplicationResponse"
+  },
+  {
+    "name": "io.ktor.server.engine.BaseApplicationResponse$Companion$setupFallbackResponse$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.server.plugins.BadRequestException",
+    "allDeclaredFields": true,
+    "queryAllPublicConstructors": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.Throwable"
+        ]
+      },
+      {
+        "name": "copyForStackTraceRecovery",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.server.plugins.MutableOriginConnectionPoint"
+  },
+  {
+    "name": "io.ktor.server.plugins.calllogging.CallLoggingKt$logCallsWithMDC$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.server.plugins.calllogging.CallLoggingKt$logCallsWithMDC$1$invokeSuspend$$inlined$withMDC$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.server.plugins.calllogging.CallLoggingKt$logCallsWithMDC$2",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.server.plugins.calllogging.CallLoggingKt$logCallsWithMDC$2$invokeSuspend$$inlined$withMDC$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.server.plugins.calllogging.KtorMDCProvider"
+  },
+  {
+    "name": "io.ktor.server.plugins.calllogging.MDCHookKt$MDCHook$1$install$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.server.request.DoubleReceivePreventionToken"
+  },
+  {
+    "name": "io.ktor.server.routing.RoutingCall"
+  },
+  {
+    "name": "io.ktor.server.routing.RoutingNode$buildPipeline$1$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.server.routing.RoutingRoot"
+  },
+  {
+    "name": "io.ktor.server.routing.RoutingRoot$Plugin$install$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.server.routing.RoutingRoot$executeResult$$inlined$execute$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.server.routing.RoutingRoot$executeResult$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.server.routing.RoutingRoot$interceptor$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.util.Attributes"
+  },
+  {
+    "name": "io.ktor.util.collections.CopyOnWriteHashMap",
+    "fields": [
+      {
+        "name": "current"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.util.internal.LockFreeLinkedListNode",
+    "fields": [
+      {
+        "name": "_next"
+      },
+      {
+        "name": "_prev"
+      },
+      {
+        "name": "removedRef"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.util.pipeline.DebugPipelineContext$proceedLoop$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.util.reflect.TypeInfo"
+  },
+  {
+    "name": "io.ktor.utils.io.ByteChannel",
+    "fields": [
+      {
+        "name": "_closedCause"
+      },
+      {
+        "name": "closeHandler"
+      },
+      {
+        "name": "suspensionSlot"
+      }
+    ]
+  },
+  {
+    "name": "io.ktor.utils.io.ByteReadChannel"
+  },
+  {
+    "name": "io.ktor.utils.io.pool.DefaultPool",
+    "fields": [
+      {
+        "name": "top"
+      }
+    ]
+  },
+  {
+    "name": "kotlin.Any"
+  },
+  {
+    "name": "kotlin.Boolean"
+  },
+  {
+    "name": "kotlin.ByteArray"
+  },
+  {
+    "name": "kotlin.Cloneable"
+  },
+  {
+    "name": "kotlin.Function0"
+  },
+  {
+    "name": "kotlin.Function1"
+  },
+  {
+    "name": "kotlin.Function2"
+  },
+  {
+    "name": "kotlin.Function3"
+  },
+  {
+    "name": "kotlin.Int"
+  },
+  {
+    "name": "kotlin.Long"
+  },
+  {
+    "name": "kotlin.Metadata",
+    "queryAllDeclaredMethods": true,
+    "methods": [
+      {
+        "name": "bv",
+        "parameterTypes": []
+      },
+      {
+        "name": "d1",
+        "parameterTypes": []
+      },
+      {
+        "name": "d2",
+        "parameterTypes": []
+      },
+      {
+        "name": "k",
+        "parameterTypes": []
+      },
+      {
+        "name": "mv",
+        "parameterTypes": []
+      },
+      {
+        "name": "pn",
+        "parameterTypes": []
+      },
+      {
+        "name": "xi",
+        "parameterTypes": []
+      },
+      {
+        "name": "xs",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "kotlin.Pair",
+    "fields": [
+      {
+        "name": "first"
+      },
+      {
+        "name": "second"
+      }
+    ],
+    "methods": [
+      {
+        "name": "getFirst",
+        "parameterTypes": []
+      },
+      {
+        "name": "getSecond",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "kotlin.SafePublicationLazyImpl",
+    "fields": [
+      {
+        "name": "_value"
+      }
+    ]
+  },
+  {
+    "name": "kotlin.String"
+  },
+  {
+    "name": "kotlin.Throwable"
+  },
+  {
+    "name": "kotlin.Unit"
+  },
+  {
+    "name": "kotlin.collections.List"
+  },
+  {
+    "name": "kotlin.collections.Map"
+  },
+  {
+    "name": "kotlin.coroutines.jvm.internal.BaseContinuationImpl"
+  },
+  {
+    "name": "kotlin.io.Serializable"
+  },
+  {
+    "name": "kotlin.jvm.internal.DefaultConstructorMarker"
+  },
+  {
+    "name": "kotlin.reflect.jvm.internal.ReflectionFactoryImpl",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "kotlin.reflect.jvm.internal.impl.resolve.scopes.DescriptorKindFilter",
+    "allPublicFields": true
+  },
+  {
+    "name": "kotlin.time.Duration"
+  },
+  {
+    "name": "kotlinx.coroutines.AwaitAll",
+    "fields": [
+      {
+        "name": "notCompletedCount$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.AwaitAll$AwaitAllNode",
+    "fields": [
+      {
+        "name": "_disposer$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.CancellableContinuationImpl",
+    "fields": [
+      {
+        "name": "_decisionAndIndex$volatile"
+      },
+      {
+        "name": "_parentHandle$volatile"
+      },
+      {
+        "name": "_state$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.CancelledContinuation",
+    "fields": [
+      {
+        "name": "_resumed$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.CompletedExceptionally",
+    "fields": [
+      {
+        "name": "_handled$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.DispatchedCoroutine",
+    "fields": [
+      {
+        "name": "_decision$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.EventLoopImplBase",
+    "fields": [
+      {
+        "name": "_delayed$volatile"
+      },
+      {
+        "name": "_isCompleted$volatile"
+      },
+      {
+        "name": "_queue$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.InvokeOnCancelling",
+    "fields": [
+      {
+        "name": "_invoked$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.JobSupport",
+    "fields": [
+      {
+        "name": "_parentHandle$volatile"
+      },
+      {
+        "name": "_state$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.JobSupport$Finishing",
+    "fields": [
+      {
+        "name": "_exceptionsHolder$volatile"
+      },
+      {
+        "name": "_isCompleting$volatile"
+      },
+      {
+        "name": "_rootCause$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.TimeoutKt$withTimeoutOrNull$1",
+    "fields": [
+      {
+        "name": "label"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.channels.BufferedChannel",
+    "fields": [
+      {
+        "name": "_closeCause$volatile"
+      },
+      {
+        "name": "bufferEnd$volatile"
+      },
+      {
+        "name": "bufferEndSegment$volatile"
+      },
+      {
+        "name": "closeHandler$volatile"
+      },
+      {
+        "name": "completedExpandBuffersAndPauseFlag$volatile"
+      },
+      {
+        "name": "receiveSegment$volatile"
+      },
+      {
+        "name": "receivers$volatile"
+      },
+      {
+        "name": "sendSegment$volatile"
+      },
+      {
+        "name": "sendersAndCloseStatus$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.internal.ConcurrentLinkedListNode",
+    "fields": [
+      {
+        "name": "_next$volatile"
+      },
+      {
+        "name": "_prev$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.internal.DispatchedContinuation",
+    "fields": [
+      {
+        "name": "_reusableCancellableContinuation$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.internal.LimitedDispatcher",
+    "fields": [
+      {
+        "name": "runningWorkers$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.internal.LockFreeLinkedListNode",
+    "fields": [
+      {
+        "name": "_next$volatile"
+      },
+      {
+        "name": "_prev$volatile"
+      },
+      {
+        "name": "_removedRef$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.internal.LockFreeTaskQueue",
+    "fields": [
+      {
+        "name": "_cur$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.internal.LockFreeTaskQueueCore",
+    "fields": [
+      {
+        "name": "_next$volatile"
+      },
+      {
+        "name": "_state$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.internal.Segment",
+    "fields": [
+      {
+        "name": "cleanedAndPointers$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.internal.StackTraceRecoveryKt"
+  },
+  {
+    "name": "kotlinx.coroutines.internal.ThreadSafeHeap",
+    "fields": [
+      {
+        "name": "_size$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.scheduling.CoroutineScheduler",
+    "fields": [
+      {
+        "name": "_isTerminated$volatile"
+      },
+      {
+        "name": "controlState$volatile"
+      },
+      {
+        "name": "parkedWorkersStack$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.scheduling.CoroutineScheduler$Worker",
+    "fields": [
+      {
+        "name": "workerCtl$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.scheduling.WorkQueue",
+    "fields": [
+      {
+        "name": "blockingTasksInBuffer$volatile"
+      },
+      {
+        "name": "consumerIndex$volatile"
+      },
+      {
+        "name": "lastScheduledTask$volatile"
+      },
+      {
+        "name": "producerIndex$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.sync.MutexImpl",
+    "fields": [
+      {
+        "name": "owner$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.coroutines.sync.SemaphoreAndMutexImpl",
+    "fields": [
+      {
+        "name": "_availablePermits$volatile"
+      },
+      {
+        "name": "deqIdx$volatile"
+      },
+      {
+        "name": "enqIdx$volatile"
+      },
+      {
+        "name": "head$volatile"
+      },
+      {
+        "name": "tail$volatile"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.io.RefCountingCopyTracker",
+    "fields": [
+      {
+        "name": "copyCount"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.io.Source"
+  },
+  {
+    "name": "kotlinx.serialization.SerializationException",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "kotlinx.serialization.json.JsonDecodingException",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "copyForStackTraceRecovery",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.serialization.json.JsonException",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "kotlinx.serialization.json.JsonLiteral"
+  },
+  {
+    "name": "kotlinx.serialization.json.JsonNull"
+  }
+]

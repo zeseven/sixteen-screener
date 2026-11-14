@@ -79,6 +79,8 @@ tasks.register<Test>("emulatorTest") {
     }
 }
 
+val nativeStubObject = layout.buildDirectory.file("native/stubs/scoped_memory_access_stub.o")
+
 graalvmNative {
     toolchainDetection = false
     testSupport = false
@@ -91,6 +93,27 @@ graalvmNative {
             "--no-fallback",
             "-H:+ReportExceptionStackTraces",
             "--enable-url-protocols=https",
+            "-march=compatibility",
+            "--initialize-at-build-time=kotlin.DeprecationLevel,kotlin.annotation.AnnotationRetention,kotlin.annotation.AnnotationTarget",
+            "-H:NativeLinkerOption=${nativeStubObject.get().asFile.absolutePath}",
         )
     }
+}
+
+tasks.register<Exec>("compileNativeStubs") {
+    val source = layout.projectDirectory.file("src/main/native/scoped_memory_access_stub.c")
+    val javaHome = providers.systemProperty("java.home")
+    inputs.file(source)
+    outputs.file(nativeStubObject)
+    doFirst { nativeStubObject.get().asFile.parentFile.mkdirs() }
+    commandLine(
+        "cc", "-c", "-O2", "-fPIC",
+        "-I${javaHome.get()}/include", "-I${javaHome.get()}/include/linux",
+        "-o", nativeStubObject.get().asFile.absolutePath,
+        source.asFile.absolutePath,
+    )
+}
+
+tasks.named("nativeCompile") {
+    dependsOn("compileNativeStubs")
 }
