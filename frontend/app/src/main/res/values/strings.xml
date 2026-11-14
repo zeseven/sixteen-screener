@@ -1,4 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Sixteen Screener</string>
+
+    <string name="error_network">Cannot reach server. Check connection</string>
+    <string name="error_unauthorized">The app cannot authenticate to the server</string>
+    <string name="error_not_found">Not found</string>
+    <string name="error_server">Server error (%1$d)</string>
+    <string name="error_parse">Unexpected server response</string>
+
+    <string name="profile_title">Welcome</string>
+    <string name="profile_prompt">Enter your profile name. The watchlist is stored per profile, so the same name opens the same watchlist.</string>
+    <string name="profile_name_label">Profile name</string>
+    <string name="profile_continue">Continue</string>
+    <string name="profile_error_blank">Enter a profile name</string>
+    <string name="profile_error_too_long">Use at most %1$d characters</string>
 </resources>
