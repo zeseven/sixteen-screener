@@ -35,6 +35,21 @@
     <string name="watchlist_in_watchlist_description">%1$s is in the watchlist</string>
     <string name="watchlist_remove_description">Remove %1$s from the watchlist</string>
 
+    <string name="filter_value">%1$s: %2$s</string>
+    <string name="filter_all">All</string>
+    <string name="filter_market">Market</string>
+    <string name="filter_sector">Sector</string>
+    <string name="market_filter_us">USA</string>
+    <string name="market_filter_eu">EU</string>
+    <string name="undo">Undo</string>
+
+    <string name="watchlist_add_company">Add company</string>
+    <string name="watchlist_empty">Your watchlist is empty. Add companies via search.</string>
+    <string name="watchlist_no_matches">No companies match the filters</string>
+    <string name="watchlist_removed">%1$s removed</string>
+    <string name="watchlist_remove_failed">Cannot remove %1$s: %2$s</string>
+    <string name="watchlist_undo_failed">Cannot restore %1$s: %2$s</string>
+
     <string name="tab_watchlist">Watchlist</string>
     <string name="tab_search">Search</string>
     <string name="tab_sources">Sources</string>
