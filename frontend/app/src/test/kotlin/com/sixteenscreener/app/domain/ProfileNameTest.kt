@@ -46,18 +46,18 @@ class ProfileNameTest {
 
     @Test
     fun `length is counted in code points so forty surrogate pairs are valid`() {
-        val name = "😀".repeat(40)
+        val name = "\uD83D\uDE00".repeat(40)
 
         assertEquals(name, validName(name))
     }
 
     @Test
     fun `forty one surrogate pairs are too long`() {
-        assertEquals(ProfileNameValidation.TooLong, ProfileName.parse("😀".repeat(41)))
+        assertEquals(ProfileNameValidation.TooLong, ProfileName.parse("\uD83D\uDE00".repeat(41)))
     }
 
     @Test
     fun `non latin letters are valid`() {
-        assertEquals("Виктор", validName("Виктор"))
+        assertEquals("\u0412\u0438\u043A\u0442\u043E\u0440", validName("\u0412\u0438\u043A\u0442\u043E\u0440"))
     }
 }

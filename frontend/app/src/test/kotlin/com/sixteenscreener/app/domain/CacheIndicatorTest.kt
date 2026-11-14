@@ -100,8 +100,8 @@ class CacheIndicatorTest {
 
     @Test
     fun `label is the clock escape followed by the days`() {
-        assertEquals("🕒" + "1", CacheIndicator.label(1))
-        assertEquals("🕒" + "14", CacheIndicator.label(14))
+        assertEquals("\uD83D\uDD52" + "1", CacheIndicator.label(1))
+        assertEquals("\uD83D\uDD52" + "14", CacheIndicator.label(14))
     }
 
     @Test
