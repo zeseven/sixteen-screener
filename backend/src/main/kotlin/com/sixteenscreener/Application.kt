@@ -16,6 +16,7 @@ import com.sixteenscreener.adapter.outbound.gcs.GcsClientFactory
 import com.sixteenscreener.adapter.outbound.gcs.GcsExchangeDirectoryStore
 import com.sixteenscreener.adapter.outbound.gcs.GcsLogoStorage
 import com.sixteenscreener.adapter.outbound.http.SourceHttpCall
+import com.sixteenscreener.adapter.outbound.logoapi.LogoApiClient
 import com.sixteenscreener.adapter.outbound.http.SourceHttpClient
 import com.sixteenscreener.adapter.outbound.secedgar.SecCikResolver
 import com.sixteenscreener.adapter.outbound.secedgar.SecEdgarClient
@@ -29,6 +30,7 @@ import com.sixteenscreener.domain.service.CompanyDataService
 import com.sixteenscreener.domain.service.CompanyIdentityResolver
 import com.sixteenscreener.domain.service.ExchangeDirectoryService
 import com.sixteenscreener.domain.service.FreshnessPolicy
+import com.sixteenscreener.domain.service.LogoService
 import com.sixteenscreener.domain.service.MarketResolver
 import com.sixteenscreener.domain.service.NoSymbolDirectory
 import com.sixteenscreener.domain.service.ProfileService
@@ -40,6 +42,7 @@ import com.sixteenscreener.domain.service.SourceCallOutcomes
 import com.sixteenscreener.domain.service.SourceCatalog
 import com.sixteenscreener.domain.service.WatchlistService
 import com.sixteenscreener.port.inbound.CompanyDataUseCase
+import com.sixteenscreener.port.inbound.LogoUseCase
 import com.sixteenscreener.port.inbound.ProfileUseCase
 import com.sixteenscreener.port.inbound.SearchUseCase
 import com.sixteenscreener.port.inbound.WatchlistUseCase
@@ -47,6 +50,7 @@ import com.sixteenscreener.port.outbound.BalanceSheetSource
 import com.sixteenscreener.port.outbound.Clock
 import com.sixteenscreener.port.outbound.CompanyCache
 import com.sixteenscreener.port.outbound.LogoMissRepository
+import com.sixteenscreener.port.outbound.LogoProvider
 import com.sixteenscreener.port.outbound.LogoStorage
 import com.sixteenscreener.port.outbound.MarketDataSource
 import com.sixteenscreener.port.outbound.ProfileRepository
@@ -74,6 +78,8 @@ class AppServices(
     val balanceSheetSources: Map<SourceId, BalanceSheetSource>,
     val symbolDirectory: SymbolDirectory,
     val logoStorage: LogoStorage,
+    val logoProvider: LogoProvider?,
+    val defaultLogo: ByteArray = bundledDefaultLogo(),
     private val resources: List<AutoCloseable> = emptyList(),
 ) : AutoCloseable {
     val sourceCatalog = SourceCatalog(config.defaultSource, config.enabledSources.associate { it.id to it.capabilities })
@@ -114,6 +120,16 @@ class AppServices(
         guard = sourceCallGuard,
         outcomes = sourceCallOutcomes,
         responses = SearchResponseCache(clock),
+    )
+
+    val logoUseCase: LogoUseCase = LogoService(
+        storage = logoStorage,
+        provider = logoProvider,
+        misses = logoMisses,
+        guard = sourceCallGuard,
+        outcomes = sourceCallOutcomes,
+        clock = clock,
+        defaultLogo = defaultLogo,
     )
 
     override fun close() = resources.forEach(AutoCloseable::close)
@@ -164,6 +180,7 @@ fun wireServices(config: AppConfig): AppServices {
         balanceSheetSources = listOfNotNull<BalanceSheetSource>(finnhub, secEdgar).associateBy { it.id },
         symbolDirectory = symbolDirectory,
         logoStorage = GcsLogoStorage(storage, config.logoBucket),
+        logoProvider = logoApiClient(config, httpClient, clock),
         resources = listOf(httpClient, storage, firestore),
     )
 }
@@ -204,8 +221,19 @@ private fun secEdgarClient(
         )
     }
 
+private fun logoApiClient(config: AppConfig, httpClient: HttpClient, clock: Clock): LogoApiClient? =
+    config.enabledSources.firstOrNull { it.id == LOGOAPI }?.let { source ->
+        LogoApiClient(id = source.id, baseUrl = source.baseUrl, call = SourceHttpCall(httpClient, source.timeout, clock))
+    }
+
+fun bundledDefaultLogo(): ByteArray =
+    checkNotNull(AppServices::class.java.getResource(DEFAULT_LOGO_RESOURCE)) { "Default logo resource missing" }.readBytes()
+
+private const val DEFAULT_LOGO_RESOURCE = "/default-logo.svg"
+
 private val FINNHUB = SourceId.of("finnhub")
 private val SEC_EDGAR = SourceId.of("sec-edgar")
+private val LOGOAPI = SourceId.of("logoapi")
 
 fun Application.module(services: AppServices) {
     configureCallLogging()

@@ -11,6 +11,7 @@ import com.sixteenscreener.domain.service.RateLimiter
 import com.sixteenscreener.domain.service.SourceCallGuard
 import com.sixteenscreener.domain.service.SourceCallOutcomes
 import com.sixteenscreener.fakes.FakeBalanceSheetSource
+import com.sixteenscreener.fakes.FakeLogoProvider
 import com.sixteenscreener.fakes.FakeMarketDataSource
 import com.sixteenscreener.fakes.InMemoryCompanyCache
 import com.sixteenscreener.fakes.InMemoryLogoMissRepository
@@ -54,6 +55,7 @@ class TestPorts(
     val additionalBalanceSheets: List<FakeBalanceSheetSource> = emptyList(),
     val symbolDirectory: InMemorySymbolDirectory = InMemorySymbolDirectory(),
     val logoStorage: InMemoryLogoStorage = InMemoryLogoStorage(),
+    val logoProvider: FakeLogoProvider = FakeLogoProvider(),
 )
 
 fun testServices(ports: TestPorts = TestPorts(), config: AppConfig = testConfig()): AppServices {
@@ -71,5 +73,6 @@ fun testServices(ports: TestPorts = TestPorts(), config: AppConfig = testConfig(
         balanceSheetSources = (listOf(ports.balanceSheets) + ports.additionalBalanceSheets).associateBy { it.id },
         symbolDirectory = ports.symbolDirectory,
         logoStorage = ports.logoStorage,
+        logoProvider = ports.logoProvider.takeIf { provider -> config.enabledSources.any { it.id == provider.id } },
     )
 }
