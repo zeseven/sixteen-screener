@@ -1,9 +1,10 @@
-package com.sixteenscreener.fakes
+package com.sixteenscreener.contract
 
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.RequestLimit
 import com.sixteenscreener.domain.model.SourceId
-import io.kotest.core.spec.style.FunSpec
+import com.sixteenscreener.port.outbound.RequestCounterRepository
+import io.kotest.core.spec.style.funSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.async
@@ -12,61 +13,73 @@ import kotlinx.coroutines.coroutineScope
 import java.time.Duration
 import java.time.Instant
 
-class InMemoryRequestCounterRepositoryTest : FunSpec({
+fun requestCounterRepositoryContract(newRepository: suspend () -> RequestCounterRepository) = funSpec {
     val source = SourceId.of("finnhub")
+    val other = SourceId.of("logoapi")
     val now = Instant.parse("2026-11-14T12:00:30Z")
     val perMinute = RequestLimit(LimitInterval.MINUTE, 60)
     val perDay = RequestLimit(LimitInterval.DAY, 100)
+    val perMonth = RequestLimit(LimitInterval.MONTH, 1000)
 
     test("grants all requested calls within the limit") {
-        val repository = InMemoryRequestCounterRepository()
+        val repository = newRepository()
         repository.tryAcquire(source, listOf(perMinute), 10, now) shouldBe 10
         repository.usage(source, listOf(perMinute), now).single().used shouldBe 10
     }
 
     test("grants exactly the remaining calls when the limit is reached") {
-        val repository = InMemoryRequestCounterRepository()
+        val repository = newRepository()
         repository.tryAcquire(source, listOf(perMinute), 60, now) shouldBe 60
         repository.tryAcquire(source, listOf(perMinute), 1, now) shouldBe 0
+        repository.usage(source, listOf(perMinute), now).single().used shouldBe 60
     }
 
     test("partial grant") {
-        val repository = InMemoryRequestCounterRepository()
-        repository.setCount(source, LimitInterval.MINUTE, now, 55)
+        val repository = newRepository()
+        repository.tryAcquire(source, listOf(perMinute), 55, now)
         repository.tryAcquire(source, listOf(perMinute), 10, now) shouldBe 5
         repository.usage(source, listOf(perMinute), now).single().used shouldBe 60
     }
 
     test("the strictest interval wins and the grant is added to every window") {
-        val repository = InMemoryRequestCounterRepository()
-        repository.setCount(source, LimitInterval.DAY, now, 95)
+        val repository = newRepository()
+        repository.tryAcquire(source, listOf(perDay), 95, now)
 
-        repository.tryAcquire(source, listOf(perMinute, perDay), 20, now) shouldBe 5
+        repository.tryAcquire(source, listOf(perMinute, perDay, perMonth), 20, now) shouldBe 5
 
-        repository.usage(source, listOf(perMinute, perDay), now).map { it.used } shouldContainExactly listOf(5, 100)
+        repository.usage(source, listOf(perMinute, perDay, perMonth), now).map { it.used } shouldContainExactly listOf(5, 100, 5)
     }
 
     test("a new window starts with a fresh count") {
-        val repository = InMemoryRequestCounterRepository()
+        val repository = newRepository()
         repository.tryAcquire(source, listOf(perMinute), 60, now)
         repository.tryAcquire(source, listOf(perMinute), 5, now + Duration.ofMinutes(1)) shouldBe 5
     }
 
-    test("a source without limits gets every call and stores nothing") {
-        val repository = InMemoryRequestCounterRepository()
-        repository.tryAcquire(source, emptyList(), 1000, now) shouldBe 1000
+    test("counters are kept per source") {
+        val repository = newRepository()
+        repository.tryAcquire(source, listOf(perMinute), 60, now)
+        repository.tryAcquire(other, listOf(perMinute), 5, now) shouldBe 5
+    }
+
+    test("a source without limits gets every call") {
+        newRepository().tryAcquire(source, emptyList(), 1000, now) shouldBe 1000
+    }
+
+    test("a limit of zero grants nothing") {
+        newRepository().tryAcquire(source, listOf(RequestLimit(LimitInterval.DAY, 0)), 3, now) shouldBe 0
     }
 
     test("concurrent reservations never exceed the limit") {
-        val repository = InMemoryRequestCounterRepository()
+        val repository = newRepository()
         val granted = coroutineScope {
-            (1..50).map { async { repository.tryAcquire(source, listOf(perMinute), 3, now) } }.awaitAll()
+            (1..25).map { async { repository.tryAcquire(source, listOf(perMinute), 3, now) } }.awaitAll()
         }
         granted.sum() shouldBe 60
     }
 
     test("saturation fills the current windows only") {
-        val repository = InMemoryRequestCounterRepository()
+        val repository = newRepository()
         repository.tryAcquire(source, listOf(perMinute, perDay), 3, now)
 
         repository.saturate(source, listOf(perMinute, perDay), now)
@@ -75,16 +88,27 @@ class InMemoryRequestCounterRepositoryTest : FunSpec({
         repository.tryAcquire(source, listOf(perMinute), 1, now + Duration.ofMinutes(1)) shouldBe 1
     }
 
-    test("saturation never lowers a count above the limit") {
-        val repository = InMemoryRequestCounterRepository()
-        repository.setCount(source, LimitInterval.MINUTE, now, 70)
+    test("saturation of windows without counters creates them at the limit") {
+        val repository = newRepository()
         repository.saturate(source, listOf(perMinute), now)
+        repository.tryAcquire(source, listOf(perMinute), 1, now) shouldBe 0
+    }
+
+    test("saturation never lowers a count above the limit") {
+        val repository = newRepository()
+        repository.tryAcquire(source, listOf(RequestLimit(LimitInterval.MINUTE, 100)), 70, now)
+
+        repository.saturate(source, listOf(perMinute), now)
+
         repository.usage(source, listOf(perMinute), now).single().used shouldBe 70
     }
 
     test("usage reports zero and the window end for absent counters") {
-        val usage = InMemoryRequestCounterRepository().usage(source, listOf(perMinute), now).single()
-        usage.used shouldBe 0
-        usage.resetsAt shouldBe Instant.parse("2026-11-14T12:01:00Z")
+        val usage = newRepository().usage(source, listOf(perMinute, perMonth), now)
+        usage.map { it.used } shouldContainExactly listOf(0, 0)
+        usage.map { it.resetsAt } shouldContainExactly listOf(
+            Instant.parse("2026-11-14T12:01:00Z"),
+            Instant.parse("2026-12-01T00:00:00Z"),
+        )
     }
-})
+}
