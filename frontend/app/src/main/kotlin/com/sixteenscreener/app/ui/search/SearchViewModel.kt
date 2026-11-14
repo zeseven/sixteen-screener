@@ -2,8 +2,10 @@ package com.sixteenscreener.app.ui.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sixteenscreener.app.data.repository.ProfileRepository
 import com.sixteenscreener.app.data.repository.SearchRepository
 import com.sixteenscreener.app.data.repository.WatchlistRepository
+import com.sixteenscreener.app.data.repository.onActiveProfileChange
 import com.sixteenscreener.app.domain.SearchRequest
 import com.sixteenscreener.app.domain.SearchThrottle
 import com.sixteenscreener.app.domain.model.ApiError
@@ -41,12 +43,13 @@ data class SearchUiState(
 
 /**
  * Search tab: throttled search while typing ([throttleSearch]), a newer query cancels the running request; adding a result updates
- * the shared watchlist at once and reverts on failure.
+ * the shared watchlist at once and reverts on failure. A profile change clears the query and the results.
  */
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val searchRepository: SearchRepository,
     private val watchlistRepository: WatchlistRepository,
+    profileRepository: ProfileRepository,
 ) : ViewModel() {
 
     private data class SearchOutcome(
@@ -78,6 +81,7 @@ class SearchViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SearchUiState())
 
     init {
+        profileRepository.onActiveProfileChange(viewModelScope) { resetForNewProfile() }
         viewModelScope.launch {
             query.throttleSearch().collectLatest { request ->
                 when (request) {
@@ -104,6 +108,12 @@ class SearchViewModel @Inject constructor(
 
     /** Clears [shown] unless a newer message replaced it. */
     fun onMessageShown(shown: AddFailedMessage) = message.update { if (it == shown) null else it }
+
+    private fun resetForNewProfile() {
+        query.value = ""
+        outcome.value = SearchOutcome()
+        message.value = null
+    }
 
     private fun ApiResult<SearchResults>.toOutcome(): SearchOutcome = when (this) {
         is ApiResult.Failure -> SearchOutcome(notice = SearchNotice.REQUEST_FAILED)

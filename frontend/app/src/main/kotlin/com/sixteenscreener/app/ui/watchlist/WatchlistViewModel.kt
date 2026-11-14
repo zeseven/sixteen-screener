@@ -2,7 +2,9 @@ package com.sixteenscreener.app.ui.watchlist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sixteenscreener.app.data.repository.ProfileRepository
 import com.sixteenscreener.app.data.repository.WatchlistRepository
+import com.sixteenscreener.app.data.repository.onActiveProfileChange
 import com.sixteenscreener.app.domain.MarketFilter
 import com.sixteenscreener.app.domain.WatchlistFilter
 import com.sixteenscreener.app.domain.model.ApiError
@@ -49,11 +51,12 @@ data class WatchlistUiState(
 
 /**
  * Watchlist tab: loads the watchlist when shown, filters it in memory (filters are not persisted, ADR-045) and removes companies
- * optimistically with undo.
+ * optimistically with undo. A profile change resets the screen and loads the new profile's watchlist.
  */
 @HiltViewModel
 class WatchlistViewModel @Inject constructor(
     private val watchlistRepository: WatchlistRepository,
+    profileRepository: ProfileRepository,
 ) : ViewModel() {
 
     private data class ScreenState(
@@ -81,6 +84,10 @@ class WatchlistViewModel @Inject constructor(
                 message = screen.message,
             )
         }.stateIn(viewModelScope, SharingStarted.Eagerly, WatchlistUiState())
+
+    init {
+        profileRepository.onActiveProfileChange(viewModelScope) { resetForNewProfile() }
+    }
 
     /** Loads the watchlist unless a load is already running; a failure keeps the previous list. */
     fun refresh() {
@@ -123,6 +130,13 @@ class WatchlistViewModel @Inject constructor(
 
     /** Clears [message] once shown, unless a newer message replaced it. */
     fun onMessageShown(message: WatchlistMessage) = screenState.update { if (it.message == message) it.copy(message = null) else it }
+
+    private fun resetForNewProfile() {
+        refreshJob?.cancel()
+        filter.value = WatchlistFilter()
+        screenState.value = ScreenState()
+        refresh()
+    }
 
     private fun showMessage(message: WatchlistMessage) = screenState.update { it.copy(message = message) }
 }

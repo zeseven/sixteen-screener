@@ -37,7 +37,7 @@ class WatchlistViewModelTest {
     private val unknownMarket = summary("7203.T", name = "Toyota", market = null, sector = null)
 
     private fun TestScope.viewModel(): WatchlistViewModel =
-        WatchlistViewModel(DefaultWatchlistRepository(apiClient, profileRepository, backgroundScope))
+        WatchlistViewModel(DefaultWatchlistRepository(apiClient, profileRepository, backgroundScope), profileRepository)
 
     private fun stubWatchlist(vararg companies: CompanySummary) {
         apiClient.getWatchlist = { ApiResult.Success(companies.toList()) }
@@ -267,5 +267,53 @@ class WatchlistViewModelTest {
 
         viewModel.onMessageShown(viewModel.state.message!!)
         assertNull(viewModel.state.message)
+    }
+
+    @Test
+    fun `profile change resets the filters and reloads the watchlist with the new profile ID`() = runTest {
+        apiClient.getWatchlist = { profileId -> ApiResult.Success(if (profileId.value == "p1") listOf(apple, shell) else listOf(sap)) }
+        val viewModel = viewModel()
+        viewModel.refresh()
+        viewModel.onMarketSelected(MarketFilter.US)
+        viewModel.onSectorSelected("Technology")
+        apiClient.calls.clear()
+
+        profileRepository.currentProfile.value = ActiveProfile(ProfileId("p2"), "Anna")
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("getWatchlist(p2)"), apiClient.calls)
+        assertEquals(WatchlistFilter(), viewModel.state.filter)
+        assertEquals(listOf(sap), viewModel.state.companies)
+        assertTrue(viewModel.state.isLoaded)
+    }
+
+    @Test
+    fun `profile change drops the previous error and message`() = runTest {
+        apiClient.getWatchlist = { ApiResult.Failure(ApiError.Network(isTimeout = false)) }
+        val viewModel = viewModel()
+        viewModel.refresh()
+        apiClient.getWatchlist = { ApiResult.Success(emptyList()) }
+
+        profileRepository.currentProfile.value = ActiveProfile(ProfileId("p2"), "Anna")
+        testScheduler.advanceUntilIdle()
+
+        assertNull(viewModel.state.loadError)
+        assertNull(viewModel.state.message)
+        assertTrue(viewModel.state.isLoaded)
+    }
+
+    @Test
+    fun `load of the previous profile still running is replaced by the new profile's load`() = runTest {
+        val previousLoad = CompletableDeferred<ApiResult<List<CompanySummary>>>()
+        apiClient.getWatchlist = { profileId -> if (profileId.value == "p1") previousLoad.await() else ApiResult.Success(listOf(sap)) }
+        val viewModel = viewModel()
+        viewModel.refresh()
+
+        profileRepository.currentProfile.value = ActiveProfile(ProfileId("p2"), "Anna")
+        testScheduler.advanceUntilIdle()
+        previousLoad.complete(ApiResult.Success(listOf(apple)))
+
+        assertEquals(listOf(sap), viewModel.state.companies)
+        assertFalse(viewModel.state.isRefreshing)
     }
 }

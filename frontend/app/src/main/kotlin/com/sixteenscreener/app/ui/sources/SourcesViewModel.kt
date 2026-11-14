@@ -2,7 +2,9 @@ package com.sixteenscreener.app.ui.sources
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sixteenscreener.app.data.repository.ProfileRepository
 import com.sixteenscreener.app.data.repository.SourceRepository
+import com.sixteenscreener.app.data.repository.onActiveProfileChange
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.Source
@@ -33,6 +35,7 @@ data class SourcesUiState(
 @HiltViewModel
 class SourcesViewModel @Inject constructor(
     private val sourceRepository: SourceRepository,
+    profileRepository: ProfileRepository,
 ) : ViewModel() {
 
     private data class ScreenState(
@@ -47,6 +50,13 @@ class SourcesViewModel @Inject constructor(
     val uiState: StateFlow<SourcesUiState> = combine(sourceRepository.sources, screenState) { sources, screen ->
         SourcesUiState(sources = sources, isRefreshing = screen.isRefreshing, loadError = screen.loadError, message = screen.message)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SourcesUiState(sources = sourceRepository.sources.value))
+
+    init {
+        profileRepository.onActiveProfileChange(viewModelScope) {
+            refreshJob?.cancel()
+            screenState.value = ScreenState()
+        }
+    }
 
     /** Reloads the sources unless a load is already running; a failure keeps the cached list. */
     fun refresh() {

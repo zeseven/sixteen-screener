@@ -45,7 +45,7 @@ class SearchViewModelTest {
 
     private fun TestScope.viewModel(): SearchViewModel {
         watchlistRepository = DefaultWatchlistRepository(apiClient, profileRepository, backgroundScope)
-        return SearchViewModel(DefaultSearchRepository(apiClient, profileRepository), watchlistRepository)
+        return SearchViewModel(DefaultSearchRepository(apiClient, profileRepository), watchlistRepository, profileRepository)
     }
 
     private fun results(status: SearchStatus = SearchStatus.OK, vararg items: CompanySummary) =
@@ -312,5 +312,50 @@ class SearchViewModelTest {
         viewModel.onQueryChange("app")
 
         assertEquals(listOf(true, false), viewModel.state.results.map { it.inWatchlist })
+    }
+
+    @Test
+    fun `profile change clears the query and the results`() = runTest {
+        stubSearch(apple)
+        val viewModel = viewModel()
+        viewModel.onQueryChange("app")
+        assertEquals(listOf(apple), viewModel.state.results)
+
+        profileRepository.currentProfile.value = ActiveProfile(ProfileId("p2"), "Anna")
+        advanceTimeBy(5_000)
+
+        assertEquals("", viewModel.state.query)
+        assertEquals(emptyList<CompanySummary>(), viewModel.state.results)
+        assertNull(viewModel.state.notice)
+        assertEquals(listOf("search(p1, app)"), searches)
+    }
+
+    @Test
+    fun `profile change cancels the running search`() = runTest {
+        val response = CompletableDeferred<ApiResult<SearchResults>>()
+        apiClient.search = { _, _ -> response.await() }
+        val viewModel = viewModel()
+        viewModel.onQueryChange("app")
+        assertTrue(viewModel.state.isSearching)
+
+        profileRepository.currentProfile.value = ActiveProfile(ProfileId("p2"), "Anna")
+        runCurrent()
+        response.complete(results(SearchStatus.OK, apple))
+
+        assertFalse(viewModel.state.isSearching)
+        assertEquals(emptyList<CompanySummary>(), viewModel.state.results)
+    }
+
+    @Test
+    fun `search after a profile change uses the new profile ID`() = runTest {
+        stubSearch(apple)
+        val viewModel = viewModel()
+        profileRepository.currentProfile.value = ActiveProfile(ProfileId("p2"), "Anna")
+        runCurrent()
+
+        viewModel.onQueryChange("app")
+        advanceTimeBy(1_000)
+
+        assertEquals(listOf("search(p2, app)"), searches)
     }
 }

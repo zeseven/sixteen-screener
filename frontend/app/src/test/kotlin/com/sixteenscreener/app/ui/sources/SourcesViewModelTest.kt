@@ -33,7 +33,7 @@ class SourcesViewModelTest {
 
     private fun TestScope.viewModel(): SourcesViewModel {
         if (!::repository.isInitialized) repository = DefaultSourceRepository(apiClient, profileRepository, backgroundScope)
-        return SourcesViewModel(repository)
+        return SourcesViewModel(repository, profileRepository)
     }
 
     @Test
@@ -93,5 +93,19 @@ class SourcesViewModelTest {
         viewModel.refresh()
 
         assertNull(viewModel.uiState.value.loadError)
+    }
+
+    @Test
+    fun `profile change drops the previous profile's sources and error`() = runTest {
+        apiClient.getSources = { ApiResult.Failure(ApiError.Network(isTimeout = false)) }
+        val viewModel = viewModel()
+        viewModel.refresh()
+
+        profileRepository.currentProfile.value = ActiveProfile(ProfileId("p2"), "Anna")
+        testScheduler.advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.loadError)
+        assertNull(viewModel.uiState.value.message)
+        assertNull(viewModel.uiState.value.sources)
     }
 }
