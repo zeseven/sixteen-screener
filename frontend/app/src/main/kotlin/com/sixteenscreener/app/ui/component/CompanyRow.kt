@@ -13,12 +13,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -27,7 +24,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.sixteenscreener.app.R
-import com.sixteenscreener.app.domain.CacheIndicator
 import com.sixteenscreener.app.domain.DisplaySymbols
 import com.sixteenscreener.app.domain.NumberFormats
 import com.sixteenscreener.app.domain.model.CompanySummary
@@ -48,18 +44,21 @@ object CompanyRowTags {
 
 /**
  * Company row: logo | ticker over exchange | name (at most half the row width) with the market flag | price over cache indicator | [action].
+ * The row opens the detailed screen with [onClick]; it is not clickable when [onClick] is `null`.
  */
 @Composable
 fun CompanyRow(
     company: CompanySummary,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
     action: @Composable RowScope.() -> Unit = {},
 ) {
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClickLabel = stringResource(R.string.company_open_details), onClick = onClick)
+            .then(
+                if (onClick == null) Modifier else Modifier.clickable(onClickLabel = stringResource(R.string.company_open_details), onClick = onClick),
+            )
             .testTag(CompanyRowTags.ROW)
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
@@ -150,66 +149,10 @@ private fun PriceAndCacheIndicator(quote: Quote?) {
             )
             SecondaryText(text = NumberFormats.MISSING, modifier = Modifier.testTag(CompanyRowTags.CACHE_INDICATOR))
         } else {
-            QuotePrice(quote)
-            QuoteCacheIndicator(quote)
+            QuotePrice(quote, modifier = Modifier.testTag(CompanyRowTags.PRICE))
+            QuoteCacheIndicator(quote, modifier = Modifier.testTag(CompanyRowTags.CACHE_INDICATOR))
         }
     }
-}
-
-@Composable
-private fun QuotePrice(quote: Quote) {
-    val price = NumberFormats.price(quote.price, quote.currency)
-    val description = stringResource(R.string.company_price_description, price, stringResource(trendDescription(quote.trend)))
-    Text(
-        text = price,
-        style = MaterialTheme.typography.bodyMedium,
-        color = priceColor(quote.trend),
-        maxLines = 1,
-        modifier = Modifier
-            .semantics { contentDescription = description }
-            .testTag(CompanyRowTags.PRICE),
-    )
-}
-
-@Composable
-private fun QuoteCacheIndicator(quote: Quote) {
-    val clock = LocalClock.current
-    val days = remember(quote.fetchedAt, clock) { CacheIndicator.days(quote.fetchedAt, clock) } ?: return
-    val description = if (days == 1) {
-        stringResource(R.string.cache_indicator_today)
-    } else {
-        pluralStringResource(R.plurals.cache_indicator_days_ago, days - 1, days - 1)
-    }
-    SecondaryText(
-        text = CacheIndicator.label(days),
-        modifier = Modifier
-            .semantics { contentDescription = description }
-            .testTag(CompanyRowTags.CACHE_INDICATOR),
-    )
-}
-
-@Composable
-private fun SecondaryText(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1,
-        modifier = modifier,
-    )
-}
-
-@Composable
-private fun priceColor(trend: Trend): Color = when (trend) {
-    Trend.UP -> SixteenTheme.priceColors.up
-    Trend.DOWN -> SixteenTheme.priceColors.down
-    Trend.UNCHANGED -> SixteenTheme.priceColors.unchanged
-}
-
-private fun trendDescription(trend: Trend): Int = when (trend) {
-    Trend.UP -> R.string.trend_up
-    Trend.DOWN -> R.string.trend_down
-    Trend.UNCHANGED -> R.string.trend_unchanged
 }
 
 @Preview(showBackground = true)
