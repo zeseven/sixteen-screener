@@ -57,6 +57,30 @@
     <string name="search_nothing_found">Nothing found</string>
     <string name="search_add_failed">Cannot add %1$s: %2$s</string>
 
+    <string name="source_default">Default</string>
+    <string name="source_capabilities">Provides: %1$s</string>
+    <string name="source_no_limits">No request limits</string>
+    <string name="source_limit_usage">%1$d / %2$d %3$s</string>
+    <string name="source_limit_usage_symbols">%1$d / %2$d symbols %3$s</string>
+    <string name="source_limit_resets">resets %1$s</string>
+    <string name="source_limit_with_reset">%1$s, %2$s</string>
+    <string name="limit_per_minute">per minute</string>
+    <string name="limit_per_hour">per hour</string>
+    <string name="limit_per_day">per day</string>
+    <string name="limit_per_month">per month</string>
+    <string name="limit_per_interval">per interval</string>
+    <string name="capability_search">Search</string>
+    <string name="capability_quote">Quote</string>
+    <string name="capability_ratios">Ratios</string>
+    <string name="capability_dividends">Dividends</string>
+    <string name="capability_balance_sheet">Balance sheet</string>
+    <string name="capability_company_profile">Company profile</string>
+    <string name="capability_logo">Logo</string>
+    <string name="connection_http_error">Last call failed with HTTP status %1$s</string>
+    <string name="connection_timeout">Last call timed out</string>
+    <string name="connection_app_error">Last call failed with an internal error</string>
+    <string name="sources_empty">No sources configured</string>
+
     <string name="tab_watchlist">Watchlist</string>
     <string name="tab_search">Search</string>
     <string name="tab_sources">Sources</string>
