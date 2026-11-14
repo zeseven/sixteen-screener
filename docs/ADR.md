@@ -415,3 +415,57 @@ External sources are distributed as follows:
 - Search hits not found in the directory are kept, with the exchange code as the exchange name, the name from the source and `market = null`.
 - Watchlist rows whose symbol is not found are kept with the same best-effort identity (name from the cached company profile when present) and the cached quote, which is not refreshed because the currency is unknown.
 - Adding a symbol that is already in the watchlist skips the directory check, so the operation stays idempotent while the directory is unavailable. Adding a new symbol that is not in the directory returns `404`.
+
+## ADR-042: Missing service account key fails every build
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Context:** The service account key is injected into the APK at build time from a location outside the repo (ADR-017). The build could fail either for every task or only for APK assembly.
+
+**Decision:** Every build of the Android app fails with a clear message when the key location is not configured or the file doesn't exist, including `./gradlew test`.
+
+**Consequences:** The key must be configured on every machine that builds or tests the app. Unit tests never use the real key; they generate a fake key in the test code.
+
+## ADR-043: English-only app with string resources
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Decision:** The Android app is in English only. All user-visible texts are kept in string resources, so translations can be added later without code changes.
+
+## ADR-044: Backend URL passed as an environment variable
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Context:** The Android app needs the Cloud Run service URL as the base URL of all calls and as the ID token audience.
+
+**Decision:** The backend URL is passed to the Android build only through the `SIXTEEN_BACKEND_URL` environment variable. It is never saved in a file of the repo, in `gradle.properties` or committed. The build fails with a clear message when the variable is not set or is not an absolute `https` URL. The build instructions in `frontend/README.md` explain how to set it.
+
+**Consequences:** The URL is set in the shell before every build (e.g. from `gcloud run services describe`).
+
+## ADR-045: Watchlist filters are not persisted
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Decision:** Market and sector filter selections on the Watchlist screen are kept in memory only while the app is running. They are not stored on the device; every app start shows the unfiltered watchlist.
+
+## ADR-046: Side-by-side comparison UX study kept outside the repo history
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Decision:** The result of the alpha UX investigation of side-by-side source comparison (ADR-007) is written into a separate Markdown document, `docs/UX-COMPARISON.md`, for the developer's manual review. The document is not committed; the developer decides on its further use.
+
+## ADR-047: SEC EDGAR always selectable on the balance sheet tab
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Context:** SEC EDGAR provides balance sheets for US companies only.
+
+**Decision:** The balance sheet source dropdown always offers SEC EDGAR, regardless of the company's market. For companies SEC EDGAR doesn't cover, the app renders the `NOT_SUPPORTED` status returned by the backend.
+
+**Consequences:** No market-specific logic in the app. When an EU source of truth appears (future improvement), the same dropdown and status handling apply.

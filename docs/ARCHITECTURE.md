@@ -16,7 +16,10 @@ Language: Kotlin.
 HTTP client: standard Android HTTP libraries; all calls implemented by hand to match docs/openapi.yaml (no generated client, no Ktor Client).
 Dependency injection: Hilt.
 Tests: JUnit4.
-README contains cli command for building apk file which should be uploaded via USB.
+UI language: English only. All user-visible texts are kept in string resources to allow translations later.
+Backend URL: passed to the build only via the `SIXTEEN_BACKEND_URL` environment variable; never saved in a repo file or committed. The build fails with a clear message if it is not set.
+Watchlist filter selections are kept in memory while the app is running and are not stored on the device.
+README contains cli command for building apk file which should be uploaded via USB, including how to set the backend URL environment variable.
 
 ## Backend
 Language: Kotlin.
@@ -38,7 +41,7 @@ Cloud Run max instances is capped to limit cost in case the key leaks.
 The service account key is bundled into the APK at build time and is never stored in the git repo.
 - The key file lives outside the repo; its location is passed to Gradle via a property in the user-level ~/.gradle/gradle.properties or an environment variable.
 - Gradle copies the key into generated build assets (under the build directory), not into the source tree.
-- The build fails with a clear message if the key location is not configured.
+- Every build, including unit tests, fails with a clear message if the key location is not configured or the file doesn't exist. Unit tests never use the real key.
 - .gitignore contains patterns for key files as an additional safeguard.
 - The app uses the key to obtain a Google-signed ID token with the Cloud Run service URL as the audience, and sends it with each request.
 - Key rotation: create a new key, rebuild and reinstall the APK, then delete the old key.

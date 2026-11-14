@@ -86,7 +86,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [ ] Tabs: Price and ratio, Balance sheet, Company profile (data from the default source)
 - [ ] Balance sheet tab: SEC EDGAR as an additional source selectable from the dropdown, loaded on demand
 - [ ] Manual refresh button
-- [ ] UX investigation: side-by-side comparison of several sources (result documented, implementation not in scope)
+- [ ] UX investigation: side-by-side comparison of several sources (result in `docs/UX-COMPARISON.md` for developer review, not committed; implementation not in scope)
 
 ### Sources screen
 - [ ] List of configured sources with request limits per interval
