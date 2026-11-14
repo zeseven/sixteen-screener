@@ -57,7 +57,11 @@ fun CompanyRow(
         modifier = modifier
             .fillMaxWidth()
             .then(
-                if (onClick == null) Modifier else Modifier.clickable(onClickLabel = stringResource(R.string.company_open_details), onClick = onClick),
+                if (onClick == null) {
+                    Modifier.semantics(mergeDescendants = true) {}
+                } else {
+                    Modifier.clickable(onClickLabel = stringResource(R.string.company_open_details), onClick = onClick)
+                },
             )
             .testTag(CompanyRowTags.ROW)
             .padding(horizontal = 16.dp, vertical = 8.dp),

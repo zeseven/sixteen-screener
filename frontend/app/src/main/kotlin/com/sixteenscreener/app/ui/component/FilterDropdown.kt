@@ -14,6 +14,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import com.sixteenscreener.app.R
 
@@ -46,12 +48,19 @@ fun <T> FilterDropdown(
         )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option ->
+                val isSelected = option == selected
                 DropdownMenuItem(
                     text = { Text(optionLabel(option)) },
                     onClick = {
                         expanded = false
                         onSelect(option)
                     },
+                    trailingIcon = if (isSelected) {
+                        { Icon(painterResource(R.drawable.ic_check), contentDescription = null) }
+                    } else {
+                        null
+                    },
+                    modifier = Modifier.semantics { this.selected = isSelected },
                 )
             }
         }

@@ -81,7 +81,7 @@ class SourcesContentTest {
         val texts = composeRule.onAllNodesWithTag(SourcesScreenTags.LIMIT, useUnmergedTree = true).fetchSemanticsNodes()
             .map { node -> node.config[SemanticsProperties.Text].joinToString { it.text } }
         assertEquals(
-            listOf("12 / 60 per minute", "0 / 500 per hour", "1000 / 1000 per day", "7 / 500 symbols per month"),
+            listOf("12 / 60 per minute", "0 / 500 per hour", "1000 / 1000 per day, limit reached", "7 / 500 symbols per month"),
             texts,
         )
     }
@@ -147,5 +147,13 @@ class SourcesContentTest {
         setSources(source())
 
         composeRule.onNodeWithTag(SourcesScreenTags.NAME, useUnmergedTree = true).assert(isHeading())
+    }
+
+    @Test
+    fun `reached limit is stated in the text before the reset time`() {
+        setSources(source(limits = listOf(limit(LimitInterval.MINUTE, limit = 60, used = 61, resetsAt = Instant.parse("2026-11-14T10:01:00Z")))))
+
+        composeRule.onNodeWithTag(SourcesScreenTags.LIMIT, useUnmergedTree = true)
+            .assertTextEquals("61 / 60 per minute, limit reached, resets 10:01")
     }
 }

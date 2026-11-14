@@ -12,7 +12,10 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
+import androidx.compose.ui.test.isNotSelected
+import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -37,6 +40,7 @@ import com.sixteenscreener.app.testing.CompanyData.item
 import com.sixteenscreener.app.testing.CompanyData.period
 import com.sixteenscreener.app.testing.MutableClock
 import com.sixteenscreener.app.testing.Sources.source
+import com.sixteenscreener.app.ui.component.CompanyRowTags
 import com.sixteenscreener.app.ui.component.LocalClock
 import com.sixteenscreener.app.ui.detail.balancesheet.BalanceSheetTags
 import com.sixteenscreener.app.ui.detail.priceratios.PriceAndRatiosTags
@@ -372,5 +376,22 @@ class DetailContentTest {
             listOf("Total assets, 2026: 2 T", "Goodwill, 2026: 1 K", "Total assets, 2025: 1 T", "Goodwill, 2025: -"),
             descriptions,
         )
+    }
+
+    @Test
+    fun `source dropdown marks the selected source`() {
+        setContent(state(selectedTab = DetailTab.BALANCE_SHEET, balanceSheet = balanceSheetState(CompanyData.balanceSheet())))
+
+        tagged(BalanceSheetTags.SOURCE_DROPDOWN).performClick()
+
+        composeRule.onNode(hasText("Finnhub") and isSelected()).assertExists()
+        composeRule.onNode(hasText("SEC EDGAR") and isNotSelected()).assertExists()
+    }
+
+    @Test
+    fun `header row is read as one item next to its watchlist button`() {
+        setContent(state())
+
+        composeRule.onNodeWithTag(CompanyRowTags.ROW).assert(hasText("AAPL")).assert(hasText("Apple Inc."))
     }
 }

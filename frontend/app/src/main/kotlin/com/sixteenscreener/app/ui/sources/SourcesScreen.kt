@@ -212,11 +212,13 @@ private fun capabilityName(capability: Capability): Int? = when (capability) {
 @Composable
 private fun LimitText(limit: RequestLimit) {
     val interval = stringResource(intervalName(limit.interval))
-    val usage = if (limit.unit == LimitUnit.UNIQUE_SYMBOLS) {
+    val usageCount = if (limit.unit == LimitUnit.UNIQUE_SYMBOLS) {
         stringResource(R.string.source_limit_usage_symbols, limit.used, limit.limit, interval)
     } else {
         stringResource(R.string.source_limit_usage, limit.used, limit.limit, interval)
     }
+    val isReached = limit.used >= limit.limit
+    val usage = if (isReached) stringResource(R.string.source_limit_reached, usageCount) else usageCount
     val clock = LocalClock.current
     val text = limit.resetsAt?.let { resetsAt ->
         stringResource(R.string.source_limit_with_reset, usage, stringResource(R.string.source_limit_resets, LimitResetTime.format(resetsAt, clock)))
@@ -224,7 +226,7 @@ private fun LimitText(limit: RequestLimit) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodyMedium,
-        color = if (limit.used >= limit.limit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+        color = if (isReached) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.testTag(SourcesScreenTags.LIMIT),
     )
 }
