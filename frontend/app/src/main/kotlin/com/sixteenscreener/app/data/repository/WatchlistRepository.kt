@@ -47,12 +47,13 @@ class DefaultWatchlistRepository @Inject constructor(
     private val symbols = MutableStateFlow<Set<Symbol>>(emptySet())
     private val stateLock = Any()
     private val mutationMutex = Mutex()
+    private var stateOwner: ProfileId? = null
 
     override val watchlist: StateFlow<List<CompanySummary>?> = companies.asStateFlow()
     override val watchlistSymbols: StateFlow<Set<Symbol>> = symbols.asStateFlow()
 
     init {
-        profileRepository.onActiveProfileChange(applicationScope) { updateState { _, _ -> null to emptySet() } }
+        profileRepository.onActiveProfileChange(applicationScope, ::resetUnlessOwnedBy)
     }
 
     override suspend fun refresh(): ApiResult<List<CompanySummary>> = profileRepository.withActiveProfile { profileId ->
@@ -60,7 +61,10 @@ class DefaultWatchlistRepository @Inject constructor(
             .clearProfileIfNotFound(profileRepository, profileId)
             .also { result ->
                 if (result is ApiResult.Success && isActive(profileId)) {
-                    updateState { _, _ -> result.value to result.value.symbols() }
+                    synchronized(stateLock) {
+                        stateOwner = profileId
+                        updateState { _, _ -> result.value to result.value.symbols() }
+                    }
                 }
             }
     }
@@ -105,6 +109,14 @@ class DefaultWatchlistRepository @Inject constructor(
     }
 
     private suspend fun isActive(profileId: ProfileId) = profileRepository.activeProfileId() == profileId
+
+    /** Drops the state of the previous profile, unless the new profile's watchlist was already loaded before the change was observed. */
+    private fun resetUnlessOwnedBy(profileId: ProfileId?) = synchronized(stateLock) {
+        if (stateOwner != profileId) {
+            stateOwner = profileId
+            updateState { _, _ -> null to emptySet() }
+        }
+    }
 
     /** Replaces the state with [transform] of the current one; returns whether the known symbols changed. */
     private fun updateState(transform: (List<CompanySummary>?, Set<Symbol>) -> Pair<List<CompanySummary>?, Set<Symbol>>): Boolean =

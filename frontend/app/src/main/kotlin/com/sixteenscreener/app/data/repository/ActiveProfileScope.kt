@@ -19,13 +19,13 @@ suspend inline fun <T> ProfileRepository.withActiveProfile(request: (ProfileId) 
     activeProfileId()?.let { request(it) } ?: ApiResult.Failure(ApiError.NoProfile)
 
 /**
- * Calls [onChange] in [scope] every time the active profile changes after the first observed value,
- * so repositories drop in-memory state of the previous profile.
+ * Calls [onChange] with the new profile ID (`null` when the profile was removed) in [scope] every time the active profile changes
+ * after the first observed value, so repositories and screens drop in-memory state of the previous profile.
  */
-fun ProfileRepository.onActiveProfileChange(scope: CoroutineScope, onChange: () -> Unit): Job = scope.launch {
+fun ProfileRepository.onActiveProfileChange(scope: CoroutineScope, onChange: (ProfileId?) -> Unit): Job = scope.launch {
     currentProfile
         .map { it?.id }
         .distinctUntilChanged()
         .drop(1)
-        .collect { onChange() }
+        .collect { onChange(it) }
 }

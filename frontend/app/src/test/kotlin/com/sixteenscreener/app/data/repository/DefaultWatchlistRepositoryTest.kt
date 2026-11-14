@@ -13,6 +13,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -232,5 +233,20 @@ class DefaultWatchlistRepositoryTest {
         call.await()
 
         assertNull(repository.watchlist.value)
+    }
+
+    @Test
+    fun `watchlist of the new profile loaded before the change is observed is kept`() = runTest {
+        apiClient.getWatchlist = { profileId -> ApiResult.Success(if (profileId.value == "p1") listOf(apple) else listOf(sap)) }
+        val repository = DefaultWatchlistRepository(apiClient, profileRepository, backgroundScope)
+        runCurrent()
+        repository.refresh()
+
+        profileRepository.currentProfile.value = ActiveProfile(ProfileId("p2"), "Other")
+        repository.refresh()
+        runCurrent()
+
+        assertEquals(listOf(sap), repository.watchlist.value)
+        assertEquals(setOf(sap.symbol), repository.watchlistSymbols.value)
     }
 }
