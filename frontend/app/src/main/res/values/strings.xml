@@ -14,4 +14,23 @@
     <string name="profile_continue">Continue</string>
     <string name="profile_error_blank">Enter a profile name</string>
     <string name="profile_error_too_long">Use at most %1$d characters</string>
+
+    <string name="company_open_details">Open details</string>
+    <string name="company_logo_description">Logo of %1$s</string>
+    <string name="company_details_description">Details of %1$s</string>
+    <string name="company_no_price">No price available</string>
+    <string name="company_price_description">Price %1$s, %2$s</string>
+    <string name="trend_up">higher than the previous price</string>
+    <string name="trend_down">lower than the previous price</string>
+    <string name="trend_unchanged">unchanged</string>
+    <string name="market_us">US market</string>
+    <string name="market_eu">EU market</string>
+    <string name="cache_indicator_today">Cached earlier today</string>
+    <plurals name="cache_indicator_days_ago">
+        <item quantity="one">Cached %1$d day ago</item>
+        <item quantity="other">Cached %1$d days ago</item>
+    </plurals>
+    <string name="watchlist_add_description">Add %1$s to the watchlist</string>
+    <string name="watchlist_in_watchlist_description">%1$s is in the watchlist</string>
+    <string name="watchlist_remove_description">Remove %1$s from the watchlist</string>
 </resources>
