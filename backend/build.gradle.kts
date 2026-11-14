@@ -25,6 +25,14 @@ application {
     mainClass = "com.sixteenscreener.ApplicationKt"
 }
 
+val emulatorTest: SourceSet by sourceSets.creating {
+    compileClasspath += sourceSets.main.get().output + sourceSets.test.get().output
+    runtimeClasspath += sourceSets.main.get().output + sourceSets.test.get().output
+}
+
+configurations[emulatorTest.implementationConfigurationName].extendsFrom(configurations.testImplementation.get())
+configurations[emulatorTest.runtimeOnlyConfigurationName].extendsFrom(configurations.testRuntimeOnly.get())
+
 dependencies {
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
@@ -49,4 +57,21 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+val firestoreEmulatorHost: Provider<String> = providers.environmentVariable("FIRESTORE_EMULATOR_HOST")
+
+tasks.register<Test>("emulatorTest") {
+    description = "Runs the Firestore adapter tests against the emulator at FIRESTORE_EMULATOR_HOST."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    testClassesDirs = emulatorTest.output.classesDirs
+    classpath = emulatorTest.runtimeClasspath
+    useJUnitPlatform()
+    shouldRunAfter(tasks.test)
+    inputs.property("firestoreEmulatorHost", firestoreEmulatorHost.orElse(""))
+    doFirst {
+        check(firestoreEmulatorHost.isPresent) {
+            "Set FIRESTORE_EMULATOR_HOST (e.g. localhost:8085) to a running Firestore emulator"
+        }
+    }
 }
