@@ -1,0 +1,24 @@
+package com.sixteenscreener.fakes
+
+import com.sixteenscreener.domain.model.SourceCallOutcome
+import com.sixteenscreener.domain.model.SourceId
+import com.sixteenscreener.port.outbound.SourceCallOutcomeRepository
+import java.util.concurrent.ConcurrentHashMap
+
+class InMemorySourceCallOutcomeRepository : SourceCallOutcomeRepository {
+    private val outcomes = ConcurrentHashMap<SourceId, SourceCallOutcome>()
+    private val recorded = mutableListOf<Pair<SourceId, SourceCallOutcome>>()
+
+    var failWrites: Boolean = false
+
+    val writes: List<Pair<SourceId, SourceCallOutcome>> get() = synchronized(recorded) { recorded.toList() }
+
+    override suspend fun record(source: SourceId, outcome: SourceCallOutcome) {
+        check(!failWrites) { "Simulated outcome write failure" }
+        outcomes[source] = outcome
+        synchronized(recorded) { recorded += source to outcome }
+    }
+
+    override suspend fun findAll(sources: Collection<SourceId>): Map<SourceId, SourceCallOutcome> =
+        sources.mapNotNull { source -> outcomes[source]?.let { source to it } }.toMap()
+}
