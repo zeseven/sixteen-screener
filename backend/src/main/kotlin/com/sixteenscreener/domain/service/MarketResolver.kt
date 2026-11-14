@@ -2,6 +2,7 @@ package com.sixteenscreener.domain.service
 
 import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.ExchangeInfo
+import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.Market
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -9,9 +10,14 @@ import java.time.ZoneOffset
 class MarketResolver {
 
     fun resolve(mic: String): ExchangeInfo =
-        EXCHANGES_BY_MIC[mic.uppercase()] ?: ExchangeInfo(name = mic, timeZone = ZoneOffset.UTC, market = null)
+        find(mic) ?: ExchangeInfo(name = mic, timeZone = ZoneOffset.UTC, market = null)
+
+    fun find(mic: String): ExchangeInfo? = EXCHANGES_BY_MIC[mic.uppercase()]
 
     fun timeZoneOf(exchangeCode: ExchangeCode): ZoneId = exchangeCode.timeZone ?: ZoneOffset.UTC
+
+    fun timeZoneOf(listing: ListedSymbol): ZoneId =
+        listing.mic?.let(::find)?.timeZone ?: timeZoneOf(listing.symbol.exchangeCode)
 
     private companion object {
         private const val NEW_YORK = "America/New_York"

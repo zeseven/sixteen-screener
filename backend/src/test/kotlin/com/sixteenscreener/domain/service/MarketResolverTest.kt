@@ -68,4 +68,16 @@ class MarketResolverTest : FunSpec({
         resolver.timeZoneOf(ExchangeCode("L")).id shouldBe "Europe/London"
         resolver.timeZoneOf(ExchangeCode("XX")) shouldBe ZoneOffset.UTC
     }
+
+    test("unknown MIC is not found") {
+        resolver.find("ZZZZ") shouldBe null
+        resolver.find("xnas")?.name shouldBe "NASDAQ"
+    }
+
+    test("time zone of a listing comes from its MIC, otherwise from its exchange code") {
+        resolver.timeZoneOf(listing("SAP.DE", mic = "XETR")).id shouldBe "Europe/Berlin"
+        resolver.timeZoneOf(listing("SHEL.L", mic = null)).id shouldBe "Europe/London"
+        resolver.timeZoneOf(listing("SHEL.L", mic = "ZZZZ")).id shouldBe "Europe/London"
+        resolver.timeZoneOf(listing("AAPL", mic = "XNAS")).id shouldBe "America/New_York"
+    }
 })
