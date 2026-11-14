@@ -8,6 +8,7 @@ import com.sixteenscreener.contract.profileCandidate
 import com.sixteenscreener.contract.profileRepositoryContract
 import com.sixteenscreener.contract.requestCounterRepositoryContract
 import com.sixteenscreener.contract.sampleRatios
+import com.sixteenscreener.contract.secCikRepositoryContract
 import com.sixteenscreener.contract.sourceCallOutcomeRepositoryContract
 import com.sixteenscreener.domain.model.CacheEntry
 import com.sixteenscreener.domain.model.CacheKey
@@ -188,6 +189,25 @@ class FirestoreLogoMissRepositoryEmulatorTest : FunSpec({
         firestore.document(FirestoreCollections.LOGO_MISSES, "SAP.DE") shouldBe mapOf(
             "checkedAt" to checkedAt.toTimestamp(),
             "expireAt" to checkedAt.plus(Duration.ofDays(14)).toTimestamp(),
+        )
+    }
+})
+
+class FirestoreSecCikRepositoryEmulatorTest : FunSpec({
+    val emulator = FirestoreEmulator()
+    afterSpec { emulator.close() }
+
+    include(secCikRepositoryContract { FirestoreSecCikRepository(emulator.reset()) })
+
+    test("CIK documents expire 14 days after they are stored") {
+        val firestore = emulator.reset()
+        val storedAt = Instant.parse("2026-11-14T12:00:00Z")
+
+        FirestoreSecCikRepository(firestore).save("BRK-B", 1067983, storedAt)
+
+        firestore.document(FirestoreCollections.SEC_CIK, "BRK-B") shouldBe mapOf(
+            "cik" to 1067983L,
+            "expireAt" to storedAt.plus(Duration.ofDays(14)).toTimestamp(),
         )
     }
 })

@@ -7,6 +7,7 @@ import com.sixteenscreener.contract.logoMissRepositoryContract
 import com.sixteenscreener.contract.logoStorageContract
 import com.sixteenscreener.contract.profileRepositoryContract
 import com.sixteenscreener.contract.requestCounterRepositoryContract
+import com.sixteenscreener.contract.secCikRepositoryContract
 import com.sixteenscreener.contract.sourceCallOutcomeRepositoryContract
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.Symbol
@@ -45,4 +46,8 @@ class InMemoryExchangeDirectoryStoreTest : FunSpec({
 
 class InMemoryLogoStorageTest : FunSpec({
     include(logoStorageContract { InMemoryLogoStorage() })
+})
+
+class InMemorySecCikRepositoryTest : FunSpec({
+    include(secCikRepositoryContract { InMemorySecCikRepository() })
 })

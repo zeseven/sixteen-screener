@@ -23,6 +23,7 @@ object FirestoreCollections {
     const val REQUEST_COUNTERS = "requestCounters"
     const val SOURCE_CALLS = "sourceCalls"
     const val LOGO_MISSES = "logoMisses"
+    const val SEC_CIK = "secCik"
 }
 
 object FirestoreClientFactory {
