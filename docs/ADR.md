@@ -356,3 +356,62 @@ External sources are distributed as follows:
 **Status:** Accepted
 
 **Decision:** Search returns every company the source finds. Companies listed on exchanges that belong to neither the US nor the EU market (e.g. Tokyo, Toronto) have `market = null`: no flag, shown only with the "all" market filter.
+
+## ADR-036: SEC ticker table download counted against the SEC EDGAR limit
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Context:** Resolving a ticker to a CIK may require downloading `company_tickers.json` from the SEC in addition to the company facts request. The caller reserves one call per balance sheet request.
+
+**Decision:** The ticker table download reserves its own extra call against the `sec-edgar` limit. If that call isn't granted, the balance sheet request returns `LIMIT_REACHED` without calling the SEC. The outcome of a failed or `429` download is recorded as the call outcome.
+
+**Consequences:** The download happens rarely (the table is kept in memory and resolved CIKs are cached in Firestore for 14 days), so the extra reservation has no practical effect on the limit.
+
+## ADR-037: Resolution of duplicated and amended SEC filings
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Context:** SEC company facts repeat balance sheet values: each 10-K also reports the prior year, and 10-K/A amendments may restate part of a filing.
+
+**Decision:** Only instant `us-gaap` facts from `10-K` / `10-K/A` with `fp = FY` are used, one period per period end, newest first. For each period, filings are ranked: the filing whose own balance sheet date equals the period end first, then the latest filing date, then amendments. Each line item is taken from the best-ranked filing that reports it, so a partial amendment replaces only the values it reports and prior-year values only fill gaps.
+
+## ADR-038: Ticker form for logoapi.sh
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Decision:** US symbols are requested by their plain ticker (`AAPL`, `BRK.B`); other symbols by the full symbol with suffix (`SAP.DE`), because a bare non-US ticker may match the logo of an unrelated US company. Requests use `fallback=404`, and a response with the `X-Logo-Fallback` header is also treated as a miss.
+
+**Consequences:** logoapi.sh doesn't document non-US tickers; a miss is recorded and the default logo is returned.
+
+## ADR-039: Combined status of the price and ratios tab
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Context:** The price and ratios endpoint combines two cached data types (quote and ratios) under one `SourceDataMeta`.
+
+**Decision:** Parts with `NOT_SUPPORTED` or `NO_DATA` are ignored. If nothing is left, the status is `NO_DATA` when any part had no data, otherwise `NOT_SUPPORTED`. Otherwise the worst remaining status wins: `SOURCE_ERROR` > `LIMIT_REACHED` > `CACHED` > `FRESH`. `fetchedAt` is the oldest `fetchedAt` of the returned data, or null when nothing is returned.
+
+## ADR-040: Symbol suffixes that are not exchange codes
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Context:** US share classes use a dot in the ticker (`BRK.B`), which looks like an exchange suffix (ADR-034).
+
+**Decision:** A suffix is treated as an exchange code only if it is a known Finnhub exchange code. Otherwise the whole symbol is a US ticker.
+
+## ADR-041: Companies missing from the exchange directory
+
+**Date:** 2026-11-14
+**Status:** Accepted
+
+**Context:** The exchange directory may not contain a symbol (stale list, exchange not available on the source plan) or may be temporarily unavailable.
+
+**Decision:**
+- Search hits not found in the directory are kept, with the exchange code as the exchange name, the name from the source and `market = null`.
+- Watchlist rows whose symbol is not found are kept with the same best-effort identity (name from the cached company profile when present) and the cached quote, which is not refreshed because the currency is unknown.
+- Adding a symbol that is already in the watchlist skips the directory check, so the operation stays idempotent while the directory is unavailable. Adding a new symbol that is not in the directory returns `404`.
