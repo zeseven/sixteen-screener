@@ -11,6 +11,7 @@ import com.sixteenscreener.app.domain.model.ApiError
 @ReadOnlyComposable
 fun apiErrorMessage(error: ApiError): String = when (error) {
     is ApiError.Network -> stringResource(R.string.error_network)
+    ApiError.NoProfile -> stringResource(R.string.error_no_profile)
     ApiError.Unauthorized -> stringResource(R.string.error_unauthorized)
     is ApiError.NotFound -> error.problem?.detail ?: stringResource(R.string.error_not_found)
     is ApiError.Http -> error.problem?.detail ?: stringResource(R.string.error_server, error.status)

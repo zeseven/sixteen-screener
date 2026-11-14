@@ -21,6 +21,9 @@ sealed interface ApiError {
     /** No connection, connection lost or timeout. */
     data class Network(val isTimeout: Boolean) : ApiError
 
+    /** No profile is selected, so a profile-scoped request cannot be made. */
+    data object NoProfile : ApiError
+
     /** The request was not authorized: no ID token could be obtained or the backend rejected it. */
     data object Unauthorized : ApiError
 

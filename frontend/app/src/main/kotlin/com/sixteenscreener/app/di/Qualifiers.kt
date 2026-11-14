@@ -26,3 +26,8 @@ annotation class TokenHttpClient
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class AuthenticatedHttpClient
+
+/** Scope of work that outlives screens, such as repositories observing the active profile; lives as long as the process. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class ApplicationScope

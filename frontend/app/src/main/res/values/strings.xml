@@ -6,6 +6,7 @@
     <string name="error_unauthorized">The app cannot authenticate to the server</string>
     <string name="error_not_found">Not found</string>
     <string name="error_server">Server error (%1$d)</string>
+    <string name="error_no_profile">No profile selected</string>
     <string name="error_parse">Unexpected server response</string>
 
     <string name="profile_title">Welcome</string>
