@@ -9,6 +9,7 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
 import io.ktor.server.application.log
 import io.ktor.server.plugins.BadRequestException
+import io.ktor.server.plugins.ContentTransformationException
 import io.ktor.server.plugins.NotFoundException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respondText
@@ -25,6 +26,9 @@ fun Application.configureStatusPages() {
         }
         exception<BadRequestException> { call, cause ->
             call.respondProblem(HttpStatusCode.BadRequest, cause.message)
+        }
+        exception<ContentTransformationException> { call, cause ->
+            call.respondProblem(HttpStatusCode.UnsupportedMediaType, cause.message)
         }
         exception<ResourceNotFoundException> { call, cause ->
             call.respondProblem(HttpStatusCode.NotFound, cause.message)

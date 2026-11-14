@@ -1,0 +1,10 @@
+package com.sixteenscreener.adapter.inbound.http
+
+import com.sixteenscreener.domain.model.ProfileId
+import com.sixteenscreener.domain.model.Symbol
+import io.ktor.server.application.ApplicationCall
+import io.ktor.server.util.getOrFail
+
+fun ApplicationCall.profileIdParameter(): ProfileId = ProfileId.of(parameters.getOrFail("profileId"))
+
+fun ApplicationCall.symbolParameter(): Symbol = Symbol.of(parameters.getOrFail("symbol"))
