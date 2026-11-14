@@ -33,4 +33,12 @@
     <string name="watchlist_add_description">Add %1$s to the watchlist</string>
     <string name="watchlist_in_watchlist_description">%1$s is in the watchlist</string>
     <string name="watchlist_remove_description">Remove %1$s from the watchlist</string>
+
+    <string name="tab_watchlist">Watchlist</string>
+    <string name="tab_search">Search</string>
+    <string name="tab_sources">Sources</string>
+    <string name="settings_open">Settings</string>
+    <string name="settings_title">Settings</string>
+    <string name="detail_title">Company details</string>
+    <string name="navigate_back">Back</string>
 </resources>
