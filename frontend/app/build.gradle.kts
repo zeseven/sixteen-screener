@@ -118,6 +118,10 @@ kotlin {
     jvmToolchain(21)
 }
 
+ksp {
+    arg("dagger.fullBindingGraphValidation", "ERROR")
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
