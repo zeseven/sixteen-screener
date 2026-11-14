@@ -449,34 +449,39 @@ class CompanyDataServiceTest : FunSpec({
         }
     }
 
-    context("cached quotes for search") {
-        test("returns cached quotes only and never requests the source") {
+    context("cached company data for search") {
+        test("returns cached quotes and profiles only and never requests the source") {
             val f = fixture()
             f.cachedQuote("AAPL", 190.0, age = Duration.ofMinutes(5))
             f.cachedQuote("MSFT", 400.0, age = Duration.ofDays(2))
+            f.cached(profileKey("MSFT"), sampleProfile("Microsoft", "Software"), age = Duration.ofDays(30))
             f.quoteFromSource("NVDA", 100.0)
+            f.profileFromSource("NVDA")
 
-            val quotes = f.service.cachedQuotes(FINNHUB, listOf("AAPL", "MSFT", "NVDA").map(Symbol::of))
+            val companies = f.service.cachedCompanies(FINNHUB, listOf("AAPL", "MSFT", "NVDA").map(Symbol::of))
 
-            quotes.keys shouldBe setOf(AAPL, Symbol.of("MSFT"))
-            quotes.getValue(AAPL).status shouldBe DataStatus.FRESH
-            quotes.getValue(Symbol.of("MSFT")).status shouldBe DataStatus.CACHED
+            companies.getValue(AAPL).quote?.status shouldBe DataStatus.FRESH
+            companies.getValue(AAPL).profile.shouldBeNull()
+            companies.getValue(Symbol.of("MSFT")).quote?.status shouldBe DataStatus.CACHED
+            companies.getValue(Symbol.of("MSFT")).profile?.sector shouldBe "Software"
+            companies.getValue(Symbol.of("NVDA")) shouldBe CachedCompanyData(quote = null, profile = null)
             f.source.calls.shouldBeEmpty()
             f.countingCounters.tryAcquireCalls shouldBe 0
+            f.cache.getAllCalls shouldBe 1
         }
 
-        test("no symbols gives no quotes without reading the cache") {
+        test("no symbols gives no data without reading the cache") {
             val f = fixture()
 
-            f.service.cachedQuotes(FINNHUB, emptyList()).shouldBeEmpty()
+            f.service.cachedCompanies(FINNHUB, emptyList()).shouldBeEmpty()
             f.cache.getAllCalls shouldBe 0
         }
 
-        test("quotes of another source are not returned") {
+        test("data of another source is not returned") {
             val f = fixture()
             f.cachedQuote("AAPL", 190.0, age = Duration.ofMinutes(5), source = SEC_EDGAR)
 
-            f.service.cachedQuotes(FINNHUB, listOf(AAPL)).shouldBeEmpty()
+            f.service.cachedCompanies(FINNHUB, listOf(AAPL)).getValue(AAPL).quote.shouldBeNull()
         }
     }
 

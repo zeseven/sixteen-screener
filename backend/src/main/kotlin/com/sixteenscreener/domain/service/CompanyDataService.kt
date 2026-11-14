@@ -42,6 +42,11 @@ data class WatchlistCompanyData(
     val profile: SourceData<CompanyProfile>,
 )
 
+data class CachedCompanyData(
+    val quote: SourceData<QuoteRecord>?,
+    val profile: CompanyProfile?,
+)
+
 class CompanyDataService(
     private val catalog: SourceCatalog,
     private val marketDataSources: Map<SourceId, MarketDataSource>,
@@ -126,11 +131,18 @@ class CompanyDataService(
         }
     }
 
-    suspend fun cachedQuotes(source: SourceId, symbols: Collection<Symbol>): Map<Symbol, SourceData<QuoteRecord>> {
+    suspend fun cachedCompanies(source: SourceId, symbols: Collection<Symbol>): Map<Symbol, CachedCompanyData> {
         if (symbols.isEmpty()) return emptyMap()
-        val keys = symbols.associateWith { CacheKey(source, it, DataType.QUOTE) }
-        val cached = cache.getAll(keys.values)
-        return keys.mapNotNull { (symbol, key) -> cached[key]?.let { symbol to fromCache(key, it) } }.toMap()
+        val quoteKeys = symbols.associateWith { CacheKey(source, it, DataType.QUOTE) }
+        val profileKeys = symbols.associateWith { CacheKey(source, it, DataType.COMPANY_PROFILE) }
+        val cached = cache.getAll(quoteKeys.values + profileKeys.values)
+        return symbols.associateWith { symbol ->
+            val quoteKey = quoteKeys.getValue(symbol)
+            CachedCompanyData(
+                quote = cached[quoteKey]?.let { fromCache(quoteKey, it) },
+                profile = cached[profileKeys.getValue(symbol)]?.data,
+            )
+        }
     }
 
     private data class Target(val source: SourceId, val listing: ListedSymbol)
