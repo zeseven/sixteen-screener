@@ -147,13 +147,22 @@ class AppServices(
     override fun close() = resources.forEach(AutoCloseable::close)
 }
 
+private const val NETTY_ALLOCATOR_PROPERTY = "io.grpc.netty.shaded.io.netty.allocator.type"
+
 fun main() {
+    usePooledNettyAllocator()
     val config = loadConfigOrExit()
     val services = wireServices(config)
     embeddedServer(CIO, port = config.port, host = "0.0.0.0") {
         module(services)
         monitor.subscribe(ApplicationStopped) { services.close() }
     }.start(wait = true)
+}
+
+internal fun usePooledNettyAllocator() {
+    if (System.getProperty(NETTY_ALLOCATOR_PROPERTY) == null) {
+        System.setProperty(NETTY_ALLOCATOR_PROPERTY, "pooled")
+    }
 }
 
 fun wireServices(config: AppConfig): AppServices {
