@@ -619,3 +619,29 @@ External sources are distributed as follows:
 
 **Consequences:** Tags for companies outside the watchlist would need a new decision and a separate storage.
 
+## ADR-062: Static exchange table and companies of exchanges without a symbol list
+
+**Date:** 2026-11-15
+**Status:** Accepted
+
+**Context:** The Finnhub free plan answers `/stock/symbol` only for the US exchange; for other exchanges, and for quotes and company profiles of their symbols, it answers `403` ("You don't have access to this resource"). Its search still returns European companies (e.g. `AD.AS` with its full name). Without a symbol list, such companies got the exchange code as exchange name and no market, and couldn't be added to the watchlist (ADR-041).
+
+**Decision:**
+- A static exchange table maps each known exchange code to exchange name, market, time zone and currency (`AS` -> Euronext Amsterdam, EU, Europe/Amsterdam, EUR). Exchange and market of a symbol come from the symbol list when it contains the symbol, otherwise from the static table.
+- An exchange is "not covered" by the source when the source answers that it has no symbol list for it (`NOT_SUPPORTED` or `NO_DATA`). Symbols of a not covered exchange that is in the static table are accepted by `PUT /watchlist/{symbol}` without validation. Symbols missing from a covered exchange's list still return `404`.
+- The watchlist entry stores the company name (`{symbol, name, sector, tags}`). It comes from the symbol list when the symbol is listed, otherwise from the optional request body of `PUT /watchlist/{symbol}` (the search result's name, sent by the app), otherwise the ticker. The detailed screen's profile fetch from the default source updates it together with the sector (ADR-057).
+- Quotes, company profiles and ratios of symbols of a not covered exchange are returned as `NOT_SUPPORTED` without a source request; the app shows `-` in the neutral color.
+
+**Consequences:** European companies can be found, filtered by market and added, with no sector, price or indicators until a source covering their exchanges is added (beta). Supersedes the `404` for such symbols and the best-effort identity of ADR-041.
+
+## ADR-063: Exchange symbol lists kept for 7 days
+
+**Date:** 2026-11-15
+**Status:** Accepted
+
+**Context:** Symbol lists change slowly; downloading them daily costs a source request per exchange per day for little gain. A company listed recently would be missing from an older list and couldn't be added (`404`).
+
+**Decision:** A downloaded symbol list is kept for 7 days (supersedes the daily refresh of ADR-034). When a symbol is not found in a list older than 1 day, the list is downloaded again, at most once per day per exchange. A failed download keeps the old list and is retried after 5 minutes; an exchange the source doesn't cover is asked again after 1 day.
+
+**Consequences:** A new listing becomes visible at the first lookup after its list is 1 day old.
+

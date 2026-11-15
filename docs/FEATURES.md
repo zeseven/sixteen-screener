@@ -46,6 +46,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Company data cached per ticker and date, shared between users; expires via Firestore TTL after 14 days
 - [x] Data younger than 1 hour is considered fresh and not refreshed
 - [x] Company profiles cached for 90 days
+- [ ] Exchange symbol lists kept for 7 days; a missing symbol triggers a new download of a list older than 1 day
 - [x] Stale data refreshed for the watchlist screen (if source limits allow)
 - [x] Detailed screen shows cached data on open; refresh only on manual request
 - [x] Detailed screen data requested from the source automatically when nothing is cached
@@ -66,6 +67,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Only displayed rows (plus a 5-row buffer) refreshed: on screen open, on scrolling new rows into view, on filter change
 - [x] Watchlist stored as entries `{symbol, sector, tags}` and loaded without source requests; sector stored on add and updated by the detailed screen
 - [x] Prices and indicators lazy-loaded per displayed row; '-' until loaded; orange after a failed load
+- [ ] Company name stored in the watchlist entry; companies of exchanges without a symbol list (EU on the Finnhub free plan) can be added with the name from the search result
 - [x] Filter by market (USA / EU / all)
 - [x] Filter by sector (sector names as provided by the source)
 - [x] In-memory filtering (no database search indexes)
@@ -75,6 +77,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Search starts from the first letter, then on each typed letter, throttled to max 1 request per second; 1- and 2-letter queries match tickers only; at most 25 results
 - [x] Results displayed as a company list; each result can be added to the watchlist
 - [x] Results show directory data only (no price, indicators or sector); no cache reads
+- [ ] Exchange name and market from a static exchange table when the source provides no symbol list for the exchange
 - [x] Source limit reached or source failure: empty result list with the reason shown under the search box (search status returned by the backend)
 - [x] Open detailed screen for a found company
 

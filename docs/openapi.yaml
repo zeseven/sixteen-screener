@@ -133,9 +133,10 @@ paths:
       operationId: getWatchlist
       summary: Get watchlist
       description: |
-        Returns all companies of the profile's watchlist in insertion order. The watchlist stores the symbol, sector and
-        tags of each company; ticker, exchange, name and market come from the exchange directory. No company data is read
-        from the cache and no source requests are made (except the daily exchange directory download, ADR-034).
+        Returns all companies of the profile's watchlist in insertion order. The watchlist stores the symbol, name, sector
+        and tags of each company; ticker, exchange and market come from the exchange directory, or from the static exchange
+        table for exchanges the source provides no symbol list for. No company data is read from the cache and no source
+        requests are made (except an exchange directory download, ADR-034, ADR-063).
         Prices and indicators are loaded separately for the displayed rows with `GET /watchlist/market-data`.
         Filtering by market, sector and tags is done by the app in memory.
       x-milestone: alpha
@@ -200,13 +201,23 @@ paths:
       operationId: addToWatchlist
       summary: Add company to watchlist
       description: |
-        Idempotent. A new company is stored with its sector from the company profile of the profile's default source:
+        Idempotent. A new company is stored with its name and its sector. The name comes from the exchange directory when
+        the symbol is listed there, otherwise from the request body (the name of the search result), otherwise the ticker.
+        Symbols of exchanges the source provides no symbol list for (e.g. European exchanges on the Finnhub free plan) are
+        accepted without validation; other symbols missing from the directory return `404`.
+        The sector comes from the company profile of the profile's default source:
         the cached profile if not expired, otherwise the profile is requested from the source. When the request fails or
         the source limit is reached, the sector of an expired cached profile is used; the company is added with
         `sector = null` only when no profile is known (nothing cached and the request failed, or the source has no data).
         Adding a company that is already in the watchlist returns it unchanged without source requests.
         Returns `400` when the company is not in the watchlist yet and the watchlist is full (250 companies).
       x-milestone: alpha
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WatchlistAdd'
       responses:
         '200':
           description: Company is in the watchlist
@@ -662,9 +673,20 @@ components:
         defaultSource:
           $ref: '#/components/schemas/SourceId'
 
+    WatchlistAdd:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          description: Company name from the search result; used when the symbol is not in the exchange directory.
+          example: Koninklijke Ahold Delhaize NV
+
     Company:
       type: object
-      description: Company identity from the exchange directory.
+      description: |
+        Company identity. Exchange and market come from the exchange directory, or from the static exchange table when
+        the source provides no symbol list for the exchange.
       required: [symbol, ticker, exchange, name, market, logoUrl]
       properties:
         symbol:
@@ -696,6 +718,12 @@ components:
         - type: object
           required: [sector, tags]
           properties:
+            name:
+              type: string
+              description: |
+                Company name stored with the watchlist entry when the company is added (exchange directory, otherwise the
+                search result, otherwise the ticker); updated when the detailed screen fetches the company profile from the
+                default source.
             sector:
               type: string
               nullable: true
