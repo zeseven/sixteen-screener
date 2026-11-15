@@ -7,6 +7,7 @@ import com.sixteenscreener.contract.logoMissRepositoryContract
 import com.sixteenscreener.contract.profileCandidate
 import com.sixteenscreener.contract.profileRepositoryContract
 import com.sixteenscreener.contract.requestCounterRepositoryContract
+import com.sixteenscreener.contract.sampleProfile
 import com.sixteenscreener.contract.sampleRatios
 import com.sixteenscreener.contract.secCikRepositoryContract
 import com.sixteenscreener.contract.sourceCallOutcomeRepositoryContract
@@ -134,6 +135,19 @@ class FirestoreCompanyCacheEmulatorTest : FunSpec({
         document["fetchedAt"] shouldBe fetchedAt.toTimestamp()
         document["expireAt"] shouldBe expireAt
         document.keys shouldBe setOf("payload", "fetchedAt", "expireAt")
+    }
+
+    test("company profile documents expire 90 days after fetchedAt") {
+        val firestore = emulator.reset()
+        FirestoreCompanyCache(firestore).put(
+            CacheKey(finnhub, apple, DataType.COMPANY_PROFILE),
+            CacheEntry(sampleProfile, fetchedAt),
+        )
+
+        val document = firestore.document(FirestoreCollections.SOURCE_DATA, "finnhub__AAPL__COMPANY_PROFILE")
+
+        document["fetchedAt"] shouldBe fetchedAt.toTimestamp()
+        document["expireAt"] shouldBe fetchedAt.plus(Duration.ofDays(90)).toTimestamp()
     }
 
     test("quote documents carry the market day and previous price; history documents expire too") {

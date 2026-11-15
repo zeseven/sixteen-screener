@@ -385,7 +385,7 @@ class CompanyDataServiceTest : FunSpec({
             f.cache.get(profileKey("AAPL"))?.data shouldBe sampleProfile()
         }
 
-        test("refresh requests the profile even when it is younger than 14 days") {
+        test("refresh requests the profile even when it is younger than 90 days") {
             val f = fixture()
             f.cached(profileKey("AAPL"), sampleProfile(sector = "Old"), age = Duration.ofDays(1))
             f.profileFromSource("AAPL")

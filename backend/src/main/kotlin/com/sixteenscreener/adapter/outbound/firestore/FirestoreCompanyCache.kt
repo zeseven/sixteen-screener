@@ -42,7 +42,7 @@ class FirestoreCompanyCache(private val firestore: Firestore) : CompanyCache {
             mapOf(
                 PAYLOAD to CachePayloadCodec.encode(key.type, entry.data),
                 FETCHED_AT to entry.fetchedAt.toTimestamp(),
-                EXPIRE_AT to expireAt(entry.fetchedAt),
+                EXPIRE_AT to expireAt(key.type, entry.fetchedAt),
             ),
         ).await()
     }
@@ -70,7 +70,7 @@ class FirestoreCompanyCache(private val firestore: Firestore) : CompanyCache {
                     PRICE to quote.price,
                     CURRENCY to quote.currency,
                     FETCHED_AT to fetchedAt.toTimestamp(),
-                    EXPIRE_AT to expireAt(fetchedAt),
+                    EXPIRE_AT to expireAt(DataType.QUOTE, fetchedAt),
                 ),
             )
             CacheEntry(record, fetchedAt)
@@ -82,7 +82,7 @@ class FirestoreCompanyCache(private val firestore: Firestore) : CompanyCache {
     private fun QuoteRecord.toDocument(fetchedAt: Instant): FirestoreMap = mapOf(
         PAYLOAD to CachePayloadCodec.encodeQuote(quote),
         FETCHED_AT to fetchedAt.toTimestamp(),
-        EXPIRE_AT to expireAt(fetchedAt),
+        EXPIRE_AT to expireAt(DataType.QUOTE, fetchedAt),
         MARKET_DATE to marketDate.toString(),
         PREVIOUS_PRICE to previousPrice?.price,
         PREVIOUS_PRICE_DATE to previousPrice?.marketDate?.toString(),
@@ -111,7 +111,8 @@ class FirestoreCompanyCache(private val firestore: Firestore) : CompanyCache {
         )
     }
 
-    private fun expireAt(fetchedAt: Instant) = fetchedAt.plus(FreshnessPolicy.CACHE_TTL).toTimestamp()
+    private fun expireAt(type: DataType<*>, fetchedAt: Instant) =
+        fetchedAt.plus(FreshnessPolicy.cacheTtlOf(type)).toTimestamp()
 
     companion object {
         private val logger = LoggerFactory.getLogger(FirestoreCompanyCache::class.java)

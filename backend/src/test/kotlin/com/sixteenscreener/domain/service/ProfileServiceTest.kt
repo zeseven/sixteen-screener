@@ -125,7 +125,7 @@ class ProfileServiceTest : FunSpec({
 
         test("add takes the sector of a cached profile that is not expired, without a source request") {
             val f = ProfileFixture()
-            f.data.cached(profileKey("AAPL"), sampleProfile(sector = "Cached"), age = Duration.ofDays(13))
+            f.data.cached(profileKey("AAPL"), sampleProfile(sector = "Cached"), age = Duration.ofDays(60))
             f.data.profileFromSource("AAPL", sampleProfile(sector = "Fetched"))
 
             f.add("AAPL").sector shouldBe "Cached"

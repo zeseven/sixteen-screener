@@ -271,9 +271,9 @@ class CompanyDataServiceWatchlistTest : FunSpec({
 
     context("unexpired company profile") {
 
-        test("cached profile younger than 14 days is returned without a request") {
+        test("cached profile younger than 90 days is returned without a request, even when older than 14 days") {
             val f = CompanyDataFixture()
-            f.cached(profileKey("AAPL"), sampleProfile(), age = Duration.ofDays(14).minusSeconds(1))
+            f.cached(profileKey("AAPL"), sampleProfile(), age = Duration.ofDays(90).minusSeconds(1))
             f.profileFromSource("AAPL", sampleProfile(sector = "New"))
 
             val profile = f.unexpiredProfile("AAPL")
@@ -283,9 +283,9 @@ class CompanyDataServiceWatchlistTest : FunSpec({
             profile.data?.sector shouldBe "Technology"
         }
 
-        test("cached profile of exactly 14 days or older is requested again and cached") {
+        test("cached profile of exactly 90 days or older is requested again and cached") {
             val f = CompanyDataFixture()
-            f.cached(profileKey("AAPL"), sampleProfile(sector = "Old"), age = Duration.ofDays(14))
+            f.cached(profileKey("AAPL"), sampleProfile(sector = "Old"), age = Duration.ofDays(90))
             f.profileFromSource("AAPL", sampleProfile(sector = "New"))
 
             val profile = f.unexpiredProfile("AAPL")
@@ -306,7 +306,7 @@ class CompanyDataServiceWatchlistTest : FunSpec({
 
         test("expired profile beyond the budget keeps its cached data with LIMIT_REACHED") {
             val f = CompanyDataFixture()
-            f.cached(profileKey("AAPL"), sampleProfile(sector = "Old"), age = Duration.ofDays(20))
+            f.cached(profileKey("AAPL"), sampleProfile(sector = "Old"), age = Duration.ofDays(100))
             f.exhaustBudget()
 
             val profile = f.unexpiredProfile("AAPL")
