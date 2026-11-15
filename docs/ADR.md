@@ -676,3 +676,14 @@ External sources are distributed as follows:
 **Decision:** Cloud Build runs the backend image build on an `E2_HIGHCPU_32` machine (32 vCPU, 32 GB RAM). The builder's heap is left at its default size, derived from the machine memory.
 
 **Consequences:** Builds have enough memory headroom and finish faster, but a build minute costs about four times as much as on `E2_HIGHCPU_8`. Local `docker build` needs a Docker VM with at least 12 GB of memory.
+
+## ADR-067: Backend uses a named Firestore database
+
+**Date:** 2026-11-15
+**Status:** Accepted
+
+**Context:** The GCP project can host several small Cloud Run services, each with its own data. With all of them in the project's `(default)` Firestore database, their collections, TTL policies and access rights are mixed, and one service's data can't be exported, restored or deleted separately.
+
+**Decision:** The backend stores its data in a named Firestore database, `sixteen-screener` by default (`firestoreDatabase` in `application.conf`, overridable by `FIRESTORE_DATABASE`). The database ID is validated on start. The runtime service account gets `roles/datastore.user` with an IAM condition limiting it to this database. The Firestore emulator tests use a named database too.
+
+**Consequences:** The backend's data is isolated from other services and can be managed on its own. Firestore's free quota applies only to the first database created in a project; if the `(default)` database was created first, usage of the named database is billed from the first operation. Creating a named database requires a project with billing enabled.

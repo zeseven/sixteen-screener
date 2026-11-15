@@ -21,6 +21,7 @@ capabilities, request limits and timeouts. Environment variables override or com
 | Variable                  | Required           | Description                                                                 |
 |---------------------------|--------------------|-----------------------------------------------------------------------------|
 | `GCP_PROJECT_ID`          | yes                | GCP project with Firestore and the bucket                                   |
+| `FIRESTORE_DATABASE`      | no                 | Named Firestore database (default `sixteen-screener`)                       |
 | `LOGO_BUCKET`             | yes                | Bucket for cached logos and exchange directories                            |
 | `DEFAULT_SOURCE`          | no                 | Default source ID (default `finnhub`)                                       |
 | `FINNHUB_API_KEY`         | if Finnhub enabled | Finnhub API key (Secret Manager on Cloud Run)                               |

@@ -25,6 +25,7 @@ Set these variables in your shell before running the commands. Adjust values as 
 export PROJECT_ID="your-project-id"
 export REGION="europe-west4"               # Cloud Run, Artifact Registry, GCS
 export FIRESTORE_LOCATION="eur3"           # Firestore multi-region (or a region, e.g. europe-west4)
+export FIRESTORE_DATABASE="sixteen-screener" # named Firestore database used only by the backend
 export SERVICE_NAME="sixteen-screener-backend"
 export AR_REPOSITORY="sixteen-screener"
 export LOGO_BUCKET="${PROJECT_ID}-sixteen-screener-logos"
@@ -64,12 +65,15 @@ gcloud artifacts repositories create "$AR_REPOSITORY" \
 
 ## 5. Firestore
 
-Create the default database in Native mode. The location can't be changed later.
+The backend uses its own named database, not the project's `(default)` database. Create it in Native mode.
+The location can't be changed later; delete protection prevents accidental deletion.
 
 ```bash
 gcloud firestore databases create \
+  --database="$FIRESTORE_DATABASE" \
   --location="$FIRESTORE_LOCATION" \
-  --type=firestore-native
+  --type=firestore-native \
+  --delete-protection
 ```
 
 Enable TTL policies on the `expireAt` field of all cache collections:
@@ -77,6 +81,7 @@ Enable TTL policies on the `expireAt` field of all cache collections:
 ```bash
 for COLLECTION in sourceData quoteHistory requestCounters logoMisses secCik; do
   gcloud firestore fields ttls update expireAt \
+    --database="$FIRESTORE_DATABASE" \
     --collection-group="$COLLECTION" \
     --enable-ttl \
     --async
@@ -86,7 +91,7 @@ done
 Check the TTL policies (state becomes `ACTIVE` after a few minutes):
 
 ```bash
-gcloud firestore fields ttls list
+gcloud firestore fields ttls list --database="$FIRESTORE_DATABASE"
 ```
 
 The other collections (`profiles`, `profileNames`, `sourceCalls`) have no TTL. No composite indexes are needed.
@@ -145,8 +150,8 @@ unset FINNHUB_API_KEY
 
 ## 8. Runtime service account
 
-The Cloud Run service runs as a dedicated service account with access to Firestore, the logo bucket
-and the two secrets only.
+The Cloud Run service runs as a dedicated service account with access to the backend's Firestore database,
+the logo bucket and the two secrets only. The IAM condition limits `roles/datastore.user` to that database.
 
 ```bash
 gcloud iam service-accounts create "$RUNTIME_SA" \
@@ -157,7 +162,7 @@ RUNTIME_SA_EMAIL="${RUNTIME_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --member="serviceAccount:${RUNTIME_SA_EMAIL}" \
   --role="roles/datastore.user" \
-  --condition=None
+  --condition="expression=resource.name==\"projects/${PROJECT_ID}/databases/${FIRESTORE_DATABASE}\",title=sixteen-screener-database-only"
 
 gcloud storage buckets add-iam-policy-binding "gs://${LOGO_BUCKET}" \
   --member="serviceAccount:${RUNTIME_SA_EMAIL}" \

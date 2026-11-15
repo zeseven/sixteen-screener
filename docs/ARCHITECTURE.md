@@ -47,7 +47,7 @@ The service account key is bundled into the APK at build time and is never store
 - .gitignore contains patterns for key files as an additional safeguard.
 - The app uses the key to obtain a Google-signed ID token with the Cloud Run service URL as the audience, and sends it with each request. The app signs the token request (JWT, RS256) itself and exchanges it at the Google token endpoint; no Google auth library is used.
 - Key rotation: create a new key, rebuild and reinstall the APK, then delete the old key.
-Database: Firestore. Cached data is stored with Firestore TTL feature to be automatically removed.
+Database: Firestore, in a named database used only by the backend (`sixteen-screener`), not the project's `(default)` database. Cached data is stored with Firestore TTL feature to be automatically removed.
 Secret Manager is used for tokens and credentials. Cloud Run exposes them to the container as environment variables (`--set-secrets`); the backend uses no Secret Manager client library.
 
 ## Hosting
