@@ -57,7 +57,7 @@ class ProfileService(
 
     private suspend fun sectorOf(profile: Profile, symbol: Symbol): String? =
         companyData.unexpiredCompanyProfile(catalog.defaultSourceOf(profile), symbol)
-            .takeIf { it.status in LOADED }
+            .takeIf { it.status in SECTOR_SOURCES }
             ?.data
             ?.sector
 
@@ -71,6 +71,6 @@ class ProfileService(
     )
 
     private companion object {
-        val LOADED = setOf(DataStatus.FRESH, DataStatus.CACHED)
+        val SECTOR_SOURCES = setOf(DataStatus.FRESH, DataStatus.CACHED, DataStatus.LIMIT_REACHED, DataStatus.SOURCE_ERROR)
     }
 }

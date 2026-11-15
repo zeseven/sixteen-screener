@@ -150,7 +150,7 @@ class ProfileServiceTest : FunSpec({
             f.data.profileCalls() shouldContainExactly listOf("profile:AAPL")
         }
 
-        context("add stores a null sector when the company profile can't be loaded") {
+        context("add takes the sector of an expired cached profile when the profile request fails") {
             data class Case(val name: String, val arrange: suspend CompanyDataFixture.() -> Unit)
 
             withData(
@@ -158,10 +158,44 @@ class ProfileServiceTest : FunSpec({
                 Case("source error") {
                     source.profiles[Symbol.of("AAPL")] = SourceResult.SourceError(SourceCallOutcome.httpError(500, now))
                 },
-                Case("no data") { source.profiles[Symbol.of("AAPL")] = SourceResult.NoData(success()) },
-                Case("limit reached") { profileFromSource("AAPL"); exhaustBudget() },
-                Case("limit reached with an expired cached profile") {
+                Case("limit reached by the source") {
                     source.profiles[Symbol.of("AAPL")] = SourceResult.LimitReached(SourceCallOutcome.httpError(429, now))
+                },
+                Case("limit reached by the budget") { profileFromSource("AAPL"); exhaustBudget() },
+            ) { case ->
+                val f = ProfileFixture()
+                f.data.cached(profileKey("AAPL"), sampleProfile(sector = "Old"), age = Duration.ofDays(400))
+                case.arrange(f.data)
+
+                val item = f.add("AAPL")
+
+                item.sector shouldBe "Old"
+                f.watchlistOf(f.data.profile.id) shouldContainExactly listOf(watchlistEntry("AAPL", sector = "Old"))
+            }
+        }
+
+        context("add stores a null sector when no company profile is known") {
+            data class Case(val name: String, val arrange: suspend CompanyDataFixture.() -> Unit)
+
+            withData(
+                nameFn = { it.name },
+                Case("source error") {
+                    source.profiles[Symbol.of("AAPL")] = SourceResult.SourceError(SourceCallOutcome.httpError(500, now))
+                },
+                Case("limit reached by the source") {
+                    source.profiles[Symbol.of("AAPL")] = SourceResult.LimitReached(SourceCallOutcome.httpError(429, now))
+                },
+                Case("limit reached by the budget") { profileFromSource("AAPL"); exhaustBudget() },
+                Case("no data") { source.profiles[Symbol.of("AAPL")] = SourceResult.NoData(success()) },
+                Case("no data with an expired cached profile") {
+                    source.profiles[Symbol.of("AAPL")] = SourceResult.NoData(success())
+                    cached(profileKey("AAPL"), sampleProfile(sector = "Old"), age = Duration.ofDays(400))
+                },
+                Case("not supported") {
+                    source.profiles[Symbol.of("AAPL")] = SourceResult.NotSupported(SourceCallOutcome.httpError(403, now))
+                },
+                Case("not supported with an expired cached profile") {
+                    source.profiles[Symbol.of("AAPL")] = SourceResult.NotSupported(SourceCallOutcome.httpError(403, now))
                     cached(profileKey("AAPL"), sampleProfile(sector = "Old"), age = Duration.ofDays(400))
                 },
             ) { case ->
