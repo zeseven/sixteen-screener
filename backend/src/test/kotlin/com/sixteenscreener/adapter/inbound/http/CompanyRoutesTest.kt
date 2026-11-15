@@ -10,6 +10,7 @@ import com.sixteenscreener.domain.model.CacheKey
 import com.sixteenscreener.domain.model.Capability
 import com.sixteenscreener.domain.model.CompanyProfile
 import com.sixteenscreener.domain.model.DataType
+import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.FiscalPeriod
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.ListedSymbol
@@ -562,6 +563,45 @@ class CompanyRoutesTest : FunSpec({
 
                 client.get("/profiles/${UUID.randomUUID()}/companies/AAPL/$tab").shouldBeProblem(404)
                 ports.sourceCallCount() shouldBe 0
+            }
+        }
+    }
+
+    context("symbol of an exchange not covered by the directory source") {
+        test("price and ratios answer NOT_SUPPORTED without a source request") {
+            routeTest(config = fullConfig()) { ports ->
+                val saved = ports.savedProfile()
+                ports.symbolDirectory.notCovered(ExchangeCode("AS"))
+
+                val response = client.get("/profiles/${saved.id}/companies/AD.AS/price-ratios")
+
+                response.status shouldBe HttpStatusCode.OK
+                response.json().status() shouldBe JsonPrimitive("NOT_SUPPORTED")
+                response.json().isEmptyData() shouldBe true
+                ports.sourceCallCount() shouldBe 0
+            }
+        }
+
+        test("company profile answers NOT_SUPPORTED with the static exchange table identity") {
+            routeTest(config = fullConfig()) { ports ->
+                val saved = ports.savedProfile()
+                ports.symbolDirectory.notCovered(ExchangeCode("AS"))
+
+                val body = client.get("/profiles/${saved.id}/companies/AD.AS/profile").json()
+
+                body.status() shouldBe JsonPrimitive("NOT_SUPPORTED")
+                body["profile"] shouldBe JsonNull
+                ports.sourceCallCount() shouldBe 0
+            }
+        }
+
+        test("balance sheet of SEC EDGAR answers instead of not found") {
+            routeTest(config = fullConfig()) { ports ->
+                val saved = ports.savedProfile()
+                ports.symbolDirectory.notCovered(ExchangeCode("AS"))
+
+                client.get("/profiles/${saved.id}/companies/AD.AS/balance-sheet?source=sec-edgar").status shouldBe
+                    HttpStatusCode.OK
             }
         }
     }

@@ -2,6 +2,7 @@ package com.sixteenscreener.domain.service
 
 import com.sixteenscreener.domain.model.Capability
 import com.sixteenscreener.domain.model.DataStatus
+import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.Quote
 import com.sixteenscreener.domain.model.SourceResult
@@ -43,10 +44,10 @@ private class ConcurrencyProbe(private val delegate: FakeMarketDataSource) : Mar
 private suspend fun CompanyDataFixture.watchlist(vararg tickers: String) = watchlist(tickers.toList())
 
 private suspend fun CompanyDataFixture.watchlist(tickers: List<String>) =
-    tickers.map(Symbol::of).let { symbols -> service.watchlistQuotes(FINNHUB, symbols, directory.listingsOf(symbols)) }
+    tickers.map(Symbol::of).let { symbols -> service.watchlistQuotes(FINNHUB, symbols, directory.lookupAll(symbols)) }
 
 private suspend fun CompanyDataFixture.unexpiredProfile(ticker: String) =
-    service.unexpiredCompanyProfile(FINNHUB, Symbol.of(ticker))
+    service.unexpiredCompanyProfile(FINNHUB, Symbol.of(ticker), directory.lookup(Symbol.of(ticker)))
 
 private fun CompanyDataFixture.listedWithQuotes(tickers: List<String>) = tickers.forEachIndexed { index, ticker ->
     listed(listing(ticker))
@@ -204,6 +205,32 @@ class CompanyDataServiceWatchlistTest : FunSpec({
         probe!!.maxInFlight.get() shouldBe 5
     }
 
+    test("quote of a symbol of a not covered exchange is NOT_SUPPORTED without a call, next to refreshed listed quotes") {
+        val f = CompanyDataFixture(capabilities = quotesOnly)
+        f.directory.notCovered(ExchangeCode("AS"), FINNHUB)
+        f.listedWithQuotes(listOf("AAPL"))
+        f.quoteFromSource("AD.AS", 30.0, "EUR")
+
+        val quotes = f.watchlist("AD.AS", "AAPL")
+
+        quotes.getValue(Symbol.of("AD.AS")).status shouldBe DataStatus.NOT_SUPPORTED
+        quotes.getValue(Symbol.of("AD.AS")).data shouldBe null
+        quotes.getValue(Symbol.of("AAPL")).status shouldBe DataStatus.FRESH
+        f.quoteCalls() shouldBe listOf("quote:AAPL")
+    }
+
+    test("only quotes of not covered exchanges make no call and reserve no budget") {
+        val f = CompanyDataFixture(capabilities = quotesOnly)
+        f.directory.notCovered(ExchangeCode("AS"), FINNHUB)
+        f.directory.notCovered(ExchangeCode("L"), FINNHUB)
+
+        val quotes = f.watchlist("AD.AS", "SHEL.L")
+
+        quotes.values.map { it.status } shouldBe listOf(DataStatus.NOT_SUPPORTED, DataStatus.NOT_SUPPORTED)
+        f.source.calls.shouldBeEmpty()
+        f.countingCounters.tryAcquireCalls shouldBe 0
+    }
+
     test("stale quote of a symbol missing from the directory is not requested") {
         val f = CompanyDataFixture(capabilities = quotesOnly)
         val cached = f.cachedQuote("GONE", 3.0, age = Duration.ofHours(2))
@@ -325,6 +352,17 @@ class CompanyDataServiceWatchlistTest : FunSpec({
 
             profile.status shouldBe DataStatus.FRESH
             profile.data shouldBe sampleProfile()
+        }
+
+        test("profile of a symbol of a not covered exchange gives NOT_SUPPORTED without a request") {
+            val f = CompanyDataFixture()
+            f.directory.notCovered(ExchangeCode("AS"), FINNHUB)
+            f.profileFromSource("AD.AS")
+
+            val profile = f.unexpiredProfile("AD.AS")
+
+            profile.status shouldBe DataStatus.NOT_SUPPORTED
+            f.source.calls.shouldBeEmpty()
         }
 
         test("source without the profile capability gives NOT_SUPPORTED without a request") {

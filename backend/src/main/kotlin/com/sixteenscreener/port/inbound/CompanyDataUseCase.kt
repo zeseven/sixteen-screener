@@ -14,10 +14,12 @@ import com.sixteenscreener.domain.model.Symbol
  * Every operation returns cached data as is; the source is requested when nothing is cached or when [refresh] is true,
  * within the source request limits. Source failures and reached limits never fail the operation: the cached data,
  * or empty data without a cache, is returned with the corresponding status. A source without the capability gives
- * `NOT_SUPPORTED` without a call.
+ * `NOT_SUPPORTED` without a call. Quotes, ratios and company profiles of a symbol whose exchange is not covered by the
+ * source of the exchange directory are `NOT_SUPPORTED` from that source without a call (ADR-062).
  *
  * All operations throw [com.sixteenscreener.domain.model.ResourceNotFoundException] for an unknown profile, an unknown
- * symbol (not in the exchange directory) or an unknown source. When `source` is null, the profile's default source is used.
+ * symbol (neither in the exchange directory nor on a not covered exchange of the static exchange table) or an unknown
+ * source. When `source` is null, the profile's default source is used.
  */
 interface CompanyDataUseCase {
     /** Latest quote and ratios of [symbol]; the combined status is defined by [PriceAndRatios]. */

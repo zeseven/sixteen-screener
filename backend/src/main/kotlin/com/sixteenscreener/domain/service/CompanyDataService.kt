@@ -19,6 +19,7 @@ import com.sixteenscreener.domain.model.SourceData
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.SymbolLookup
 import com.sixteenscreener.port.inbound.CompanyDataUseCase
 import com.sixteenscreener.port.outbound.BalanceSheetSource
 import com.sixteenscreener.port.outbound.Clock
@@ -69,8 +70,8 @@ class CompanyDataService(
         val loaded = load(
             target.source,
             listOf(
-                detailedPlan(quoteKey, cached[quoteKey], refresh) { quoteFetch(quoteKey, it, target.listing) },
-                detailedPlan(ratiosKey, cached[ratiosKey], refresh) { ratiosFetch(ratiosKey, it) },
+                detailedPlan(quoteKey, target.lookup, cached[quoteKey], refresh) { quoteFetch(quoteKey, it, target.listing) },
+                detailedPlan(ratiosKey, target.lookup, cached[ratiosKey], refresh) { ratiosFetch(ratiosKey, it) },
             ),
         )
         return PriceAndRatios(loaded[quoteKey], loaded[ratiosKey])
@@ -84,7 +85,8 @@ class CompanyDataService(
     ): SourceData<BalanceSheet> {
         val target = target(profileId, symbol, source)
         val key = CacheKey(target.source, symbol, DataType.BALANCE_SHEET)
-        return loadSingle(key, refresh) { balanceSheetFetch(key, it) }
+        val cached = if (supports(key)) cache.get(key) else null
+        return load(key.source, listOf(detailedPlan(key, lookup = null, cached, refresh) { balanceSheetFetch(key, it) }))[key]
     }
 
     override suspend fun companyProfile(
@@ -95,82 +97,86 @@ class CompanyDataService(
     ): CompanyProfileData {
         val target = target(profileId, symbol, source)
         val key = CacheKey(target.source, symbol, DataType.COMPANY_PROFILE)
-        val cached = if (supports(key)) cache.get(key) else null
-        val plan = detailedPlan(key, cached, refresh) { profileFetch(key, it) }
+        val cached = if (supports(key, target.lookup)) cache.get(key) else null
+        val plan = detailedPlan(key, target.lookup, cached, refresh) { profileFetch(key, it) }
         val profile = load(key.source, listOf(plan))[key]
         val fetched = profile.data?.takeIf { plan is Fetch<*, *> && profile.status == DataStatus.FRESH }
         if (fetched != null) watchlistCompanies.profileFetched(target.profile, key.source, symbol, fetched)
-        val identity = identities.identify(symbol, target.listing)
+        val identity = identities.identify(symbol, target.lookup.listing, target.profile.watchlistEntry(symbol)?.name)
         return CompanyProfileData(profile.data?.name?.let { identity.copy(name = it) } ?: identity, profile)
     }
 
-    suspend fun unexpiredCompanyProfile(source: SourceId, symbol: Symbol): SourceData<CompanyProfile> {
+    suspend fun unexpiredCompanyProfile(source: SourceId, symbol: Symbol, lookup: SymbolLookup): SourceData<CompanyProfile> {
         val key = CacheKey(source, symbol, DataType.COMPANY_PROFILE)
-        val cached = if (supports(key)) cache.get(key) else null
-        return load(source, listOf(unexpiredProfilePlan(key, cached)))[key]
+        val cached = if (supports(key, lookup)) cache.get(key) else null
+        return load(source, listOf(unexpiredProfilePlan(key, lookup, cached)))[key]
     }
 
     suspend fun watchlistQuotes(
         source: SourceId,
         symbols: List<Symbol>,
-        listings: Map<Symbol, ListedSymbol>,
+        lookups: Map<Symbol, SymbolLookup>,
     ): Map<Symbol, SourceData<QuoteRecord>> {
         if (symbols.isEmpty()) return emptyMap()
         val keys = symbols.associateWith { CacheKey(source, it, DataType.QUOTE) }
         val cached = cache.getAll(keys.values)
         val plans = symbols.map { symbol ->
             val key = keys.getValue(symbol)
-            watchlistQuotePlan(key, cached[key], listings[symbol])
+            watchlistQuotePlan(key, lookups[symbol] ?: SymbolLookup.Unavailable, cached[key])
         }
         val loaded = load(source, oldestFirst(plans))
         return symbols.associateWith { loaded[keys.getValue(it)] }
     }
 
-    private data class Target(val profile: Profile, val source: SourceId, val listing: ListedSymbol)
+    private data class Target(
+        val profile: Profile,
+        val source: SourceId,
+        val lookup: SymbolLookup,
+        val listing: ListedSymbol,
+    )
 
     private suspend fun target(profileId: ProfileId, symbol: Symbol, requested: SourceId?): Target {
         val profile = profiles.existing(profileId)
         val source = catalog.selectSource(profile, requested)
-        val listing = symbolDirectory.lookup(symbol).listing ?: throw ResourceNotFoundException("Unknown symbol '$symbol'")
-        return Target(profile, source, listing)
-    }
-
-    private suspend fun <T : Any> loadSingle(
-        key: CacheKey<T>,
-        refresh: Boolean,
-        fetch: (CacheEntry<T>?) -> Fetch<T, *>,
-    ): SourceData<T> {
-        val cached = if (supports(key)) cache.get(key) else null
-        return load(key.source, listOf(detailedPlan(key, cached, refresh, fetch)))[key]
+        val lookup = symbolDirectory.lookup(symbol)
+        val listing = lookup.listing
+            ?: lookup.takeIf { it is SymbolLookup.NotCovered }?.let { marketResolver.staticListingOf(symbol) }
+            ?: throw ResourceNotFoundException("Unknown symbol '$symbol'")
+        return Target(profile, source, lookup, listing)
     }
 
     private fun <T : Any> detailedPlan(
         key: CacheKey<T>,
+        lookup: SymbolLookup?,
         cached: CacheEntry<T>?,
         refresh: Boolean,
         fetch: (CacheEntry<T>?) -> Fetch<T, *>,
     ): Plan<T> = when {
-        !supports(key) -> notSupported(key)
+        !supports(key, lookup) -> notSupported(key)
         refresh || cached == null -> fetch(cached)
         else -> Settled(key, fromCache(key, cached))
     }
 
     private fun watchlistQuotePlan(
         key: CacheKey<QuoteRecord>,
+        lookup: SymbolLookup,
         cached: CacheEntry<QuoteRecord>?,
-        listing: ListedSymbol?,
-    ): Plan<QuoteRecord> = when {
-        !supports(key) -> notSupported(key)
-        cached != null && freshness.isFresh(cached.fetchedAt) -> Settled(key, fromCache(key, cached))
-        listing == null -> Settled(key, fallback(key, cached, DataStatus.SOURCE_ERROR))
-        else -> quoteFetch(key, cached, listing)
+    ): Plan<QuoteRecord> {
+        val listing = lookup.listing
+        return when {
+            !supports(key, lookup) -> notSupported(key)
+            cached != null && freshness.isFresh(cached.fetchedAt) -> Settled(key, fromCache(key, cached))
+            listing == null -> Settled(key, fallback(key, cached, DataStatus.SOURCE_ERROR))
+            else -> quoteFetch(key, cached, listing)
+        }
     }
 
     private fun unexpiredProfilePlan(
         key: CacheKey<CompanyProfile>,
+        lookup: SymbolLookup,
         cached: CacheEntry<CompanyProfile>?,
     ): Plan<CompanyProfile> = when {
-        !supports(key) -> notSupported(key)
+        !supports(key, lookup) -> notSupported(key)
         cached != null && !freshness.isProfileExpired(cached.fetchedAt) -> Settled(key, fromCache(key, cached))
         else -> profileFetch(key, cached)
     }
@@ -207,6 +213,9 @@ class CompanyDataService(
         )
 
     private fun marketData(source: SourceId): MarketDataSource = marketDataSources.getValue(source)
+
+    private fun supports(key: CacheKey<*>, lookup: SymbolLookup?): Boolean =
+        supports(key) && !(lookup is SymbolLookup.NotCovered && lookup.source == key.source)
 
     private fun supports(key: CacheKey<*>): Boolean {
         val hasAdapter = when (key.type) {

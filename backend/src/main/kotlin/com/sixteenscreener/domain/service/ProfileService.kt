@@ -45,7 +45,7 @@ class ProfileService(
         profile.watchlistEntry(symbol)?.let { return identities.watchlistItemOf(it, lookup.listing) }
         val name = nameOf(symbol, lookup, requestedName)
         if (profile.watchlist.size >= Profile.MAX_WATCHLIST_SIZE) throw watchlistFull()
-        val entry = WatchlistEntry(symbol, name, sectorOf(profile, symbol), tags = emptyList())
+        val entry = WatchlistEntry(symbol, name, sectorOf(profile, symbol, lookup), tags = emptyList())
         return when (val update = profiles.addToWatchlist(id, entry, clock.now())) {
             is WatchlistUpdate.Updated -> identities.watchlistItemOf(update.profile.watchlistEntry(symbol) ?: entry, lookup.listing)
             WatchlistUpdate.ProfileNotFound -> throw profileNotFound(id)
@@ -74,8 +74,8 @@ class ProfileService(
         else -> throw ResourceNotFoundException("Unknown symbol '$symbol'")
     }
 
-    private suspend fun sectorOf(profile: Profile, symbol: Symbol): String? =
-        companyData.unexpiredCompanyProfile(catalog.defaultSourceOf(profile), symbol)
+    private suspend fun sectorOf(profile: Profile, symbol: Symbol, lookup: SymbolLookup): String? =
+        companyData.unexpiredCompanyProfile(catalog.defaultSourceOf(profile), symbol, lookup)
             .takeIf { it.status in SECTOR_SOURCES }
             ?.data
             ?.sector

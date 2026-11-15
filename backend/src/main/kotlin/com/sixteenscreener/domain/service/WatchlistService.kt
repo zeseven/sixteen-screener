@@ -33,8 +33,7 @@ class WatchlistService(
         val requested = symbols.toSet()
         val rows = profile.watchlistSymbols.filter { it in requested }
         if (rows.isEmpty()) return emptyList()
-        val listings = symbolDirectory.lookupAll(rows).mapNotNull { (symbol, lookup) -> lookup.listing?.let { symbol to it } }.toMap()
-        val quotes = companyData.watchlistQuotes(catalog.defaultSourceOf(profile), rows, listings)
+        val quotes = companyData.watchlistQuotes(catalog.defaultSourceOf(profile), rows, symbolDirectory.lookupAll(rows))
         return rows.map { WatchlistMarketData(it, quotes.getValue(it)) }
     }
 }

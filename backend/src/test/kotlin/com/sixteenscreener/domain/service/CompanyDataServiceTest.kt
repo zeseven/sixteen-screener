@@ -1,7 +1,9 @@
 package com.sixteenscreener.domain.service
 
 import com.sixteenscreener.domain.model.Capability
+import com.sixteenscreener.domain.model.CompanyIdentity
 import com.sixteenscreener.domain.model.DataStatus
+import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.Market
 import com.sixteenscreener.domain.model.PriceTrend
 import com.sixteenscreener.domain.model.ProfileId
@@ -16,6 +18,7 @@ import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.balanceSh
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.profileKey
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.quoteKey
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.ratiosKey
+import com.sixteenscreener.watchlistEntry
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -29,6 +32,7 @@ import io.kotest.matchers.string.shouldContain
 import java.time.Duration
 
 private val AAPL = Symbol.of("AAPL")
+private val AD = Symbol.of("AD.AS")
 private val apple = listing("AAPL", name = "APPLE INC")
 
 private fun fixture(
@@ -446,6 +450,85 @@ class CompanyDataServiceTest : FunSpec({
                 f.service.balanceSheet(f.profile.id, Symbol.of("NOPE"), source = null, refresh = false)
             }.message shouldContain "NOPE"
             f.source.calls.shouldBeEmpty()
+        }
+
+        test("symbol of an exchange whose directory is temporarily unavailable is not found") {
+            val f = fixture()
+            f.directory.unavailable(ExchangeCode("AS"))
+
+            shouldThrow<ResourceNotFoundException> {
+                f.service.priceAndRatios(f.profile.id, AD, source = null, refresh = false)
+            }
+            f.source.calls.shouldBeEmpty()
+        }
+    }
+
+    context("symbol of an exchange not covered by the directory source") {
+        fun notCovered(capabilities: Set<Capability> = ALL_MARKET_DATA) =
+            fixture(capabilities = capabilities).apply { directory.notCovered(ExchangeCode("AS"), FINNHUB) }
+
+        test("price and ratios are NOT_SUPPORTED without a call, a budget reservation or a not found") {
+            val f = notCovered()
+            f.quoteFromSource("AD.AS", 30.0, "EUR")
+            f.ratiosFromSource("AD.AS")
+
+            val result = f.service.priceAndRatios(f.profile.id, AD, source = null, refresh = true)
+
+            result.status shouldBe DataStatus.NOT_SUPPORTED
+            result.quote.status shouldBe DataStatus.NOT_SUPPORTED
+            result.ratios.status shouldBe DataStatus.NOT_SUPPORTED
+            result.quote.data.shouldBeNull()
+            f.source.calls.shouldBeEmpty()
+            f.countingCounters.tryAcquireCalls shouldBe 0
+        }
+
+        test("company profile is NOT_SUPPORTED without a call and has the static exchange table identity") {
+            val f = notCovered()
+            f.profileFromSource("AD.AS")
+
+            val result = f.service.companyProfile(f.profile.id, AD, source = null, refresh = true)
+
+            result.profile.status shouldBe DataStatus.NOT_SUPPORTED
+            result.identity shouldBe CompanyIdentity(AD, "Euronext Amsterdam", "AD", Market.EU)
+            f.source.calls.shouldBeEmpty()
+        }
+
+        test("company profile identity takes the name stored in the watchlist and doesn't change the entry") {
+            val f = notCovered()
+            val entry = watchlistEntry("AD.AS", name = "Koninklijke Ahold Delhaize NV")
+            f.profiles.save(f.profile.copy(watchlist = listOf(entry)))
+
+            f.service.companyProfile(f.profile.id, AD, source = null, refresh = false).identity.name shouldBe
+                "Koninklijke Ahold Delhaize NV"
+            f.profiles.findById(f.profile.id)!!.watchlist shouldContainExactly listOf(entry)
+            f.profiles.companyUpdates shouldBe 0
+        }
+
+        test("balance sheet of the directory source is requested as today instead of not found") {
+            val f = notCovered()
+            f.finnhubBalanceSheets.balanceSheets[AD] = SourceResult.NotSupported(SourceCallOutcome.httpError(403, f.now))
+
+            f.service.balanceSheet(f.profile.id, AD, source = null, refresh = false).status shouldBe DataStatus.NOT_SUPPORTED
+            f.finnhubBalanceSheets.calls shouldContainExactly listOf(AD)
+        }
+
+        test("balance sheet of SEC EDGAR is requested from its adapter instead of not found") {
+            val f = notCovered()
+
+            f.service.balanceSheet(f.profile.id, AD, source = SEC_EDGAR, refresh = false).source shouldBe SEC_EDGAR
+            f.secBalanceSheets.calls shouldContainExactly listOf(AD)
+        }
+
+        test("exchange not covered by another source doesn't stop requests to the selected source") {
+            val f = fixture().apply { directory.notCovered(ExchangeCode("AS"), SourceId.of("tiingo")) }
+            f.quoteFromSource("AD.AS", 30.0, "EUR")
+            f.ratiosFromSource("AD.AS")
+
+            val result = f.service.priceAndRatios(f.profile.id, AD, source = null, refresh = false)
+
+            result.status shouldBe DataStatus.FRESH
+            result.quote.data?.quote shouldBe Quote(30.0, "EUR")
+            f.source.calls shouldContainExactlyInAnyOrder listOf("quote:AD.AS", "ratios:AD.AS")
         }
     }
 

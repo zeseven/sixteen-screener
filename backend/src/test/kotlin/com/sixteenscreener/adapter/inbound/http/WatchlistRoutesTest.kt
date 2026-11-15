@@ -7,6 +7,7 @@ import com.sixteenscreener.domain.model.CacheKey
 import com.sixteenscreener.domain.model.Capability
 import com.sixteenscreener.domain.model.CompanyProfile
 import com.sixteenscreener.domain.model.DataType
+import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.PreviousPrice
@@ -350,6 +351,36 @@ class WatchlistRoutesTest : FunSpec({
             ports.companyCache.getCalls shouldBe 0
             ports.companyCache.getAllCalls shouldBe 0
             ports.marketData.calls.shouldBeEmpty()
+        }
+    }
+
+    test("market data of a company of a not covered exchange is NOT_SUPPORTED without a source request") {
+        routeTest { ports ->
+            val profile = ports.savedProfile(watchlist = listOf("AD.AS"))
+            ports.symbolDirectory.notCovered(ExchangeCode("AS"))
+            ports.marketData.quotes[Symbol.of("AD.AS")] =
+                SourceResult.Success(Quote(30.0, "EUR"), SourceCallOutcome.success(ports.clock.now()))
+
+            val item = client.get(marketDataUrl(profile, listOf("AD.AS"))).json().items().single()
+
+            item["status"] shouldBe JsonPrimitive("NOT_SUPPORTED")
+            item["quote"] shouldBe JsonNull
+            ports.marketData.calls.shouldBeEmpty()
+        }
+    }
+
+    test("watchlist of a company of a not covered exchange returns the stored name and the static exchange table identity") {
+        routeTest { ports ->
+            val profile = ports.savedProfile().copy(
+                watchlist = listOf(watchlistEntry("AD.AS", name = "Koninklijke Ahold Delhaize NV")),
+            ).also(ports.profiles::save)
+            ports.symbolDirectory.notCovered(ExchangeCode("AS"))
+
+            val item = client.get("/profiles/${profile.id}/watchlist").json().items().single()
+
+            item["exchange"] shouldBe JsonPrimitive("Euronext Amsterdam")
+            item["name"] shouldBe JsonPrimitive("Koninklijke Ahold Delhaize NV")
+            item["market"] shouldBe JsonPrimitive("EU")
         }
     }
 

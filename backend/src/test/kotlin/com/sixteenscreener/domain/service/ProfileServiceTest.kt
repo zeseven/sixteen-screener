@@ -290,6 +290,15 @@ class ProfileServiceTest : FunSpec({
                     listOf(watchlistEntry("AD.AS", name = "Koninklijke Ahold Delhaize NV"))
             }
 
+            test("requests no company profile and stores a null sector") {
+                val f = notCoveredFixture()
+                f.data.profileFromSource("AD.AS", sampleProfile(sector = "Retail"))
+
+                f.add("AD.AS", name = "Ahold Delhaize").sector.shouldBeNull()
+                f.data.source.calls.shouldBeEmpty()
+                f.data.countingCounters.tryAcquireCalls shouldBe 0
+            }
+
             test("stores the trimmed name of the search result") {
                 val f = notCoveredFixture()
 

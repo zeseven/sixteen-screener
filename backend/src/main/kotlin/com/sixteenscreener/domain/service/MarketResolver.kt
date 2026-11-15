@@ -5,6 +5,7 @@ import com.sixteenscreener.domain.model.ExchangeInfo
 import com.sixteenscreener.domain.model.KnownExchangeCodes
 import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.Market
+import com.sixteenscreener.domain.model.Symbol
 import java.time.ZoneId
 import java.time.ZoneOffset
 
@@ -14,6 +15,11 @@ class MarketResolver {
 
     fun exchangeOf(exchangeCode: ExchangeCode): ExchangeInfo? =
         if (exchangeCode == ExchangeCode.US) US_EXCHANGES_COMBINED else KnownExchangeCodes.micOf(exchangeCode)?.let(::find)
+
+    fun staticListingOf(symbol: Symbol): ListedSymbol? =
+        exchangeOf(symbol.exchangeCode)?.let { exchange ->
+            ListedSymbol(symbol, symbol.ticker, KnownExchangeCodes.micOf(symbol.exchangeCode), exchange.currency, type = null)
+        }
 
     fun timeZoneOf(exchangeCode: ExchangeCode): ZoneId = exchangeOf(exchangeCode)?.timeZone ?: ZoneOffset.UTC
 
