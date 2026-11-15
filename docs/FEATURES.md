@@ -167,3 +167,4 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 ## Future improvements
 - [ ] EU "source of truth" for balance sheets (expected from the EU in 2027-2029)
 - [ ] Side-by-side comparison of several sources on the detailed screen (based on the alpha UX investigation)
+- [ ] Company logos from Finnhub: `/stock/profile2` returns a `logo` URL (PNG on `static2.finnhub.io`), usable as a fallback for the current logo source or instead of it (US stocks on the free plan)
