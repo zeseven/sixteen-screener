@@ -2,6 +2,7 @@ package com.sixteenscreener.app.data.repository
 
 import com.sixteenscreener.app.data.remote.ApiClient
 import com.sixteenscreener.app.di.ApplicationScope
+import com.sixteenscreener.app.domain.WatchlistRowRefresh
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.CompanySummary
 import com.sixteenscreener.app.domain.model.ProfileId
@@ -28,6 +29,12 @@ interface WatchlistRepository {
 
     /** Loads the watchlist with `GET /watchlist`; the previous list is kept when the call fails. */
     suspend fun refresh(): ApiResult<List<CompanySummary>>
+
+    /**
+     * Refreshes the rows of 1 to [WatchlistRowRefresh.MAX_SYMBOLS_PER_REQUEST] [symbols] with `GET /watchlist/refresh` and replaces
+     * them in the loaded watchlist by symbol; rows removed meanwhile stay removed and the order is kept.
+     */
+    suspend fun refreshRows(symbols: List<Symbol>): ApiResult<List<CompanySummary>>
 
     /** Adds [company] with `PUT`, showing it at [index] (or at the end) until the call fails. */
     suspend fun add(company: CompanySummary, index: Int? = null): ApiResult<Unit>
@@ -67,6 +74,17 @@ class DefaultWatchlistRepository @Inject constructor(
                     }
                 }
             }
+    }
+
+    override suspend fun refreshRows(symbols: List<Symbol>): ApiResult<List<CompanySummary>> {
+        require(symbols.size in 1..WatchlistRowRefresh.MAX_SYMBOLS_PER_REQUEST) { "1 to 50 symbols expected, got ${symbols.size}" }
+        return profileRepository.withActiveProfile { profileId ->
+            apiClient.refreshWatchlistRows(profileId, symbols)
+                .clearProfileIfNotFound(profileRepository, profileId)
+                .also { result ->
+                    if (result is ApiResult.Success && isActive(profileId)) mergeRows(profileId, result.value)
+                }
+        }
     }
 
     override suspend fun add(company: CompanySummary, index: Int?): ApiResult<Unit> = profileRepository.withActiveProfile { profileId ->
@@ -109,6 +127,14 @@ class DefaultWatchlistRepository @Inject constructor(
     }
 
     private suspend fun isActive(profileId: ProfileId) = profileRepository.activeProfileId() == profileId
+
+    /** Replaces rows of the watchlist owned by [profileId] with [rows] of the same symbol; rows not in the watchlist are ignored. */
+    private fun mergeRows(profileId: ProfileId, rows: List<CompanySummary>) = synchronized(stateLock) {
+        if (stateOwner == profileId) {
+            val rowsBySymbol = rows.associateBy { it.symbol }
+            updateState { list, known -> list?.map { rowsBySymbol[it.symbol] ?: it } to known }
+        }
+    }
 
     /** Drops the state of the previous profile, unless the new profile's watchlist was already loaded before the change was observed. */
     private fun resetUnlessOwnedBy(profileId: ProfileId?) = synchronized(stateLock) {

@@ -6,16 +6,24 @@ import com.sixteenscreener.app.data.repository.ProfileRepository
 import com.sixteenscreener.app.data.repository.WatchlistRepository
 import com.sixteenscreener.app.data.repository.onActiveProfileChange
 import com.sixteenscreener.app.domain.MarketFilter
+import com.sixteenscreener.app.domain.VisibleRows
 import com.sixteenscreener.app.domain.WatchlistFilter
+import com.sixteenscreener.app.domain.WatchlistRowRefresh
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.CompanySummary
+import com.sixteenscreener.app.domain.model.Symbol
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -52,7 +60,10 @@ data class WatchlistUiState(
 /**
  * Watchlist tab: loads the watchlist when shown, filters it in memory (filters are not persisted, ADR-045) and removes companies
  * optimistically with undo. A profile change resets the screen and loads the new profile's watchlist.
+ * Stale quotes are refreshed only for the displayed rows plus a buffer (ADR-055): each row once per loaded watchlist when it comes
+ * into view, and all of them again when a filter changes. A failed row refresh is silent; its rows are retried when next in view.
  */
+@OptIn(FlowPreview::class)
 @HiltViewModel
 class WatchlistViewModel @Inject constructor(
     private val watchlistRepository: WatchlistRepository,
@@ -68,6 +79,18 @@ class WatchlistViewModel @Inject constructor(
     private val filter = MutableStateFlow(WatchlistFilter())
     private val screenState = MutableStateFlow(ScreenState())
     private var refreshJob: Job? = null
+
+    private class RowRefreshTracker {
+        val refreshed = mutableSetOf<Symbol>()
+        val inFlight = mutableSetOf<Symbol>()
+    }
+
+    private data class RowRefreshTrigger(val filter: WatchlistFilter, val rows: List<Symbol>, val visible: VisibleRows, val loadCount: Int)
+
+    private val visibleRows = MutableStateFlow<VisibleRows?>(null)
+    private val loadCount = MutableStateFlow(0)
+    private var rowRefreshTracker = RowRefreshTracker()
+    private var lastRowRefreshFilter: WatchlistFilter? = null
 
     val uiState: StateFlow<WatchlistUiState> =
         combine(watchlistRepository.watchlist, filter, screenState) { watchlist, filter, screen ->
@@ -87,6 +110,20 @@ class WatchlistViewModel @Inject constructor(
 
     init {
         profileRepository.onActiveProfileChange(viewModelScope) { resetForNewProfile() }
+        viewModelScope.launch {
+            combine(
+                uiState.map { it.filter to it.companies.map(CompanySummary::symbol) }.distinctUntilChanged(),
+                visibleRows.filterNotNull(),
+                loadCount,
+            ) { (filter, rows), visible, loads -> RowRefreshTrigger(filter, rows, visible, loads) }
+                .debounce(WatchlistRowRefresh.SETTLE_DELAY)
+                .collect(::refreshRowsInView)
+        }
+    }
+
+    /** Reports the rows currently displayed; their stale quotes are refreshed once the visible range settles. */
+    fun onVisibleRowsChanged(visible: VisibleRows) {
+        visibleRows.value = visible
     }
 
     /** Loads the watchlist unless a load is already running; a failure keeps the previous list. */
@@ -96,6 +133,8 @@ class WatchlistViewModel @Inject constructor(
         refreshJob = viewModelScope.launch {
             when (val result = watchlistRepository.refresh()) {
                 is ApiResult.Success -> {
+                    rowRefreshTracker.refreshed.clear()
+                    loadCount.update { it + 1 }
                     filter.update { it.reconciledWith(result.value) }
                     screenState.update { it.copy(isRefreshing = false, loadError = null) }
                 }
@@ -131,8 +170,26 @@ class WatchlistViewModel @Inject constructor(
     /** Clears [message] once shown, unless a newer message replaced it. */
     fun onMessageShown(message: WatchlistMessage) = screenState.update { if (it.message == message) it.copy(message = null) else it }
 
+    private fun refreshRowsInView(trigger: RowRefreshTrigger) {
+        val force = lastRowRefreshFilter.let { it != null && it != trigger.filter }
+        lastRowRefreshFilter = trigger.filter
+        val tracker = rowRefreshTracker
+        WatchlistRowRefresh.symbolsToRefresh(trigger.rows, trigger.visible, tracker.refreshed, tracker.inFlight, force)
+            .chunked(WatchlistRowRefresh.MAX_SYMBOLS_PER_REQUEST)
+            .forEach { symbols ->
+                tracker.inFlight += symbols
+                viewModelScope.launch {
+                    val result = watchlistRepository.refreshRows(symbols)
+                    tracker.inFlight -= symbols
+                    if (result is ApiResult.Success) tracker.refreshed += symbols
+                }
+            }
+    }
+
     private fun resetForNewProfile() {
         refreshJob?.cancel()
+        rowRefreshTracker = RowRefreshTracker()
+        lastRowRefreshFilter = null
         filter.value = WatchlistFilter()
         screenState.value = ScreenState()
         refresh()

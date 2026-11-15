@@ -26,6 +26,9 @@ interface ApiClient {
     /** `GET /profiles/{profileId}/watchlist`. */
     suspend fun getWatchlist(profileId: ProfileId): ApiResult<List<CompanySummary>>
 
+    /** `GET /profiles/{profileId}/watchlist/refresh?symbols=`: the given watchlist rows (1 to 50 [symbols]) in watchlist order. */
+    suspend fun refreshWatchlistRows(profileId: ProfileId, symbols: List<Symbol>): ApiResult<List<CompanySummary>>
+
     /** `PUT /profiles/{profileId}/watchlist/{symbol}`; idempotent. */
     suspend fun addToWatchlist(profileId: ProfileId, symbol: Symbol): ApiResult<Unit>
 

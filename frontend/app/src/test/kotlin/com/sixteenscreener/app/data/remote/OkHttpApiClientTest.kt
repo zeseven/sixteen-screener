@@ -231,6 +231,43 @@ class OkHttpApiClientTest {
     }
 
     @Test
+    fun `refreshWatchlistRows sends the symbols comma separated and parses the rows`() = runTest {
+        enqueueFixture("watchlist_refresh.json")
+
+        val items = client.refreshWatchlistRows(profileId, listOf(Symbol("AAPL"), Symbol("SAP.DE"))).value()
+
+        assertEquals("/profiles/${profileId.value}/watchlist/refresh?symbols=AAPL,SAP.DE", server.takeRequest().pathAndQuery())
+        assertEquals(listOf(Symbol("AAPL"), Symbol("SAP.DE")), items.map { it.symbol })
+        assertEquals(
+            Quote(229.1, "USD", Instant.parse("2026-11-15T10:05:00Z"), 228.52, Trend.UP, SourceId.FINNHUB),
+            items[0].quote,
+        )
+        assertNull(items[1].quote)
+        assertTrue(items.all { it.inWatchlist })
+    }
+
+    @Test
+    fun `refreshWatchlistRows encodes each symbol so that separators stay unambiguous`() = runTest {
+        enqueue(body = """{"items":[]}""")
+
+        client.refreshWatchlistRows(profileId, listOf(Symbol("BRK/B"), Symbol("A,B"), Symbol("C D+&#"))).value()
+
+        assertEquals(
+            "/profiles/${profileId.value}/watchlist/refresh?symbols=BRK%2FB,A%2CB,C%20D%2B%26%23",
+            server.takeRequest().pathAndQuery(),
+        )
+    }
+
+    @Test
+    fun `refreshWatchlistRows failure carries the problem detail`() = runTest {
+        enqueueProblem("problem_400.json", code = 400)
+
+        val error = client.refreshWatchlistRows(profileId, listOf(Symbol("AAPL"))).error()
+
+        assertTrue(error is ApiError.Http && error.status == 400)
+    }
+
+    @Test
     fun `addToWatchlist sends PUT and accepts 204`() = runTest {
         server.enqueue(MockResponse.Builder().code(204).build())
 

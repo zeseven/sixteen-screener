@@ -5,13 +5,16 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sixteenscreener.app.domain.MarketFilter
+import com.sixteenscreener.app.domain.VisibleRows
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.CompanySummary
 import com.sixteenscreener.app.testing.Companies.summary
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -30,6 +33,7 @@ class WatchlistContentTest {
     private val shown = mutableListOf<WatchlistMessage>()
     private val markets = mutableListOf<MarketFilter>()
     private val sectors = mutableListOf<String?>()
+    private val visibleRows = mutableListOf<VisibleRows>()
     private var addClicks = 0
 
     private fun setContent(uiState: WatchlistUiState) = composeRule.setContent {
@@ -44,6 +48,7 @@ class WatchlistContentTest {
                 onMessageShown = { shown += it },
                 onOpenDetail = { opened += it },
                 onAddCompany = { addClicks++ },
+                onVisibleRowsChanged = { visibleRows += it },
             )
         }
     }
@@ -126,5 +131,21 @@ class WatchlistContentTest {
 
         assertEquals(listOf(MarketFilter.EU), markets)
         assertEquals(listOf<String?>("Energy"), sectors)
+    }
+
+    @Test
+    fun `visible rows are reported when shown and after scrolling`() {
+        val companies = (0 until 40).map { summary("S$it", name = "Company $it") }
+        setContent(loaded(*companies.toTypedArray()))
+        composeRule.waitForIdle()
+
+        val shown = visibleRows.last()
+        assertEquals(0, shown.first)
+        assertTrue(shown.last in 1 until companies.lastIndex)
+
+        composeRule.onNodeWithTag(WatchlistScreenTags.LIST).performScrollToIndex(20)
+        composeRule.waitForIdle()
+
+        assertEquals(20, visibleRows.last().first)
     }
 }

@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -23,6 +25,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -35,6 +39,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sixteenscreener.app.R
 import com.sixteenscreener.app.domain.MarketFilter
+import com.sixteenscreener.app.domain.VisibleRows
 import com.sixteenscreener.app.domain.WatchlistFilter
 import com.sixteenscreener.app.domain.model.CompanySummary
 import com.sixteenscreener.app.domain.model.Market
@@ -45,6 +50,8 @@ import com.sixteenscreener.app.ui.component.FilterDropdown
 import com.sixteenscreener.app.ui.component.RemoveFromWatchlistButton
 import com.sixteenscreener.app.ui.component.apiErrorMessage
 import com.sixteenscreener.app.ui.theme.SixteenTheme
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 
 object WatchlistScreenTags {
     const val LIST = "watchlist_list"
@@ -66,6 +73,7 @@ fun WatchlistScreen(
         onRefresh = viewModel::refresh,
         onMarketSelected = viewModel::onMarketSelected,
         onSectorSelected = viewModel::onSectorSelected,
+        onVisibleRowsChanged = viewModel::onVisibleRowsChanged,
         onRemove = viewModel::onRemove,
         onUndo = viewModel::onUndo,
         onMessageShown = viewModel::onMessageShown,
@@ -88,6 +96,7 @@ fun WatchlistContent(
     onOpenDetail: (CompanySummary) -> Unit,
     onAddCompany: () -> Unit,
     modifier: Modifier = Modifier,
+    onVisibleRowsChanged: (VisibleRows) -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     WatchlistMessageSnackbar(uiState.message, snackbarHostState, onUndo, onMessageShown)
@@ -114,7 +123,7 @@ fun WatchlistContent(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 when {
-                    uiState.companies.isNotEmpty() -> CompanyList(uiState.companies, onOpenDetail, onRemove)
+                    uiState.companies.isNotEmpty() -> CompanyList(uiState.companies, onVisibleRowsChanged, onOpenDetail, onRemove)
                     uiState.hasCompanies -> CenteredMessage(stringResource(R.string.watchlist_no_matches))
                     uiState.isLoaded -> CenteredMessage(stringResource(R.string.watchlist_empty))
                     uiState.loadError != null -> CenteredMessage(apiErrorMessage(uiState.loadError))
@@ -199,10 +208,19 @@ private fun marketFilterLabel(market: MarketFilter): String = when (market) {
 @Composable
 private fun CompanyList(
     companies: List<CompanySummary>,
+    onVisibleRowsChanged: (VisibleRows) -> Unit,
     onOpenDetail: (CompanySummary) -> Unit,
     onRemove: (CompanySummary) -> Unit,
 ) {
-    LazyColumn(modifier = Modifier.fillMaxSize().testTag(WatchlistScreenTags.LIST)) {
+    val listState = rememberLazyListState()
+    val currentOnVisibleRowsChanged by rememberUpdatedState(onVisibleRowsChanged)
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.visibleRows() }
+            .filterNotNull()
+            .distinctUntilChanged()
+            .collect { currentOnVisibleRowsChanged(it) }
+    }
+    LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag(WatchlistScreenTags.LIST)) {
         items(companies, key = { it.symbol.value }) { company ->
             CompanyRow(company = company, onClick = { onOpenDetail(company) }) {
                 RemoveFromWatchlistButton(companyName = company.name, onClick = { onRemove(company) })
@@ -211,6 +229,9 @@ private fun CompanyList(
         }
     }
 }
+
+private fun List<LazyListItemInfo>.visibleRows(): VisibleRows? =
+    if (isEmpty()) null else VisibleRows(first = first().index, last = last().index)
 
 @Preview(showBackground = true)
 @Composable

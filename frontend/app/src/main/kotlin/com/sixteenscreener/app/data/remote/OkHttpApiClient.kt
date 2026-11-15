@@ -42,6 +42,7 @@ import java.io.InterruptedIOException
 import java.net.HttpURLConnection.HTTP_FORBIDDEN
 import java.net.HttpURLConnection.HTTP_NOT_FOUND
 import java.net.HttpURLConnection.HTTP_UNAUTHORIZED
+import java.net.URLEncoder
 import java.time.DateTimeException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -68,6 +69,13 @@ class OkHttpApiClient @Inject constructor(
 
     override suspend fun getWatchlist(profileId: ProfileId): ApiResult<List<CompanySummary>> =
         get(profileUrl(profileId, "watchlist")) { json.decodeFromString<WatchlistDto>(it).toDomain() }
+
+    override suspend fun refreshWatchlistRows(profileId: ProfileId, symbols: List<Symbol>): ApiResult<List<CompanySummary>> {
+        val url = profileUrl(profileId, "watchlist", "refresh").newBuilder()
+            .addEncodedQueryParameter("symbols", symbols.joinToString(",") { it.value.encodedAsQueryValue() })
+            .build()
+        return get(url) { json.decodeFromString<WatchlistDto>(it).toDomain() }
+    }
 
     override suspend fun addToWatchlist(profileId: ProfileId, symbol: Symbol): ApiResult<Unit> =
         send(Request.Builder().url(profileUrl(profileId, "watchlist", symbol.value)).put(EMPTY_BODY).build()) {}
@@ -129,6 +137,9 @@ class OkHttpApiClient @Inject constructor(
         .apply { source?.let { addQueryParameter("source", it.value) } }
         .addQueryParameter("refresh", refresh.toString())
         .build()
+
+    /** Percent-encodes this value so that commas inside it don't split a comma-separated query parameter. */
+    private fun String.encodedAsQueryValue(): String = URLEncoder.encode(this, "UTF-8").replace("+", "%20")
 
     private suspend fun <T> get(url: HttpUrl, decode: (String) -> T): ApiResult<T> =
         send(Request.Builder().url(url).get().build(), decode)

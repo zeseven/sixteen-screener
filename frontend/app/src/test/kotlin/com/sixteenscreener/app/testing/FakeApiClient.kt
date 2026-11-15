@@ -20,6 +20,7 @@ class FakeApiClient : ApiClient {
     var getOrCreateProfile: suspend (String) -> ApiResult<Profile> = { notStubbed() }
     var getProfile: suspend (ProfileId) -> ApiResult<Profile> = { notStubbed() }
     var getWatchlist: suspend (ProfileId) -> ApiResult<List<CompanySummary>> = { notStubbed() }
+    var refreshWatchlistRows: suspend (ProfileId, List<Symbol>) -> ApiResult<List<CompanySummary>> = { _, _ -> notStubbed() }
     var addToWatchlist: suspend (ProfileId, Symbol) -> ApiResult<Unit> = { _, _ -> notStubbed() }
     var removeFromWatchlist: suspend (ProfileId, Symbol) -> ApiResult<Unit> = { _, _ -> notStubbed() }
     var search: suspend (ProfileId, String) -> ApiResult<SearchResults> = { _, _ -> notStubbed() }
@@ -37,6 +38,11 @@ class FakeApiClient : ApiClient {
 
     override suspend fun getWatchlist(profileId: ProfileId) =
         record("getWatchlist(${profileId.value})") { getWatchlist.invoke(profileId) }
+
+    override suspend fun refreshWatchlistRows(profileId: ProfileId, symbols: List<Symbol>) =
+        record("refreshWatchlistRows(${profileId.value}, ${symbols.joinToString(",") { it.value }})") {
+            refreshWatchlistRows.invoke(profileId, symbols)
+        }
 
     override suspend fun addToWatchlist(profileId: ProfileId, symbol: Symbol) =
         record("addToWatchlist(${profileId.value}, ${symbol.value})") { addToWatchlist.invoke(profileId, symbol) }

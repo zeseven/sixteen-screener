@@ -6,6 +6,7 @@ import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.CompanySummary
 import com.sixteenscreener.app.domain.model.ProfileId
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.testing.Companies.quote
 import com.sixteenscreener.app.testing.Companies.summary
 import com.sixteenscreener.app.testing.FakeApiClient
 import com.sixteenscreener.app.testing.FakeProfileRepository
@@ -90,6 +91,105 @@ class DefaultWatchlistRepositoryTest {
         repository.refresh()
 
         assertNull(profileRepository.currentProfile.value)
+    }
+
+    @Test
+    fun `refreshRows replaces the rows by symbol and keeps the order`() = runRepositoryTest {
+        stubWatchlist(apple, sap, microsoft)
+        val freshApple = apple.copy(quote = quote(price = 200.0))
+        val freshMicrosoft = microsoft.copy(quote = quote(price = 400.0))
+        apiClient.refreshWatchlistRows = { _, _ -> ApiResult.Success(listOf(freshApple, freshMicrosoft)) }
+        val repository = repository()
+        repository.refresh()
+
+        val result = repository.refreshRows(listOf(microsoft.symbol, apple.symbol))
+
+        assertEquals(ApiResult.Success(listOf(freshApple, freshMicrosoft)), result)
+        assertEquals(listOf(freshApple, sap, freshMicrosoft), repository.watchlist.value)
+        assertEquals("refreshWatchlistRows(p1, MSFT,AAPL)", apiClient.calls.last())
+    }
+
+    @Test
+    fun `refreshRows does not bring back a row removed meanwhile`() = runRepositoryTest {
+        stubWatchlist(apple, sap)
+        val response = CompletableDeferred<ApiResult<List<CompanySummary>>>()
+        apiClient.refreshWatchlistRows = { _, _ -> response.await() }
+        apiClient.removeFromWatchlist = { _, _ -> ApiResult.Success(Unit) }
+        val repository = repository()
+        repository.refresh()
+
+        val call = async { repository.refreshRows(listOf(apple.symbol, sap.symbol)) }
+        repository.remove(apple.symbol)
+        val freshSap = sap.copy(quote = quote(price = 250.0))
+        response.complete(ApiResult.Success(listOf(apple.copy(quote = quote(price = 1.0)), freshSap)))
+        call.await()
+
+        assertEquals(listOf(freshSap), repository.watchlist.value)
+        assertEquals(setOf(sap.symbol), repository.watchlistSymbols.value)
+    }
+
+    @Test
+    fun `refreshRows ignores rows not in the watchlist`() = runRepositoryTest {
+        stubWatchlist(apple)
+        apiClient.refreshWatchlistRows = { _, _ -> ApiResult.Success(listOf(microsoft)) }
+        val repository = repository()
+        repository.refresh()
+
+        repository.refreshRows(listOf(microsoft.symbol))
+
+        assertEquals(listOf(apple), repository.watchlist.value)
+    }
+
+    @Test
+    fun `failed refreshRows keeps the cached rows`() = runRepositoryTest {
+        stubWatchlist(apple, sap)
+        apiClient.refreshWatchlistRows = { _, _ -> ApiResult.Failure(ApiError.Network(isTimeout = false)) }
+        val repository = repository()
+        repository.refresh()
+
+        val result = repository.refreshRows(listOf(apple.symbol))
+
+        assertEquals(ApiResult.Failure(ApiError.Network(isTimeout = false)), result)
+        assertEquals(listOf(apple, sap), repository.watchlist.value)
+    }
+
+    @Test
+    fun `refreshRows of a previous profile is ignored`() = runRepositoryTest {
+        apiClient.getWatchlist = { profileId -> ApiResult.Success(if (profileId.value == "p1") listOf(apple) else listOf(apple, sap)) }
+        val response = CompletableDeferred<ApiResult<List<CompanySummary>>>()
+        apiClient.refreshWatchlistRows = { _, _ -> response.await() }
+        val repository = repository()
+        repository.refresh()
+
+        val call = async { repository.refreshRows(listOf(apple.symbol)) }
+        profileRepository.currentProfile.value = ActiveProfile(ProfileId("p2"), "Other")
+        repository.refresh()
+        response.complete(ApiResult.Success(listOf(apple.copy(quote = quote(price = 1.0)))))
+        call.await()
+
+        assertEquals(listOf(apple, sap), repository.watchlist.value)
+    }
+
+    @Test
+    fun `refreshRows not found clears the stored profile`() = runRepositoryTest {
+        stubWatchlist(apple)
+        apiClient.refreshWatchlistRows = { _, _ -> ApiResult.Failure(ApiError.NotFound(null)) }
+        val repository = repository()
+        repository.refresh()
+
+        repository.refreshRows(listOf(apple.symbol))
+
+        assertNull(profileRepository.currentProfile.value)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `refreshRows rejects more than 50 symbols`() = runRepositoryTest {
+        repository().refreshRows((0..50).map { Symbol("S$it") })
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `refreshRows rejects an empty symbol list`() = runRepositoryTest {
+        repository().refreshRows(emptyList())
     }
 
     @Test
