@@ -85,8 +85,8 @@ class CompanyDataService(
     ): SourceData<BalanceSheet> {
         val target = target(profileId, symbol, source)
         val key = CacheKey(target.source, symbol, DataType.BALANCE_SHEET)
-        val cached = if (supports(key)) cache.get(key) else null
-        return load(key.source, listOf(detailedPlan(key, lookup = null, cached, refresh) { balanceSheetFetch(key, it) }))[key]
+        val cached = if (supports(key, target.lookup)) cache.get(key) else null
+        return load(key.source, listOf(detailedPlan(key, target.lookup, cached, refresh) { balanceSheetFetch(key, it) }))[key]
     }
 
     override suspend fun companyProfile(
@@ -147,7 +147,7 @@ class CompanyDataService(
 
     private fun <T : Any> detailedPlan(
         key: CacheKey<T>,
-        lookup: SymbolLookup?,
+        lookup: SymbolLookup,
         cached: CacheEntry<T>?,
         refresh: Boolean,
         fetch: (CacheEntry<T>?) -> Fetch<T, *>,
@@ -214,7 +214,7 @@ class CompanyDataService(
 
     private fun marketData(source: SourceId): MarketDataSource = marketDataSources.getValue(source)
 
-    private fun supports(key: CacheKey<*>, lookup: SymbolLookup?): Boolean =
+    private fun supports(key: CacheKey<*>, lookup: SymbolLookup): Boolean =
         supports(key) && !(lookup is SymbolLookup.NotCovered && lookup.source == key.source)
 
     private fun supports(key: CacheKey<*>): Boolean {

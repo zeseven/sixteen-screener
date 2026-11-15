@@ -595,6 +595,22 @@ class CompanyRoutesTest : FunSpec({
             }
         }
 
+        test("balance sheet of Finnhub answers NOT_SUPPORTED without a source request or budget reservation") {
+            routeTest(config = fullConfig()) { ports ->
+                val saved = ports.savedProfile()
+                ports.symbolDirectory.notCovered(ExchangeCode("AS"))
+
+                val response = client.get("/profiles/${saved.id}/companies/AD.AS/balance-sheet?source=finnhub")
+
+                response.status shouldBe HttpStatusCode.OK
+                response.json().status() shouldBe JsonPrimitive("NOT_SUPPORTED")
+                response.json().isEmptyData() shouldBe true
+                ports.sourceCallCount() shouldBe 0
+                ports.requestCounters.usage(SourceId.of("finnhub"), listOf(RequestLimit(LimitInterval.MINUTE, 60)), ports.clock.now())
+                    .single().used shouldBe 0
+            }
+        }
+
         test("balance sheet of SEC EDGAR answers instead of not found") {
             routeTest(config = fullConfig()) { ports ->
                 val saved = ports.savedProfile()

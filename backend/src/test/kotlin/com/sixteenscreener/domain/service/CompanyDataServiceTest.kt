@@ -11,6 +11,7 @@ import com.sixteenscreener.domain.model.Quote
 import com.sixteenscreener.domain.model.ResourceNotFoundException
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceCallResult
+import com.sixteenscreener.domain.model.SourceData
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
@@ -504,12 +505,32 @@ class CompanyDataServiceTest : FunSpec({
             f.profiles.companyUpdates shouldBe 0
         }
 
-        test("balance sheet of the directory source is requested as today instead of not found") {
+        test("balance sheet of the directory source is NOT_SUPPORTED without a call, a cache read or a budget reservation") {
             val f = notCovered()
-            f.finnhubBalanceSheets.balanceSheets[AD] = SourceResult.NotSupported(SourceCallOutcome.httpError(403, f.now))
+            f.cached(balanceSheetKey("AD.AS"), sampleBalanceSheet(), age = Duration.ofDays(1))
+            f.finnhubBalanceSheets.balanceSheets[AD] = SourceResult.Success(sampleBalanceSheet(), f.success())
 
-            f.service.balanceSheet(f.profile.id, AD, source = null, refresh = false).status shouldBe DataStatus.NOT_SUPPORTED
-            f.finnhubBalanceSheets.calls shouldContainExactly listOf(AD)
+            val result = f.service.balanceSheet(f.profile.id, AD, source = null, refresh = false)
+
+            result shouldBe SourceData(FINNHUB, DataStatus.NOT_SUPPORTED, data = null, fetchedAt = null)
+            f.finnhubBalanceSheets.calls.shouldBeEmpty()
+            f.countingCounters.tryAcquireCalls shouldBe 0
+        }
+
+        test("balance sheet of the directory source is NOT_SUPPORTED without a call on refresh") {
+            val f = notCovered()
+
+            f.service.balanceSheet(f.profile.id, AD, source = FINNHUB, refresh = true).status shouldBe DataStatus.NOT_SUPPORTED
+            f.finnhubBalanceSheets.calls.shouldBeEmpty()
+            f.countingCounters.tryAcquireCalls shouldBe 0
+        }
+
+        test("balance sheet of a US symbol is still requested from the directory source") {
+            val f = notCovered()
+            f.finnhubBalanceSheets.balanceSheets[AAPL] = SourceResult.Success(sampleBalanceSheet(), f.success())
+
+            f.service.balanceSheet(f.profile.id, AAPL, source = null, refresh = false).status shouldBe DataStatus.FRESH
+            f.finnhubBalanceSheets.calls shouldContainExactly listOf(AAPL)
         }
 
         test("balance sheet of SEC EDGAR is requested from its adapter instead of not found") {
