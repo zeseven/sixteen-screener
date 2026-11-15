@@ -26,6 +26,7 @@ import kotlin.time.Duration.Companion.seconds
 fun testConfig(): AppConfig = AppConfig(
     port = 8080,
     gcpProjectId = "test-project",
+    firestoreDatabase = "sixteen-screener",
     logoBucket = "test-bucket",
     defaultSource = SourceId.of("finnhub"),
     sources = listOf(

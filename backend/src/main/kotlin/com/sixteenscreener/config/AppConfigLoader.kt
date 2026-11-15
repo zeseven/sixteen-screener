@@ -12,6 +12,7 @@ object AppConfigLoader {
 
     const val ENV_PORT = "PORT"
     const val ENV_GCP_PROJECT_ID = "GCP_PROJECT_ID"
+    const val ENV_FIRESTORE_DATABASE = "FIRESTORE_DATABASE"
     const val ENV_LOGO_BUCKET = "LOGO_BUCKET"
     const val ENV_DEFAULT_SOURCE = "DEFAULT_SOURCE"
     const val ENV_FINNHUB_API_KEY = "FINNHUB_API_KEY"
@@ -20,6 +21,7 @@ object AppConfigLoader {
 
     private const val DEFAULT_TIMEOUT_MILLIS = 5000L
     private const val MAX_PORT = 65535
+    private val FIRESTORE_DATABASE_ID = Regex("^[a-z][a-z0-9-]{2,61}[a-z0-9]$")
 
     const val SEC_EDGAR_FILES_BASE_URL = "files"
 
@@ -38,6 +40,7 @@ object AppConfigLoader {
         val reader = ConfigReader(config, env)
         val port = reader.port()
         val gcpProjectId = reader.requiredString("gcpProjectId", ENV_GCP_PROJECT_ID)
+        val firestoreDatabase = reader.firestoreDatabase()
         val logoBucket = reader.requiredString("logoBucket", ENV_LOGO_BUCKET)
         val defaultSource = reader.requiredString("defaultSource", ENV_DEFAULT_SOURCE)
         val sources = reader.sources()
@@ -56,6 +59,7 @@ object AppConfigLoader {
         return AppConfig(
             port = checkNotNull(port),
             gcpProjectId = checkNotNull(gcpProjectId),
+            firestoreDatabase = checkNotNull(firestoreDatabase),
             logoBucket = checkNotNull(logoBucket),
             defaultSource = SourceId.of(checkNotNull(defaultSource)),
             sources = sources,
@@ -109,6 +113,14 @@ object AppConfigLoader {
         fun requiredString(key: String, envName: String): String? =
             (env[envName]?.takeIf { it.isNotBlank() } ?: config.stringOrNull(key)?.takeIf { it.isNotBlank() })
                 ?: null.also { errors += "Missing configuration '$key' (environment variable $envName)" }
+
+        fun firestoreDatabase(): String? {
+            val raw = requiredString("firestoreDatabase", ENV_FIRESTORE_DATABASE) ?: return null
+            return raw.takeIf { FIRESTORE_DATABASE_ID.matches(it) } ?: null.also {
+                errors += "Firestore database '$raw' is not a valid database ID " +
+                    "(4-63 lowercase letters, digits or hyphens, starting with a letter and not ending with a hyphen)"
+            }
+        }
 
         fun sources(): List<SourceConfig> {
             val blocks = runCatching { config.configList("sources") }.getOrElse {

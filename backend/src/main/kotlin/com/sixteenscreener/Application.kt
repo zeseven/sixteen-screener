@@ -171,7 +171,7 @@ internal fun usePooledNettyAllocator() {
 
 fun wireServices(config: AppConfig): AppServices {
     val clock = SystemClock
-    val firestore = FirestoreClientFactory.create(config.gcpProjectId)
+    val firestore = FirestoreClientFactory.create(config.gcpProjectId, config.firestoreDatabase)
     val storage = GcsClientFactory.create(config.gcpProjectId, config.storageEmulatorHost)
     val httpClient = SourceHttpClient.create()
     val rateLimiter = RateLimiter(

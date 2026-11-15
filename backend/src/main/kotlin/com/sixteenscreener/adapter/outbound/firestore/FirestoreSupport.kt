@@ -27,8 +27,8 @@ object FirestoreCollections {
 }
 
 object FirestoreClientFactory {
-    fun create(projectId: String): Firestore =
-        FirestoreOptions.newBuilder().setProjectId(projectId).build().service
+    fun create(projectId: String, databaseId: String): Firestore =
+        FirestoreOptions.newBuilder().setProjectId(projectId).setDatabaseId(databaseId).build().service
 }
 
 private val directExecutor = Executor(Runnable::run)

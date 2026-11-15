@@ -8,6 +8,7 @@ import kotlin.time.Duration
 data class AppConfig(
     val port: Int,
     val gcpProjectId: String,
+    val firestoreDatabase: String,
     val logoBucket: String,
     val defaultSource: SourceId,
     val sources: List<SourceConfig>,

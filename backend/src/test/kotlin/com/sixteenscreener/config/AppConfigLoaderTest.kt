@@ -8,6 +8,7 @@ import com.sixteenscreener.domain.model.SourceId
 import com.typesafe.config.ConfigFactory
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.datatest.withData
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
@@ -28,6 +29,8 @@ private val FULL_ENV = mapOf(
 
 private const val SEC_FILES = "additionalBaseUrls = { files = \"https://www.sec.test\" }"
 
+private const val FIRESTORE_DATABASE = "firestoreDatabase = sixteen-screener"
+
 private fun hocon(text: String): ApplicationConfig = HoconApplicationConfig(ConfigFactory.parseString(text))
 
 private fun source(
@@ -45,7 +48,7 @@ private fun source(
 """.trimIndent()
 
 private fun configWith(vararg sources: String, defaultSource: String = "finnhub"): ApplicationConfig =
-    hocon("defaultSource = \"$defaultSource\"\nsources = [${sources.joinToString(",\n")}]")
+    hocon("$FIRESTORE_DATABASE\ndefaultSource = \"$defaultSource\"\nsources = [${sources.joinToString(",\n")}]")
 
 private fun loadErrors(config: ApplicationConfig, env: Map<String, String> = FULL_ENV): List<String> =
     shouldThrow<InvalidConfigurationException> { AppConfigLoader.load(config, env) }.errors
@@ -94,6 +97,7 @@ class AppConfigLoaderTest : FunSpec({
         val config = AppConfigLoader.load(
             hocon(
                 """
+                $FIRESTORE_DATABASE
                 defaultSource = finnhub
                 sources = [{ id = finnhub, name = Finnhub, baseUrl = "https://x", capabilities = [QUOTE], selectableAsDefault = true }]
                 """.trimIndent(),
@@ -207,6 +211,7 @@ class AppConfigLoaderTest : FunSpec({
         val errors = loadErrors(
             hocon(
                 """
+                $FIRESTORE_DATABASE
                 defaultSource = finnhub
                 sources = [
                   { id = finnhub, name = Finnhub, baseUrl = "https://x", selectableAsDefault = true },
@@ -235,7 +240,7 @@ class AppConfigLoaderTest : FunSpec({
     }
 
     test("fails when no sources are configured") {
-        loadErrors(hocon("defaultSource = finnhub\nsources = []")) shouldContain "No sources configured"
+        loadErrors(hocon("$FIRESTORE_DATABASE\ndefaultSource = finnhub\nsources = []")) shouldContain "No sources configured"
     }
 
     test("reports all errors in one message") {
@@ -250,6 +255,63 @@ class AppConfigLoaderTest : FunSpec({
     test("secrets are masked in toString") {
         val config = AppConfigLoader.load(ApplicationConfig("application.conf"), FULL_ENV)
         config.toString() shouldNotContain "finnhub-key"
+    }
+
+    test("firestore database defaults to sixteen-screener") {
+        AppConfigLoader.load(ApplicationConfig("application.conf"), FULL_ENV).firestoreDatabase shouldBe "sixteen-screener"
+    }
+
+    test("firestore database is overridden by FIRESTORE_DATABASE") {
+        AppConfigLoader.load(
+            ApplicationConfig("application.conf"),
+            FULL_ENV + ("FIRESTORE_DATABASE" to "screener-test"),
+        ).firestoreDatabase shouldBe "screener-test"
+    }
+
+    test("a blank FIRESTORE_DATABASE falls back to the configured database") {
+        AppConfigLoader.load(
+            ApplicationConfig("application.conf"),
+            FULL_ENV + ("FIRESTORE_DATABASE" to " "),
+        ).firestoreDatabase shouldBe "sixteen-screener"
+    }
+
+    test("fails when no firestore database is configured") {
+        val errors = loadErrors(hocon("defaultSource = finnhub\nsources = [${source("finnhub", selectable = true)}]"))
+        errors shouldContainExactly listOf("Missing configuration 'firestoreDatabase' (environment variable FIRESTORE_DATABASE)")
+    }
+
+    context("accepts valid firestore database IDs") {
+        withData(
+            nameFn = { "accepts '$it'" },
+            "abcd",
+            "a" + "b".repeat(62),
+            "db-2",
+            "sixteen-screener",
+        ) { databaseId ->
+            AppConfigLoader.load(
+                ApplicationConfig("application.conf"),
+                FULL_ENV + ("FIRESTORE_DATABASE" to databaseId),
+            ).firestoreDatabase shouldBe databaseId
+        }
+    }
+
+    context("rejects invalid firestore database IDs") {
+        withData(
+            nameFn = { "rejects '$it'" },
+            "abc",
+            "a" + "b".repeat(63),
+            "Sixteen-screener",
+            "1screener",
+            "screener-",
+            "sixteen_screener",
+            "(default)",
+        ) { databaseId ->
+            val errors = loadErrors(ApplicationConfig("application.conf"), FULL_ENV + ("FIRESTORE_DATABASE" to databaseId))
+            errors shouldContainExactly listOf(
+                "Firestore database '$databaseId' is not a valid database ID " +
+                    "(4-63 lowercase letters, digits or hyphens, starting with a letter and not ending with a hyphen)",
+            )
+        }
     }
 
     test("storage emulator host is taken from STORAGE_EMULATOR_HOST") {

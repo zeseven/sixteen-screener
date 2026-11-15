@@ -13,16 +13,18 @@ class FirestoreEmulator : AutoCloseable {
         "FIRESTORE_EMULATOR_HOST is not set"
     }
     private val projectId = "emulator-test-${UUID.randomUUID()}"
+    private val databaseId = "sixteen-screener"
     private val http = HttpClient.newHttpClient()
 
     val firestore: Firestore = FirestoreOptions.newBuilder()
         .setProjectId(projectId)
+        .setDatabaseId(databaseId)
         .setEmulatorHost(host)
         .build()
         .service
 
     fun reset(): Firestore {
-        val request = HttpRequest.newBuilder(URI("http://$host/emulator/v1/projects/$projectId/databases/(default)/documents"))
+        val request = HttpRequest.newBuilder(URI("http://$host/emulator/v1/projects/$projectId/databases/$databaseId/documents"))
             .DELETE()
             .build()
         val response = http.send(request, HttpResponse.BodyHandlers.discarding())
