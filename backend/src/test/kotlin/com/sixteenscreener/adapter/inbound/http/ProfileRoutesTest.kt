@@ -1,6 +1,7 @@
 package com.sixteenscreener.adapter.inbound.http
 
 import com.sixteenscreener.domain.model.ListedSymbol
+import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.Symbol
 import io.kotest.core.spec.style.FunSpec
@@ -167,7 +168,7 @@ class ProfileRoutesTest : FunSpec({
 
         test("PUT to a full watchlist answers 400") {
             routeTest { ports ->
-                val profile = ports.savedProfile(watchlist = (1..100).map { "S$it" })
+                val profile = ports.savedProfile(watchlist = (1..Profile.MAX_WATCHLIST_SIZE).map { "S$it" })
                 ports.symbolDirectory.add(ListedSymbol(Symbol.of("AAPL"), "APPLE INC", "XNAS", "USD", null))
 
                 client.put("/profiles/${profile.id}/watchlist/AAPL").shouldBeProblem(400)

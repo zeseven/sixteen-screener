@@ -76,6 +76,6 @@ data class Profile(
 ) {
     companion object {
         /** Maximum number of watchlist symbols (spec `maxItems`). */
-        const val MAX_WATCHLIST_SIZE = 100
+        const val MAX_WATCHLIST_SIZE = 250
     }
 }
