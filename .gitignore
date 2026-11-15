@@ -6,6 +6,7 @@ secrets/
 
 # Local configuration
 local.properties
+temp-docs/
 
 # AI agent instructions
 CLAUDE.md
