@@ -16,6 +16,10 @@ fun Route.watchlistRoutes(watchlist: WatchlistUseCase, profiles: ProfileUseCase)
             val items = watchlist.watchlist(call.profileIdParameter()).map { it.toDto(inWatchlist = true) }
             call.respond(WatchlistDto(items))
         }
+        get("/refresh") {
+            val rows = watchlist.refreshWatchlistRows(call.profileIdParameter(), call.symbolsParameter())
+            call.respond(WatchlistDto(rows.map { it.toDto(inWatchlist = true) }))
+        }
         put("/{symbol}") {
             profiles.addToWatchlist(call.profileIdParameter(), call.symbolParameter())
             call.respond(HttpStatusCode.NoContent)

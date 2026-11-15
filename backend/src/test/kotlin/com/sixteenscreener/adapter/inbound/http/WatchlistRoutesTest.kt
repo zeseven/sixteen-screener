@@ -8,6 +8,8 @@ import com.sixteenscreener.domain.model.CompanyProfile
 import com.sixteenscreener.domain.model.DataType
 import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.PreviousPrice
+import com.sixteenscreener.domain.model.Profile
+import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.Quote
 import com.sixteenscreener.domain.model.QuoteRecord
 import com.sixteenscreener.domain.model.SourceCallOutcome
@@ -21,7 +23,9 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.put
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -53,6 +57,15 @@ private fun TestPorts.quoteFromSource(symbol: String, price: Double) {
     marketData.quotes[Symbol.of(symbol)] = SourceResult.Success(Quote(price, "USD"), SourceCallOutcome.success(clock.now()))
 }
 
+private fun profileCapableConfig() = testConfig().let { config ->
+    config.copy(sources = config.sources.map { it.copy(capabilities = it.capabilities + Capability.COMPANY_PROFILE) })
+}
+
+private fun refreshUrl(profile: Profile, symbols: List<String>) =
+    "/profiles/${profile.id}/watchlist/refresh?symbols=${symbols.joinToString(",")}"
+
+private fun JsonObject.symbol() = getValue("symbol").jsonPrimitive.content
+
 private fun JsonObject.items() = getValue("items").jsonArray.map { it.jsonObject }
 
 private fun JsonObject.quote(): JsonObject? = (get("quote") as? JsonObject)
@@ -70,13 +83,8 @@ class WatchlistRoutesTest : FunSpec({
         }
     }
 
-    test("company row carries every alpha field of CompanySummary and Quote") {
-        val config = testConfig().let { config ->
-            config.copy(
-                sources = config.sources.map { it.copy(capabilities = it.capabilities + Capability.COMPANY_PROFILE) },
-            )
-        }
-        routeTest(config = config) { ports ->
+    test("refreshed company row carries every alpha field of CompanySummary and Quote") {
+        routeTest(config = profileCapableConfig()) { ports ->
             val profile = ports.savedProfile(watchlist = listOf("SAP.DE"))
             ports.listed("SAP.DE", mic = "XETR", currency = "EUR", name = "SAP SE")
             ports.marketData.quotes[Symbol.of("SAP.DE")] =
@@ -86,7 +94,7 @@ class WatchlistRoutesTest : FunSpec({
                 SourceCallOutcome.success(ports.clock.now()),
             )
 
-            val item = client.get("/profiles/${profile.id}/watchlist").json().items().single()
+            val item = client.get(refreshUrl(profile, listOf("SAP.DE"))).json().items().single()
 
             item.keys shouldBe setOf(
                 "symbol", "ticker", "exchange", "name", "market", "sector", "logoUrl", "quote", "inWatchlist",
@@ -149,22 +157,23 @@ class WatchlistRoutesTest : FunSpec({
         }
     }
 
-    test("100 companies with a budget of 60 calls refresh 60 quotes and return the rest without quote") {
+    test("two refreshes of 50 companies with a budget of 60 calls refresh 60 quotes and return the rest without quote") {
         routeTest { ports ->
             val tickers = (1..100).map { "C%03d".format(it) }
             val profile = ports.savedProfile(watchlist = tickers)
             tickers.forEach { ports.listed(it); ports.quoteFromSource(it, 10.0) }
 
-            val items = client.get("/profiles/${profile.id}/watchlist").json().items()
+            val first = client.get(refreshUrl(profile, tickers.take(50))).json().items()
+            val second = client.get(refreshUrl(profile, tickers.drop(50))).json().items()
 
-            items shouldHaveSize 100
-            items.map { it["symbol"]!!.jsonPrimitive.content } shouldContainExactly tickers
-            items.count { it.quote() != null } shouldBe 60
+            (first + second).map { it.symbol() } shouldContainExactly tickers
+            first.count { it.quote() != null } shouldBe 50
+            second.count { it.quote() != null } shouldBe 10
             ports.marketData.calls shouldHaveSize 60
         }
     }
 
-    test("429 mid-batch keeps cached quotes of the skipped companies") {
+    test("429 mid-batch of a refresh keeps cached quotes of the skipped companies") {
         routeTest { ports ->
             val tickers = (1..20).map { "C%03d".format(it) }
             val profile = ports.savedProfile(watchlist = tickers)
@@ -176,7 +185,7 @@ class WatchlistRoutesTest : FunSpec({
             ports.marketData.quotes[Symbol.of("C005")] =
                 SourceResult.LimitReached(SourceCallOutcome.httpError(429, ports.clock.now()))
 
-            val response = client.get("/profiles/${profile.id}/watchlist")
+            val response = client.get(refreshUrl(profile, profile.watchlist.map { it.value }))
 
             response.status shouldBe HttpStatusCode.OK
             val prices = response.json().items().map { it.quote()!!["price"]!!.jsonPrimitive.content.toDouble() }
@@ -186,7 +195,7 @@ class WatchlistRoutesTest : FunSpec({
         }
     }
 
-    test("source failures return cached quotes or none, never an error") {
+    test("source failures during a refresh return cached quotes or none, never an error") {
         routeTest { ports ->
             val profile = ports.savedProfile(watchlist = listOf("OK", "CACHED", "EMPTY"))
             listOf("OK", "CACHED", "EMPTY").forEach { ports.listed(it) }
@@ -197,7 +206,7 @@ class WatchlistRoutesTest : FunSpec({
             ports.marketData.quotes[Symbol.of("EMPTY")] =
                 SourceResult.SourceError(SourceCallOutcome.timeout(ports.clock.now()))
 
-            val response = client.get("/profiles/${profile.id}/watchlist")
+            val response = client.get(refreshUrl(profile, profile.watchlist.map { it.value }))
 
             response.status shouldBe HttpStatusCode.OK
             val items = response.json().items()
@@ -208,14 +217,14 @@ class WatchlistRoutesTest : FunSpec({
         }
     }
 
-    test("failed cache write still answers the refreshed quote") {
+    test("failed cache write during a refresh still answers the refreshed quote") {
         routeTest { ports ->
             val profile = ports.savedProfile(watchlist = listOf("AAPL"))
             ports.listed("AAPL")
             ports.quoteFromSource("AAPL", 7.0)
             ports.companyCache.failWrites = true
 
-            val response = client.get("/profiles/${profile.id}/watchlist")
+            val response = client.get(refreshUrl(profile, profile.watchlist.map { it.value }))
 
             response.status shouldBe HttpStatusCode.OK
             response.json().items().single().quote()!!["price"] shouldBe JsonPrimitive(7.0)
@@ -234,6 +243,108 @@ class WatchlistRoutesTest : FunSpec({
             item["market"] shouldBe JsonNull
             item.quote()!!["price"] shouldBe JsonPrimitive(3.0)
             ports.marketData.calls.shouldBeEmpty()
+        }
+    }
+
+    test("watchlist makes no quote requests: stale quote is CACHED, missing quote is null, missing profile is fetched") {
+        routeTest(config = profileCapableConfig()) { ports ->
+            val profile = ports.savedProfile(watchlist = listOf("STALE", "MISSING"))
+            ports.listed("STALE")
+            ports.listed("MISSING")
+            ports.cachedQuote("STALE", 4.0, age = Duration.ofHours(5))
+            ports.quoteFromSource("STALE", 5.0)
+            ports.quoteFromSource("MISSING", 6.0)
+            ports.marketData.profiles[Symbol.of("MISSING")] = SourceResult.Success(
+                CompanyProfile("Missing Inc", "US", "USD", "Energy", null, null, null, null, null, null, null),
+                SourceCallOutcome.success(ports.clock.now()),
+            )
+
+            val items = client.get("/profiles/${profile.id}/watchlist").json().items()
+
+            items.map { it.symbol() } shouldContainExactly listOf("STALE", "MISSING")
+            items[0].quote()!!["price"] shouldBe JsonPrimitive(4.0)
+            items[0].quote()!!["fetchedAt"] shouldBe JsonPrimitive("2026-11-14T07:00:00Z")
+            items[1]["quote"] shouldBe JsonNull
+            items[1]["sector"] shouldBe JsonPrimitive("Energy")
+            ports.marketData.calls.filter { it.startsWith("quote:") }.shouldBeEmpty()
+        }
+    }
+
+    test("refresh refreshes only requested watchlist symbols, in watchlist order, ignoring duplicates and others") {
+        routeTest { ports ->
+            val watchlist = listOf("A", "B", "C", "D")
+            val profile = ports.savedProfile(watchlist = watchlist)
+            (watchlist + "X").forEach { ports.listed(it); ports.quoteFromSource(it, 1.0) }
+
+            val response = client.get(refreshUrl(profile, listOf("D", "X", "B", "D")))
+
+            response.status shouldBe HttpStatusCode.OK
+            val items = response.json().items()
+            items.map { it.symbol() } shouldContainExactly listOf("B", "D")
+            items.forEach { it["inWatchlist"] shouldBe JsonPrimitive(true) }
+            ports.marketData.calls.toSet() shouldBe setOf("quote:B", "quote:D")
+        }
+    }
+
+    test("refresh of symbols that are all outside the watchlist answers an empty item list") {
+        routeTest { ports ->
+            val profile = ports.savedProfile(watchlist = listOf("AAPL"))
+            ports.listed("MSFT")
+            ports.quoteFromSource("MSFT", 1.0)
+
+            val response = client.get(refreshUrl(profile, listOf("MSFT")))
+
+            response.status shouldBe HttpStatusCode.OK
+            response.json().items().shouldBeEmpty()
+            ports.marketData.calls.shouldBeEmpty()
+        }
+    }
+
+    test("refresh accepts 50 symbols") {
+        routeTest { ports ->
+            val profile = ports.savedProfile(watchlist = listOf("C001"))
+
+            val response = client.get(refreshUrl(profile, (1..50).map { "C%03d".format(it) }))
+
+            response.status shouldBe HttpStatusCode.OK
+            response.json().items().map { it.symbol() } shouldContainExactly listOf("C001")
+        }
+    }
+
+    context("invalid symbols parameter is a bad request") {
+        withData(
+            nameFn = { "'$it'" },
+            "?symbols=",
+            "",
+            "?symbols=aapl",
+            "?symbols=AAPL,,MSFT",
+            "?symbols=AAPL,",
+            "?symbols=" + (1..51).joinToString(",") { "C%03d".format(it) },
+        ) { query ->
+            routeTest { ports ->
+                val profile = ports.savedProfile(watchlist = listOf("AAPL"))
+
+                client.get("/profiles/${profile.id}/watchlist/refresh$query").shouldBeProblem(400)
+                ports.marketData.calls.shouldBeEmpty()
+            }
+        }
+    }
+
+    test("refresh for an unknown profile is not found") {
+        routeTest {
+            client.get("/profiles/${ProfileId.random()}/watchlist/refresh?symbols=AAPL").shouldBeProblem(404)
+        }
+    }
+
+    test("refresh route does not clash with adding and removing watchlist symbols") {
+        routeTest { ports ->
+            val profile = ports.savedProfile()
+            ports.listed("AAPL")
+
+            client.put("/profiles/${profile.id}/watchlist/AAPL").status shouldBe HttpStatusCode.NoContent
+            client.get(refreshUrl(profile, listOf("AAPL"))).json().items().map { it.symbol() } shouldContainExactly
+                listOf("AAPL")
+            client.delete("/profiles/${profile.id}/watchlist/AAPL").status shouldBe HttpStatusCode.NoContent
         }
     }
 })

@@ -38,7 +38,7 @@ import java.time.LocalDate
 import java.util.concurrent.atomic.AtomicBoolean
 
 data class WatchlistCompanyData(
-    val quote: SourceData<QuoteRecord>,
+    val quote: SourceData<QuoteRecord>?,
     val profile: SourceData<CompanyProfile>,
 )
 
@@ -112,14 +112,15 @@ class CompanyDataService(
         source: SourceId,
         symbols: List<Symbol>,
         listings: Map<Symbol, ListedSymbol>,
+        refreshStaleQuotes: Boolean,
     ): Map<Symbol, WatchlistCompanyData> {
         if (symbols.isEmpty()) return emptyMap()
         val quoteKeys = symbols.associateWith { CacheKey(source, it, DataType.QUOTE) }
         val profileKeys = symbols.associateWith { CacheKey(source, it, DataType.COMPANY_PROFILE) }
         val cached = cache.getAll(quoteKeys.values + profileKeys.values)
-        val quotePlans = symbols.map { symbol ->
+        val quotePlans = symbols.mapNotNull { symbol ->
             val key = quoteKeys.getValue(symbol)
-            watchlistQuotePlan(key, cached[key], listings[symbol])
+            watchlistQuotePlan(key, cached[key], listings[symbol], refreshStaleQuotes)
         }
         val profilePlans = symbols.map { symbol ->
             val key = profileKeys.getValue(symbol)
@@ -127,7 +128,7 @@ class CompanyDataService(
         }
         val loaded = load(source, oldestFirst(quotePlans) + oldestFirst(profilePlans))
         return symbols.associateWith { symbol ->
-            WatchlistCompanyData(loaded[quoteKeys.getValue(symbol)], loaded[profileKeys.getValue(symbol)])
+            WatchlistCompanyData(loaded.getOrNull(quoteKeys.getValue(symbol)), loaded[profileKeys.getValue(symbol)])
         }
     }
 
@@ -178,9 +179,11 @@ class CompanyDataService(
         key: CacheKey<QuoteRecord>,
         cached: CacheEntry<QuoteRecord>?,
         listing: ListedSymbol?,
-    ): Plan<QuoteRecord> = when {
+        refreshStale: Boolean,
+    ): Plan<QuoteRecord>? = when {
         !supports(key) -> notSupported(key)
-        cached != null && freshness.isFresh(cached.fetchedAt) -> Settled(key, fromCache(key, cached))
+        cached != null && (!refreshStale || freshness.isFresh(cached.fetchedAt)) -> Settled(key, fromCache(key, cached))
+        !refreshStale -> null
         listing == null -> Settled(key, fallback(key, cached, DataStatus.SOURCE_ERROR))
         else -> quoteFetch(key, cached, listing)
     }
@@ -322,6 +325,9 @@ class CompanyDataService(
     private class Loaded(private val byKey: Map<CacheKey<*>, SourceData<*>>) {
         @Suppress("UNCHECKED_CAST")
         operator fun <T : Any> get(key: CacheKey<T>): SourceData<T> = byKey.getValue(key) as SourceData<T>
+
+        @Suppress("UNCHECKED_CAST")
+        fun <T : Any> getOrNull(key: CacheKey<T>): SourceData<T>? = byKey[key] as SourceData<T>?
     }
 
     private companion object {

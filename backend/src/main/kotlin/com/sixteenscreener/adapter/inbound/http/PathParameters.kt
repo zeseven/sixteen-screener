@@ -11,6 +11,9 @@ fun ApplicationCall.profileIdParameter(): ProfileId = ProfileId.of(parameters.ge
 
 fun ApplicationCall.symbolParameter(): Symbol = Symbol.of(parameters.getOrFail("symbol"))
 
+fun ApplicationCall.symbolsParameter(): List<Symbol> =
+    request.queryParameters.getOrFail("symbols").split(',').map(Symbol::of)
+
 fun ApplicationCall.sourceParameter(): SourceId? = request.queryParameters["source"]?.let(SourceId::of)
 
 fun ApplicationCall.refreshParameter(): Boolean =

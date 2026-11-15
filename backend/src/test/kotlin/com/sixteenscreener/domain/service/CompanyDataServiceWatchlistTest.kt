@@ -19,6 +19,7 @@ import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.ints.shouldBeLessThanOrEqual
 import io.kotest.matchers.maps.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.delay
 import java.time.Duration
@@ -42,8 +43,13 @@ private class ConcurrencyProbe(private val delegate: FakeMarketDataSource) : Mar
 
 private suspend fun CompanyDataFixture.watchlist(vararg tickers: String) = watchlist(tickers.toList())
 
-private suspend fun CompanyDataFixture.watchlist(tickers: List<String>) =
-    tickers.map(Symbol::of).let { symbols -> service.watchlistData(FINNHUB, symbols, directory.findAll(symbols)) }
+private suspend fun CompanyDataFixture.watchlist(tickers: List<String>, refreshStaleQuotes: Boolean = true) =
+    tickers.map(Symbol::of).let { symbols ->
+        service.watchlistData(FINNHUB, symbols, directory.findAll(symbols), refreshStaleQuotes)
+    }
+
+private suspend fun CompanyDataFixture.cachedQuotesWatchlist(vararg tickers: String) =
+    watchlist(tickers.toList(), refreshStaleQuotes = false)
 
 private fun CompanyDataFixture.listedWithQuotes(tickers: List<String>) = tickers.forEachIndexed { index, ticker ->
     listed(listing(ticker))
@@ -69,11 +75,11 @@ class CompanyDataServiceWatchlistTest : FunSpec({
 
         val result = f.watchlist("FRESH", "STALE", "MISSING")
 
-        result.getValue(Symbol.of("FRESH")).quote.status shouldBe DataStatus.FRESH
-        result.getValue(Symbol.of("FRESH")).quote.fetchedAt shouldBe fresh.fetchedAt
-        result.getValue(Symbol.of("STALE")).quote.status shouldBe DataStatus.FRESH
-        result.getValue(Symbol.of("STALE")).quote.fetchedAt shouldBe f.now
-        result.getValue(Symbol.of("MISSING")).quote.data?.quote?.price shouldBe 102.0
+        result.getValue(Symbol.of("FRESH")).quote!!.status shouldBe DataStatus.FRESH
+        result.getValue(Symbol.of("FRESH")).quote!!.fetchedAt shouldBe fresh.fetchedAt
+        result.getValue(Symbol.of("STALE")).quote!!.status shouldBe DataStatus.FRESH
+        result.getValue(Symbol.of("STALE")).quote!!.fetchedAt shouldBe f.now
+        result.getValue(Symbol.of("MISSING")).quote!!.data?.quote?.price shouldBe 102.0
         f.quoteCalls() shouldContainExactlyInAnyOrder listOf("quote:STALE", "quote:MISSING")
     }
 
@@ -144,13 +150,14 @@ class CompanyDataServiceWatchlistTest : FunSpec({
         val oldest = tickers.takeLast(30).toSet()
         f.quoteCalls() shouldContainExactlyInAnyOrder oldest.map { "quote:$it" }
         result.forEach { (symbol, data) ->
+            val quote = data.quote.shouldNotBeNull()
             if (symbol.value in oldest) {
-                data.quote.status shouldBe DataStatus.FRESH
-                data.quote.fetchedAt shouldBe f.now
+                quote.status shouldBe DataStatus.FRESH
+                quote.fetchedAt shouldBe f.now
             } else {
-                data.quote.status shouldBe DataStatus.LIMIT_REACHED
-                data.quote.data?.quote?.price shouldBe 1.0
-                data.quote.fetchedAt shouldBe f.cache.get(quoteKey(symbol.value))?.fetchedAt
+                quote.status shouldBe DataStatus.LIMIT_REACHED
+                quote.data?.quote?.price shouldBe 1.0
+                quote.fetchedAt shouldBe f.cache.get(quoteKey(symbol.value))?.fetchedAt
             }
         }
     }
@@ -164,7 +171,7 @@ class CompanyDataServiceWatchlistTest : FunSpec({
         val result = f.watchlist("OLD", "NEW")
 
         f.quoteCalls() shouldContainExactly listOf("quote:NEW")
-        result.getValue(Symbol.of("OLD")).quote.status shouldBe DataStatus.LIMIT_REACHED
+        result.getValue(Symbol.of("OLD")).quote!!.status shouldBe DataStatus.LIMIT_REACHED
     }
 
     test("company beyond the budget without a cached quote gets empty data with LIMIT_REACHED") {
@@ -172,7 +179,7 @@ class CompanyDataServiceWatchlistTest : FunSpec({
         f.listedWithQuotes(listOf("AAPL"))
         f.exhaustBudget()
 
-        val quote = f.watchlist("AAPL").getValue(Symbol.of("AAPL")).quote
+        val quote = f.watchlist("AAPL").getValue(Symbol.of("AAPL")).quote!!
 
         quote.status shouldBe DataStatus.LIMIT_REACHED
         quote.data.shouldBeNull()
@@ -206,9 +213,9 @@ class CompanyDataServiceWatchlistTest : FunSpec({
         val called = f.quoteCalls().map { it.removePrefix("quote:") }
         called.size shouldBeLessThanOrEqual 10 + 4
         tickers.drop(14).forEach { called shouldNotContain it }
-        result.getValue(Symbol.of("C010")).quote.status shouldBe DataStatus.LIMIT_REACHED
+        result.getValue(Symbol.of("C010")).quote!!.status shouldBe DataStatus.LIMIT_REACHED
         tickers.filterNot { it in called }.forEach { ticker ->
-            val quote = result.getValue(Symbol.of(ticker)).quote
+            val quote = result.getValue(Symbol.of(ticker)).quote!!
             quote.status shouldBe DataStatus.LIMIT_REACHED
             quote.data?.quote?.price shouldBe 1.0
         }
@@ -224,14 +231,14 @@ class CompanyDataServiceWatchlistTest : FunSpec({
 
         val result = f.watchlist("OK", "FAILCACHED", "FAILEMPTY")
 
-        result.getValue(Symbol.of("OK")).quote.status shouldBe DataStatus.FRESH
-        result.getValue(Symbol.of("FAILCACHED")).quote.status shouldBe DataStatus.SOURCE_ERROR
-        result.getValue(Symbol.of("FAILCACHED")).quote.data shouldBe cached.data
-        result.getValue(Symbol.of("FAILCACHED")).quote.fetchedAt shouldBe cached.fetchedAt
+        result.getValue(Symbol.of("OK")).quote!!.status shouldBe DataStatus.FRESH
+        result.getValue(Symbol.of("FAILCACHED")).quote!!.status shouldBe DataStatus.SOURCE_ERROR
+        result.getValue(Symbol.of("FAILCACHED")).quote!!.data shouldBe cached.data
+        result.getValue(Symbol.of("FAILCACHED")).quote!!.fetchedAt shouldBe cached.fetchedAt
         f.cache.get(quoteKey("FAILCACHED")) shouldBe cached
-        result.getValue(Symbol.of("FAILEMPTY")).quote.status shouldBe DataStatus.SOURCE_ERROR
-        result.getValue(Symbol.of("FAILEMPTY")).quote.data.shouldBeNull()
-        result.getValue(Symbol.of("FAILEMPTY")).quote.fetchedAt.shouldBeNull()
+        result.getValue(Symbol.of("FAILEMPTY")).quote!!.status shouldBe DataStatus.SOURCE_ERROR
+        result.getValue(Symbol.of("FAILEMPTY")).quote!!.data.shouldBeNull()
+        result.getValue(Symbol.of("FAILEMPTY")).quote!!.fetchedAt.shouldBeNull()
     }
 
     test("quotes are requested with at most 5 concurrent calls") {
@@ -250,7 +257,7 @@ class CompanyDataServiceWatchlistTest : FunSpec({
         val f = CompanyDataFixture(capabilities = quotesOnly)
         val cached = f.cachedQuote("GONE", 3.0, age = Duration.ofHours(2))
 
-        val quote = f.watchlist("GONE").getValue(Symbol.of("GONE")).quote
+        val quote = f.watchlist("GONE").getValue(Symbol.of("GONE")).quote!!
 
         quote.status shouldBe DataStatus.SOURCE_ERROR
         quote.data shouldBe cached.data
@@ -261,7 +268,7 @@ class CompanyDataServiceWatchlistTest : FunSpec({
         val f = CompanyDataFixture(capabilities = quotesOnly)
         f.cachedQuote("GONE", 3.0, age = Duration.ofMinutes(5))
 
-        f.watchlist("GONE").getValue(Symbol.of("GONE")).quote.status shouldBe DataStatus.FRESH
+        f.watchlist("GONE").getValue(Symbol.of("GONE")).quote!!.status shouldBe DataStatus.FRESH
     }
 
     test("refreshed quote is stored in the exchange time zone of its listing") {
@@ -270,7 +277,7 @@ class CompanyDataServiceWatchlistTest : FunSpec({
         f.listed(listing("SAP.DE", mic = "XETR", currency = "EUR"))
         f.quoteFromSource("SAP.DE", 200.0, "EUR")
 
-        val quote = f.watchlist("SAP.DE").getValue(Symbol.of("SAP.DE")).quote
+        val quote = f.watchlist("SAP.DE").getValue(Symbol.of("SAP.DE")).quote!!
 
         quote.data?.marketDate shouldBe java.time.LocalDate.parse("2026-11-15")
         quote.data?.quote shouldBe Quote(200.0, "EUR")
@@ -284,11 +291,12 @@ class CompanyDataServiceWatchlistTest : FunSpec({
         f.cache.failWrites = true
 
         val result = f.watchlist("AAPL").getValue(Symbol.of("AAPL"))
+        val quote = result.quote.shouldNotBeNull()
 
-        result.quote.status shouldBe DataStatus.FRESH
-        result.quote.fetchedAt shouldBe f.now
-        result.quote.data?.quote?.price shouldBe 100.0
-        result.quote.data?.previousPrice?.price shouldBe 90.0
+        quote.status shouldBe DataStatus.FRESH
+        quote.fetchedAt shouldBe f.now
+        quote.data?.quote?.price shouldBe 100.0
+        quote.data?.previousPrice?.price shouldBe 90.0
         result.profile.status shouldBe DataStatus.FRESH
         result.profile.data shouldBe sampleProfile()
     }
@@ -299,8 +307,76 @@ class CompanyDataServiceWatchlistTest : FunSpec({
 
         val result = f.watchlist("AAPL").getValue(Symbol.of("AAPL"))
 
-        result.quote.status shouldBe DataStatus.NOT_SUPPORTED
+        result.quote!!.status shouldBe DataStatus.NOT_SUPPORTED
         f.countingCounters.tryAcquireCalls shouldBe 0
         f.source.calls.shouldBeEmpty()
+    }
+
+    context("without refreshing stale quotes") {
+
+        test("no quote requests are made, stale quotes are CACHED and missing quotes are absent") {
+            val f = CompanyDataFixture(capabilities = quotesOnly)
+            f.listedWithQuotes(listOf("FRESH", "STALE", "MISSING"))
+            f.cachedQuote("FRESH", 50.0, age = Duration.ofMinutes(5))
+            val stale = f.cachedQuote("STALE", 60.0, age = Duration.ofHours(5))
+
+            val result = f.cachedQuotesWatchlist("FRESH", "STALE", "MISSING")
+
+            result.getValue(Symbol.of("FRESH")).quote!!.status shouldBe DataStatus.FRESH
+            result.getValue(Symbol.of("STALE")).quote!!.status shouldBe DataStatus.CACHED
+            result.getValue(Symbol.of("STALE")).quote!!.data shouldBe stale.data
+            result.getValue(Symbol.of("STALE")).quote!!.fetchedAt shouldBe stale.fetchedAt
+            result.getValue(Symbol.of("MISSING")).quote.shouldBeNull()
+            f.source.calls.shouldBeEmpty()
+            f.countingCounters.tryAcquireCalls shouldBe 0
+        }
+
+        test("absent and expired company profiles are still requested, quotes are not") {
+            val f = CompanyDataFixture()
+            f.listedWithQuotes(listOf("ABSENT", "EXPIRED", "KEPT"))
+            f.cachedQuote("ABSENT", 1.0, age = Duration.ofDays(3))
+            f.cached(profileKey("EXPIRED"), sampleProfile(sector = "Old"), age = Duration.ofDays(15))
+            f.cached(profileKey("KEPT"), sampleProfile(sector = "Kept"), age = Duration.ofDays(1))
+            f.profileFromSource("ABSENT", sampleProfile(sector = "Fetched"))
+            f.profileFromSource("EXPIRED", sampleProfile(sector = "New"))
+
+            val result = f.cachedQuotesWatchlist("ABSENT", "EXPIRED", "KEPT")
+
+            f.quoteCalls().shouldBeEmpty()
+            f.profileCalls() shouldContainExactlyInAnyOrder listOf("profile:ABSENT", "profile:EXPIRED")
+            result.mapValues { it.value.profile.data?.sector } shouldBe mapOf(
+                Symbol.of("ABSENT") to "Fetched",
+                Symbol.of("EXPIRED") to "New",
+                Symbol.of("KEPT") to "Kept",
+            )
+            result.getValue(Symbol.of("ABSENT")).quote!!.status shouldBe DataStatus.CACHED
+        }
+
+        test("profiles beyond the budget keep their cached data with LIMIT_REACHED") {
+            val f = CompanyDataFixture()
+            f.listedWithQuotes(listOf("AAPL"))
+            f.cached(profileKey("AAPL"), sampleProfile(sector = "Old"), age = Duration.ofDays(20))
+            f.exhaustBudget()
+
+            val profile = f.cachedQuotesWatchlist("AAPL").getValue(Symbol.of("AAPL")).profile
+
+            profile.status shouldBe DataStatus.LIMIT_REACHED
+            profile.data?.sector shouldBe "Old"
+            f.source.calls.shouldBeEmpty()
+        }
+
+        test("stale quote of a symbol missing from the directory is CACHED") {
+            val f = CompanyDataFixture(capabilities = quotesOnly)
+            f.cachedQuote("GONE", 3.0, age = Duration.ofHours(2))
+
+            f.cachedQuotesWatchlist("GONE").getValue(Symbol.of("GONE")).quote!!.status shouldBe DataStatus.CACHED
+        }
+
+        test("source without the quote capability answers NOT_SUPPORTED") {
+            val f = CompanyDataFixture(capabilities = emptySet())
+            f.listedWithQuotes(listOf("AAPL"))
+
+            f.cachedQuotesWatchlist("AAPL").getValue(Symbol.of("AAPL")).quote!!.status shouldBe DataStatus.NOT_SUPPORTED
+        }
     }
 })
