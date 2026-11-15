@@ -1,7 +1,6 @@
 package com.sixteenscreener.domain.service
 
 import com.sixteenscreener.domain.model.Capability
-import com.sixteenscreener.domain.model.CompanySummary
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.SearchHit
 import com.sixteenscreener.domain.model.SearchQuery
@@ -20,7 +19,6 @@ class SearchService(
     private val catalog: SourceCatalog,
     private val marketDataSources: Map<SourceId, MarketDataSource>,
     private val symbolDirectory: SymbolDirectory,
-    private val companyData: CompanyDataService,
     private val identities: CompanyIdentityResolver,
     private val guard: SourceCallGuard,
     private val outcomes: SourceCallOutcomes,
@@ -37,16 +35,10 @@ class SearchService(
         val hits = answer.hits.distinctBy { it.symbol }.matching(query).take(MAX_RESULTS)
         val symbols = hits.map { it.symbol }
         val listings = if (symbols.isEmpty()) emptyMap() else symbolDirectory.findAll(symbols)
-        val cached = companyData.cachedCompanies(source, symbols)
         val watchlist = profile.watchlistSymbols.toSet()
         val items = hits.map { hit ->
-            val company = cached[hit.symbol]
             SearchResult(
-                company = CompanySummary(
-                    identity = identities.identify(hit.symbol, listings[hit.symbol], hit.name),
-                    sector = company?.profile?.sector,
-                    quote = company?.quote,
-                ),
+                identity = identities.identify(hit.symbol, listings[hit.symbol], hit.name),
                 inWatchlist = hit.symbol in watchlist,
             )
         }

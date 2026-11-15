@@ -1,6 +1,6 @@
 package com.sixteenscreener.port.inbound
 
-import com.sixteenscreener.domain.model.CompanySummary
+import com.sixteenscreener.domain.model.CompanyIdentity
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.SearchStatus
 import com.sixteenscreener.domain.model.SourceId
@@ -8,11 +8,11 @@ import com.sixteenscreener.domain.model.SourceId
 /**
  * One search result.
  *
- * @property company identity, cached sector and cached quote of the company
+ * @property identity symbol, exchange, name and market of the company
  * @property inWatchlist whether the company is in the profile's watchlist
  */
 data class SearchResult(
-    val company: CompanySummary,
+    val identity: CompanyIdentity,
     val inWatchlist: Boolean,
 )
 
@@ -30,7 +30,7 @@ data class SearchResults(
 )
 
 /**
- * Company search in the profile's default source (ADR-029, ADR-034, ADR-035, ADR-054).
+ * Company search in the profile's default source (ADR-029, ADR-034, ADR-035, ADR-054, ADR-059).
  */
 interface SearchUseCase {
     /**
@@ -43,9 +43,9 @@ interface SearchUseCase {
      *
      * Exchange, market and name of each result are resolved from the exchange directory; results not found there are
      * returned with best-effort data (the exchange code as exchange name, the name from the source, no market).
-     * Quotes and sectors are taken from the cache only, no requests are made for them. Successful source answers are
-     * kept in memory for 5 minutes, so the same query is answered with `OK` without a source request even when
-     * the limit is reached. A reached limit or a failed source call gives empty items with `LIMIT_REACHED` or
+     * Results contain directory data only: no cached company data is read and no other requests are made (ADR-059).
+     * Successful source answers are kept in memory for 5 minutes, so the same query is answered with `OK` without
+     * a source request even when the limit is reached. A reached limit or a failed source call gives empty items with `LIMIT_REACHED` or
      * `SOURCE_ERROR`; a default source without the search capability gives `SOURCE_ERROR` without a call.
      *
      * Throws [com.sixteenscreener.domain.model.InvalidInputException] when [rawQuery] is blank or longer than

@@ -42,7 +42,7 @@ private fun JsonObject.items() = getValue("items").jsonArray.map { it.jsonObject
 
 class SearchRoutesTest : FunSpec({
 
-    test("search result carries every alpha field of SearchResults and CompanySummary") {
+    test("search result carries every alpha field of SearchResults and SearchItem and no company data") {
         routeTest { ports ->
             val profile = ports.savedProfile(watchlist = listOf("SAP.DE"))
             ports.symbolDirectory.add(ListedSymbol(Symbol.of("SAP.DE"), "SAP SE", "XETR", "EUR", "Common Stock"))
@@ -60,22 +60,19 @@ class SearchRoutesTest : FunSpec({
             body["source"] shouldBe JsonPrimitive("finnhub")
             body["status"] shouldBe JsonPrimitive("OK")
             val (sap, toyota) = body.items()
-            sap.keys shouldBe setOf(
-                "symbol", "ticker", "exchange", "name", "market", "sector", "logoUrl", "quote", "inWatchlist",
-            )
+            sap.keys shouldBe setOf("symbol", "ticker", "exchange", "name", "market", "logoUrl", "inWatchlist")
             sap["symbol"] shouldBe JsonPrimitive("SAP.DE")
             sap["ticker"] shouldBe JsonPrimitive("SAP")
             sap["exchange"] shouldBe JsonPrimitive("XETRA")
             sap["name"] shouldBe JsonPrimitive("SAP SE")
             sap["market"] shouldBe JsonPrimitive("EU")
-            sap["sector"] shouldBe JsonNull
             sap["logoUrl"] shouldBe JsonPrimitive("/logos/SAP.DE")
             sap["inWatchlist"] shouldBe JsonPrimitive(true)
-            (sap["quote"] as JsonObject)["price"] shouldBe JsonPrimitive(201.5)
             toyota["market"] shouldBe JsonNull
             toyota["exchange"] shouldBe JsonPrimitive("T")
             toyota["name"] shouldBe JsonPrimitive("7203.T INC")
-            toyota["quote"] shouldBe JsonNull
+            toyota.keys shouldBe sap.keys
+            ports.companyCache.getAllCalls shouldBe 0
             toyota["inWatchlist"] shouldBe JsonPrimitive(false)
         }
     }

@@ -123,7 +123,6 @@ class AppServices(
         catalog = sourceCatalog,
         marketDataSources = marketDataSources,
         symbolDirectory = symbolDirectory,
-        companyData = companyData,
         identities = identities,
         guard = sourceCallGuard,
         outcomes = sourceCallOutcomes,

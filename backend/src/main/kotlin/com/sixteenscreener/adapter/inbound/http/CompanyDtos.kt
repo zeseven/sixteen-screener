@@ -1,11 +1,11 @@
 package com.sixteenscreener.adapter.inbound.http
 
-import com.sixteenscreener.domain.model.CompanySummary
 import com.sixteenscreener.domain.model.QuoteRecord
 import com.sixteenscreener.domain.model.SourceData
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.domain.model.WatchlistItem
 import com.sixteenscreener.domain.model.WatchlistMarketData
+import com.sixteenscreener.port.inbound.SearchResult
 import com.sixteenscreener.port.inbound.SearchResults
 import kotlinx.serialization.Serializable
 
@@ -20,15 +20,13 @@ data class QuoteDto(
 )
 
 @Serializable
-data class CompanySummaryDto(
+data class SearchItemDto(
     val symbol: String,
     val ticker: String,
     val exchange: String,
     val name: String,
     val market: String?,
-    val sector: String?,
     val logoUrl: String,
-    val quote: QuoteDto?,
     val inWatchlist: Boolean,
 )
 
@@ -73,13 +71,23 @@ data class WatchlistMarketDataDto(
 data class SearchResultsDto(
     val source: String,
     val status: String,
-    val items: List<CompanySummaryDto>,
+    val items: List<SearchItemDto>,
 )
 
 fun SearchResults.toDto() = SearchResultsDto(
     source = source.value,
     status = status.name,
-    items = items.map { it.company.toDto(it.inWatchlist) },
+    items = items.map { it.toDto() },
+)
+
+fun SearchResult.toDto() = SearchItemDto(
+    symbol = identity.symbol.value,
+    ticker = identity.ticker,
+    exchange = identity.exchange,
+    name = identity.name,
+    market = identity.market?.name,
+    logoUrl = logoUrlOf(identity.symbol),
+    inWatchlist = inWatchlist,
 )
 
 fun WatchlistItem.toDto() = WatchlistItemDto(
@@ -113,15 +121,3 @@ fun SourceData<QuoteRecord>.toQuoteDto(): QuoteDto? {
         source = source.value,
     )
 }
-
-fun CompanySummary.toDto(inWatchlist: Boolean) = CompanySummaryDto(
-    symbol = identity.symbol.value,
-    ticker = identity.ticker,
-    exchange = identity.exchange,
-    name = identity.name,
-    market = identity.market?.name,
-    sector = sector,
-    logoUrl = logoUrlOf(identity.symbol),
-    quote = quote?.toQuoteDto(),
-    inWatchlist = inWatchlist,
-)

@@ -5,7 +5,6 @@ import com.sixteenscreener.adapter.outbound.finnhub.FinnhubClient
 import com.sixteenscreener.adapter.outbound.http.SourceHttpCall
 import com.sixteenscreener.adapter.outbound.http.SourceHttpClient
 import com.sixteenscreener.domain.model.Capability
-import com.sixteenscreener.domain.model.DataStatus
 import com.sixteenscreener.domain.model.InvalidInputException
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.Market
@@ -53,7 +52,6 @@ private class SearchFixture(
         catalog = data.catalog,
         marketDataSources = mapOf(FINNHUB to (searchSource?.invoke(data) ?: data.source)),
         symbolDirectory = data.directory,
-        companyData = data.service,
         identities = data.identities,
         guard = SourceCallGuard(data.limiter),
         outcomes = SourceCallOutcomes(data.sourceCalls),
@@ -76,7 +74,7 @@ private class SearchFixture(
     suspend fun search(query: String): SearchResults = service.search(data.profile.id, query)
 }
 
-private fun SearchResults.symbols(): List<String> = items.map { it.company.identity.symbol.value }
+private fun SearchResults.symbols(): List<String> = items.map { it.identity.symbol.value }
 
 private class MockFinnhubSearch(
     private val status: HttpStatusCode,
@@ -144,13 +142,11 @@ class SearchServiceTest : FunSpec({
 
             result.source shouldBe FINNHUB
             result.status shouldBe SearchStatus.OK
-            val company = result.items.single().company
-            company.identity.symbol shouldBe Symbol.of("AAPL")
-            company.identity.exchange shouldBe "NASDAQ"
-            company.identity.name shouldBe "APPLE INC"
-            company.identity.market shouldBe Market.US
-            company.sector.shouldBeNull()
-            company.quote.shouldBeNull()
+            val identity = result.items.single().identity
+            identity.symbol shouldBe Symbol.of("AAPL")
+            identity.exchange shouldBe "NASDAQ"
+            identity.name shouldBe "APPLE INC"
+            identity.market shouldBe Market.US
             result.items.single().inWatchlist shouldBe false
         }
 
@@ -167,21 +163,21 @@ class SearchServiceTest : FunSpec({
             val result = f.search("apple")
 
             result.symbols() shouldContainExactly listOf("AAPL", "APC.DE", "AAPL.SW", "AAPL.TO")
-            result.items.map { it.company.identity.market } shouldContainExactly listOf(Market.US, Market.EU, Market.EU, null)
-            result.items[1].company.identity.exchange shouldBe "XETRA"
-            result.items[3].company.identity.name shouldBe "APPLE INC CDR"
+            result.items.map { it.identity.market } shouldContainExactly listOf(Market.US, Market.EU, Market.EU, null)
+            result.items[1].identity.exchange shouldBe "XETRA"
+            result.items[3].identity.name shouldBe "APPLE INC CDR"
         }
 
         test("result missing from the directory is kept with best-effort identity") {
             val f = SearchFixture()
             f.hits("apple", "AAPL.NE" to "APPLE INC - CDR")
 
-            val company = f.search("apple").items.single().company
+            val identity = f.search("apple").items.single().identity
 
-            company.identity.symbol shouldBe Symbol.of("AAPL.NE")
-            company.identity.exchange shouldBe "NE"
-            company.identity.name shouldBe "APPLE INC - CDR"
-            company.identity.market.shouldBeNull()
+            identity.symbol shouldBe Symbol.of("AAPL.NE")
+            identity.exchange shouldBe "NE"
+            identity.name shouldBe "APPLE INC - CDR"
+            identity.market.shouldBeNull()
         }
 
         test("duplicate symbols from the source are returned once") {
@@ -212,22 +208,20 @@ class SearchServiceTest : FunSpec({
             result.items.shouldBeEmpty()
         }
 
-        test("cached quotes and sectors are added without source requests") {
+        test("no cached company data is read and no requests other than the search are made") {
             val f = SearchFixture()
             f.data.listed(listing("AAPL"), listing("MSFT"))
             f.data.cachedQuote("AAPL", 190.0, age = Duration.ofDays(2))
-            f.data.cached(profileKey("AAPL"), sampleProfile(sector = "Technology"), age = Duration.ofDays(40))
+            f.data.cached(profileKey("AAPL"), sampleProfile(sector = "Technology"), age = Duration.ofDays(1))
             f.data.quoteFromSource("MSFT", 400.0)
             f.data.profileFromSource("MSFT")
             f.hits("tech", "AAPL" to "APPLE INC", "MSFT" to "MICROSOFT")
 
             val items = f.search("tech").items
 
-            items[0].company.quote?.data?.quote?.price shouldBe 190.0
-            items[0].company.quote?.status shouldBe DataStatus.CACHED
-            items[0].company.sector shouldBe "Technology"
-            items[1].company.quote.shouldBeNull()
-            items[1].company.sector.shouldBeNull()
+            items.map { it.identity.symbol } shouldContainExactly listOf(Symbol.of("AAPL"), Symbol.of("MSFT"))
+            f.data.cache.getCalls shouldBe 0
+            f.data.cache.getAllCalls shouldBe 0
             f.data.source.calls shouldContainExactly listOf("search:tech")
             f.data.countingCounters.tryAcquireCalls shouldBe 1
         }
@@ -320,7 +314,7 @@ class SearchServiceTest : FunSpec({
             f.data.listed(listing("AAPL"), listing("F"))
             f.hits("F", "AAPL" to "FRUIT", "F" to "FORD MOTOR CO")
 
-            f.search("F").items.single().company.identity.symbol shouldBe Symbol.of("F")
+            f.search("F").items.single().identity.symbol shouldBe Symbol.of("F")
 
             f.data.directory.findAllRequests shouldContainExactly listOf(listOf(Symbol.of("F")))
         }
@@ -481,18 +475,16 @@ class SearchServiceTest : FunSpec({
             f.searchCalls() shouldContainExactly listOf("search:Apple")
         }
 
-        test("answers from memory get the current watchlist and cached quotes") {
+        test("answers from memory get the current watchlist") {
             val f = SearchFixture()
             f.data.listed(listing("AAPL"))
             f.hits("apple", "AAPL" to "APPLE INC")
             f.search("apple")
             f.data.profiles.save(f.data.profile.copy(watchlist = watchlistEntries("AAPL")))
-            f.data.cachedQuote("AAPL", 191.0, age = Duration.ofMinutes(1))
 
             val item = f.search("apple").items.single()
 
             item.inWatchlist shouldBe true
-            item.company.quote?.data?.quote?.price shouldBe 191.0
             f.searchCalls() shouldHaveSize 1
         }
 
@@ -543,7 +535,7 @@ class SearchServiceTest : FunSpec({
 
             result.status shouldBe SearchStatus.OK
             result.symbols() shouldContainExactly listOf("AAPL", "AAPL.SW", "APC.DE", "AAPL.NE")
-            result.items.map { it.company.identity.market } shouldContainExactly listOf(Market.US, null, Market.EU, null)
+            result.items.map { it.identity.market } shouldContainExactly listOf(Market.US, null, Market.EU, null)
             f.data.sourceCalls.writes.single().second.result shouldBe SourceCallResult.SUCCESS
         }
 

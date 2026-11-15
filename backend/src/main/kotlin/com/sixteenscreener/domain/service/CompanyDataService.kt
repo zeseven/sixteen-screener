@@ -38,11 +38,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.util.concurrent.atomic.AtomicBoolean
 
-data class CachedCompanyData(
-    val quote: SourceData<QuoteRecord>?,
-    val profile: CompanyProfile?,
-)
-
 class CompanyDataService(
     private val catalog: SourceCatalog,
     private val marketDataSources: Map<SourceId, MarketDataSource>,
@@ -129,20 +124,6 @@ class CompanyDataService(
         }
         val loaded = load(source, oldestFirst(plans))
         return symbols.associateWith { loaded[keys.getValue(it)] }
-    }
-
-    suspend fun cachedCompanies(source: SourceId, symbols: Collection<Symbol>): Map<Symbol, CachedCompanyData> {
-        if (symbols.isEmpty()) return emptyMap()
-        val quoteKeys = symbols.associateWith { CacheKey(source, it, DataType.QUOTE) }
-        val profileKeys = symbols.associateWith { CacheKey(source, it, DataType.COMPANY_PROFILE) }
-        val cached = cache.getAll(quoteKeys.values + profileKeys.values)
-        return symbols.associateWith { symbol ->
-            val quoteKey = quoteKeys.getValue(symbol)
-            CachedCompanyData(
-                quote = cached[quoteKey]?.let { fromCache(quoteKey, it) },
-                profile = cached[profileKeys.getValue(symbol)]?.data,
-            )
-        }
     }
 
     private data class Target(val profile: Profile, val source: SourceId, val listing: ListedSymbol)

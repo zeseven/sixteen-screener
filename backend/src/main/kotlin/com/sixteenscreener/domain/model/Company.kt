@@ -45,19 +45,6 @@ data class WatchlistMarketData(
 )
 
 /**
- * Data of a company row on the watchlist and search screens.
- *
- * @property identity symbol, exchange, name and market
- * @property sector sector as provided by the source; null when no company profile is cached
- * @property quote latest quote with its status; null when no quote was looked up (e.g. a search result without cached data)
- */
-data class CompanySummary(
-    val identity: CompanyIdentity,
-    val sector: String?,
-    val quote: SourceData<QuoteRecord>?,
-)
-
-/**
  * Price and ratios of a company from one source (detailed screen, "Price and ratio" tab).
  *
  * The combined [status] and [fetchedAt] are derived from both parts:
