@@ -40,6 +40,8 @@ class SearchViewModelTest {
 
     private val apple = summary("AAPL", name = "Apple Inc.", inWatchlist = false)
     private val applied = summary("AMAT", name = "Applied Materials", inWatchlist = false)
+    private val ford = summary("F", name = "Ford Motor Company", inWatchlist = false)
+    private val generalMotors = summary("GM", name = "General Motors Company", inWatchlist = false)
 
     private lateinit var watchlistRepository: DefaultWatchlistRepository
 
@@ -60,28 +62,37 @@ class SearchViewModelTest {
     private val SearchViewModel.state get() = uiState.value
 
     @Test
-    fun `two characters make no request`() = runTest {
-        stubSearch(apple)
+    fun `one character makes an immediate request`() = runTest {
+        stubSearch(ford)
         val viewModel = viewModel()
 
-        viewModel.onQueryChange("ap")
-        advanceTimeBy(5_000)
+        viewModel.onQueryChange("f")
 
-        assertTrue(searches.isEmpty())
-        assertEquals(emptyList<CompanySummary>(), viewModel.state.results)
+        assertEquals(listOf("search(p1, f)"), searches)
+        assertEquals(listOf(ford), viewModel.state.results)
         assertNull(viewModel.state.notice)
     }
 
     @Test
-    fun `three characters make an immediate request`() = runTest {
-        stubSearch(apple)
+    fun `two characters make an immediate request`() = runTest {
+        stubSearch(generalMotors)
         val viewModel = viewModel()
 
-        viewModel.onQueryChange("app")
+        viewModel.onQueryChange("gm")
 
-        assertEquals(listOf("search(p1, app)"), searches)
-        assertEquals(listOf(apple), viewModel.state.results)
-        assertNull(viewModel.state.notice)
+        assertEquals(listOf("search(p1, gm)"), searches)
+        assertEquals(listOf(generalMotors), viewModel.state.results)
+    }
+
+    @Test
+    fun `query is sent trimmed`() = runTest {
+        stubSearch(ford)
+        val viewModel = viewModel()
+
+        viewModel.onQueryChange("  f ")
+
+        assertEquals(listOf("search(p1, f)"), searches)
+        assertEquals("  f ", viewModel.state.query)
     }
 
     @Test
@@ -108,23 +119,28 @@ class SearchViewModelTest {
     }
 
     @Test
-    fun `fast typing sends at most one request per second and the last query`() = runTest {
+    fun `fast typing from the first letter sends at most one request per second and the last query`() = runTest {
         stubSearch(apple)
         val viewModel = viewModel()
 
+        viewModel.onQueryChange("a")
+        advanceTimeBy(200)
+        viewModel.onQueryChange("ap")
+        advanceTimeBy(200)
         viewModel.onQueryChange("app")
-        advanceTimeBy(300)
+        advanceTimeBy(200)
         viewModel.onQueryChange("appl")
-        advanceTimeBy(300)
+        advanceTimeBy(200)
         viewModel.onQueryChange("apple")
-        advanceTimeBy(300)
-        assertEquals(listOf("search(p1, app)"), searches)
+        advanceTimeBy(199)
+        assertEquals(listOf("search(p1, a)"), searches)
 
-        advanceTimeBy(101)
-        assertEquals(listOf("search(p1, app)", "search(p1, apple)"), searches)
+        advanceTimeBy(2)
+        assertEquals(listOf("search(p1, a)", "search(p1, apple)"), searches)
 
         advanceTimeBy(5_000)
         assertEquals(2, searches.size)
+        assertEquals(listOf(apple), viewModel.state.results)
     }
 
     @Test
@@ -155,10 +171,10 @@ class SearchViewModelTest {
     }
 
     @Test
-    fun `deleting below three characters clears results and cancels the running request`() = runTest {
+    fun `deleting back to empty clears results and cancels the running request without a new one`() = runTest {
         stubSearch(apple)
         val viewModel = viewModel()
-        viewModel.onQueryChange("app")
+        viewModel.onQueryChange("a")
         advanceTimeBy(2_000)
         var cancelled = false
         apiClient.search = { _, _ ->
@@ -169,13 +185,30 @@ class SearchViewModelTest {
                 throw e
             }
         }
-        viewModel.onQueryChange("apple")
+        viewModel.onQueryChange("ap")
         assertTrue(viewModel.state.isSearching)
 
-        viewModel.onQueryChange("ap")
+        viewModel.onQueryChange("a")
+        viewModel.onQueryChange("")
+        advanceTimeBy(5_000)
 
         assertTrue(cancelled)
-        assertEquals(SearchUiState(query = "ap"), viewModel.state)
+        assertEquals(SearchUiState(query = ""), viewModel.state)
+        assertEquals(listOf("search(p1, a)", "search(p1, ap)"), searches)
+    }
+
+    @Test
+    fun `whitespace only input after results clears them without a request`() = runTest {
+        stubSearch(ford)
+        val viewModel = viewModel()
+        viewModel.onQueryChange("f")
+        assertEquals(listOf(ford), viewModel.state.results)
+
+        viewModel.onQueryChange("   ")
+        advanceTimeBy(5_000)
+
+        assertEquals(SearchUiState(query = "   "), viewModel.state)
+        assertEquals(listOf("search(p1, f)"), searches)
     }
 
     @Test

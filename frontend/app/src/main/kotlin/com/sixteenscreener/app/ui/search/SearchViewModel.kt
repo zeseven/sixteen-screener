@@ -42,8 +42,9 @@ data class SearchUiState(
 )
 
 /**
- * Search tab: throttled search while typing ([throttleSearch]), a newer query cancels the running request; adding a result updates
- * the shared watchlist at once and reverts on failure. A profile change clears the query and the results.
+ * Search tab: throttled search from the first typed character ([throttleSearch]), a newer query cancels the running request and an
+ * empty input clears the results without a request. Adding a result updates the shared watchlist at once and reverts on failure.
+ * A profile change clears the query and the results.
  */
 @HiltViewModel
 class SearchViewModel @Inject constructor(
