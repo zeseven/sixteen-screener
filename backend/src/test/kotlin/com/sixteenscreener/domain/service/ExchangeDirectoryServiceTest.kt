@@ -132,36 +132,36 @@ class ExchangeDirectoryServiceTest : FunSpec({
         fixture.limiter.usage(fixture.source.id).single().used shouldBe 1
     }
 
-    test("directory younger than one day in the store is used without a download") {
+    test("directory younger than seven days in the store is used without a download") {
         val fixture = Fixture()
-        fixture.stored(de, Duration.ofHours(23), sap)
+        fixture.stored(de, Duration.ofDays(7).minusMinutes(1), sap)
 
         fixture.directory().find(Symbol.of("SAP.DE")) shouldBe sap
         fixture.exchangeCalls.shouldBeEmpty()
     }
 
-    test("directory older than one day in the store is downloaded again") {
+    test("directory of seven days in the store is downloaded again") {
         val fixture = Fixture()
-        fixture.stored(de, Duration.ofDays(1), sap)
+        fixture.stored(de, Duration.ofDays(7), sap)
         fixture.listed(de, sap, siemens)
 
-        fixture.directory().find(Symbol.of("SIE.DE")) shouldBe siemens
+        fixture.directory().find(Symbol.of("SAP.DE")) shouldBe sap
         fixture.exchangeCalls shouldBe listOf("exchange:DE")
         fixture.store.stored(fixture.source.id, de)?.downloadedAt shouldBe fixture.clock.now()
     }
 
-    test("directory in memory is refreshed after one day") {
+    test("directory in memory is refreshed after seven days") {
         val fixture = Fixture()
         fixture.listed(de, sap)
         val directory = fixture.directory()
         directory.find(Symbol.of("SAP.DE"))
 
-        fixture.clock.advanceBy(Duration.ofHours(23))
-        fixture.listed(de, sap, siemens)
-        directory.find(Symbol.of("SIE.DE")).shouldBeNull()
+        fixture.clock.advanceBy(Duration.ofDays(7).minusMinutes(1))
+        directory.find(Symbol.of("SAP.DE")) shouldBe sap
+        fixture.exchangeCalls shouldBe listOf("exchange:DE")
 
-        fixture.clock.advanceBy(Duration.ofHours(1))
-        directory.find(Symbol.of("SIE.DE")) shouldBe siemens
+        fixture.clock.advanceBy(Duration.ofMinutes(1))
+        directory.find(Symbol.of("SAP.DE")) shouldBe sap
         fixture.exchangeCalls shouldBe listOf("exchange:DE", "exchange:DE")
     }
 
@@ -171,16 +171,123 @@ class ExchangeDirectoryServiceTest : FunSpec({
         val directory = fixture.directory()
         directory.find(Symbol.of("SAP.DE"))
 
-        fixture.clock.advanceBy(Duration.ofDays(1))
+        fixture.clock.advanceBy(Duration.ofDays(7))
         fixture.stored(de, Duration.ofMinutes(10), sap, siemens)
 
+        directory.find(Symbol.of("SAP.DE")) shouldBe sap
         directory.find(Symbol.of("SIE.DE")) shouldBe siemens
         fixture.exchangeCalls shouldBe listOf("exchange:DE")
     }
 
+    context("symbol missing from a covered exchange") {
+        test("list older than one day is downloaded again once and the new listing is found") {
+            val fixture = Fixture()
+            fixture.stored(de, Duration.ofDays(1), sap)
+            fixture.listed(de, sap, siemens)
+            val directory = fixture.directory()
+
+            directory.find(Symbol.of("SIE.DE")) shouldBe siemens
+            directory.find(Symbol.of("SIE.DE")) shouldBe siemens
+            fixture.exchangeCalls shouldBe listOf("exchange:DE")
+            fixture.store.stored(fixture.source.id, de)?.downloadedAt shouldBe fixture.clock.now()
+        }
+
+        test("list younger than one day is not downloaded again") {
+            val fixture = Fixture()
+            fixture.stored(de, Duration.ofDays(1).minusMinutes(1), sap)
+            fixture.listed(de, sap, siemens)
+
+            fixture.directory().lookup(Symbol.of("SIE.DE")) shouldBe SymbolLookup.NotListed
+            fixture.exchangeCalls.shouldBeEmpty()
+        }
+
+        test("listed symbol on a list older than one day doesn't trigger a download") {
+            val fixture = Fixture()
+            fixture.stored(de, Duration.ofDays(3), sap)
+
+            fixture.directory().find(Symbol.of("SAP.DE")) shouldBe sap
+            fixture.exchangeCalls.shouldBeEmpty()
+        }
+
+        test("second miss on the same day doesn't download again") {
+            val fixture = Fixture()
+            fixture.stored(de, Duration.ofDays(2), sap)
+            fixture.listed(de, sap)
+            val directory = fixture.directory()
+
+            directory.lookup(Symbol.of("SIE.DE")) shouldBe SymbolLookup.NotListed
+            fixture.clock.advanceBy(Duration.ofHours(23))
+            fixture.listed(de, sap, siemens)
+            directory.lookup(Symbol.of("SIE.DE")) shouldBe SymbolLookup.NotListed
+            fixture.exchangeCalls shouldBe listOf("exchange:DE")
+
+            fixture.clock.advanceBy(Duration.ofHours(1))
+            directory.find(Symbol.of("SIE.DE")) shouldBe siemens
+            fixture.exchangeCalls shouldBe listOf("exchange:DE", "exchange:DE")
+        }
+
+        test("failed download keeps the old list, isn't repeated by the next miss and is retried after a few minutes") {
+            val fixture = Fixture()
+            val storedAt = fixture.clock.now() - Duration.ofDays(2)
+            fixture.stored(de, Duration.ofDays(2), sap)
+            fixture.source.exchanges[de] = SourceResult.SourceError(SourceCallOutcome.timeout(fixture.clock.now()))
+            val directory = fixture.directory()
+
+            directory.lookup(Symbol.of("SIE.DE")) shouldBe SymbolLookup.NotListed
+            directory.find(Symbol.of("SAP.DE")) shouldBe sap
+            fixture.clock.advanceBy(Duration.ofMinutes(4))
+            directory.lookup(Symbol.of("SIE.DE")) shouldBe SymbolLookup.NotListed
+            fixture.exchangeCalls shouldBe listOf("exchange:DE")
+            fixture.store.stored(fixture.source.id, de)?.downloadedAt shouldBe storedAt
+
+            fixture.listed(de, sap, siemens)
+            fixture.clock.advanceBy(Duration.ofMinutes(1))
+            directory.find(Symbol.of("SIE.DE")) shouldBe siemens
+            fixture.exchangeCalls shouldBe listOf("exchange:DE", "exchange:DE")
+        }
+
+        test("list stored by another instance less than one day ago is used instead of downloading") {
+            val fixture = Fixture()
+            fixture.stored(de, Duration.ofDays(2), sap)
+            val directory = fixture.directory()
+            directory.find(Symbol.of("SAP.DE"))
+            fixture.stored(de, Duration.ofHours(3), sap, siemens)
+
+            directory.find(Symbol.of("SIE.DE")) shouldBe siemens
+            fixture.exchangeCalls.shouldBeEmpty()
+        }
+
+        test("misses of several symbols in one findAll download each exchange once") {
+            val fixture = Fixture()
+            fixture.stored(us, Duration.ofDays(2), berkshire)
+            fixture.stored(de, Duration.ofDays(2), sap)
+            fixture.listed(us, apple, berkshire)
+            fixture.listed(de, sap, siemens)
+
+            fixture.directory().findAll(listOf(apple.symbol, Symbol.of("ZZZZ"), siemens.symbol, Symbol.of("ZZZ.DE"))) shouldBe
+                mapOf(apple.symbol to apple, siemens.symbol to siemens)
+            fixture.exchangeCalls.sorted() shouldContainExactly listOf("exchange:DE", "exchange:US")
+        }
+
+        test("not covered exchange is not asked again on a miss before one day") {
+            val fixture = Fixture()
+            fixture.source.exchanges[de] = SourceResult.NotSupported(SourceCallOutcome.httpError(403, fixture.clock.now()))
+            val directory = fixture.directory()
+
+            directory.lookup(sap.symbol)
+            fixture.clock.advanceBy(Duration.ofDays(1).minusMinutes(1))
+            directory.lookup(sap.symbol) shouldBe SymbolLookup.NotCovered(fixture.source.id)
+            fixture.exchangeCalls shouldBe listOf("exchange:DE")
+
+            fixture.clock.advanceBy(Duration.ofMinutes(1))
+            directory.lookup(sap.symbol)
+            fixture.exchangeCalls shouldBe listOf("exchange:DE", "exchange:DE")
+        }
+    }
+
     test("own limit reached while refreshing keeps the stale directory and retries after a few minutes") {
         val fixture = Fixture(limit = 0)
-        fixture.stored(de, Duration.ofDays(3), sap)
+        fixture.stored(de, Duration.ofDays(8), sap)
         fixture.listed(de, sap, siemens)
         val directory = fixture.directory()
 
@@ -197,7 +304,7 @@ class ExchangeDirectoryServiceTest : FunSpec({
 
     test("upstream 429 while refreshing keeps the stale directory, saturates the counters and records the outcome") {
         val fixture = Fixture()
-        fixture.stored(de, Duration.ofDays(2), sap)
+        fixture.stored(de, Duration.ofDays(8), sap)
         val rejected = SourceCallOutcome.httpError(429, fixture.clock.now())
         fixture.source.exchanges[de] = SourceResult.LimitReached(rejected)
 
@@ -205,7 +312,7 @@ class ExchangeDirectoryServiceTest : FunSpec({
 
         fixture.limiter.tryAcquire(fixture.source.id) shouldBe 0
         fixture.outcomeRepository.writes shouldBe listOf(fixture.source.id to rejected)
-        fixture.store.stored(fixture.source.id, de)?.downloadedAt shouldBe fixture.clock.now() - Duration.ofDays(2)
+        fixture.store.stored(fixture.source.id, de)?.downloadedAt shouldBe fixture.clock.now() - Duration.ofDays(8)
     }
 
     test("failed download without a stored directory is cached as empty and retried after a few minutes") {

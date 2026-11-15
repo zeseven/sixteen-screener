@@ -22,7 +22,8 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
 data class ExchangeDirectoryPolicy(
-    val maxAge: Duration = Duration.ofDays(1),
+    val maxAge: Duration = Duration.ofDays(7),
+    val refreshOnMissAfter: Duration = Duration.ofDays(1),
     val retryAfterFailure: Duration = Duration.ofMinutes(5),
     val retryAfterUnavailable: Duration = Duration.ofDays(1),
 )
@@ -47,22 +48,44 @@ class ExchangeDirectoryService(
 
     private val directories = ConcurrentHashMap<ExchangeCode, LoadedDirectory>()
     private val locks = ConcurrentHashMap<ExchangeCode, Mutex>()
+    private val lastDownloadAttempts = ConcurrentHashMap<ExchangeCode, Instant>()
 
-    override suspend fun lookup(symbol: Symbol): SymbolLookup = directoryOf(symbol.exchangeCode).lookup(symbol)
+    override suspend fun lookup(symbol: Symbol): SymbolLookup = lookupIn(symbol.exchangeCode, listOf(symbol)).getValue(symbol)
 
     override suspend fun lookupAll(symbols: Collection<Symbol>): Map<Symbol, SymbolLookup> = coroutineScope {
         symbols.distinct()
             .groupBy { it.exchangeCode }
-            .map { (exchangeCode, group) ->
-                async {
-                    val directory = directoryOf(exchangeCode)
-                    group.map { symbol -> symbol to directory.lookup(symbol) }
-                }
-            }
+            .map { (exchangeCode, group) -> async { lookupIn(exchangeCode, group) } }
             .awaitAll()
-            .flatten()
-            .toMap()
+            .fold(emptyMap()) { all, lookups -> all + lookups }
     }
+
+    private suspend fun lookupIn(exchangeCode: ExchangeCode, symbols: List<Symbol>): Map<Symbol, SymbolLookup> {
+        val directory = directoryOf(exchangeCode)
+        val missed = symbols.any { it !in directory.listings }
+        val searched = if (missed && isMissRefreshDue(exchangeCode, directory)) refreshAfterMiss(exchangeCode, directory) else directory
+        return symbols.associateWith { searched.lookup(it) }
+    }
+
+    private fun isMissRefreshDue(exchangeCode: ExchangeCode, directory: LoadedDirectory): Boolean {
+        val lastDownloadAttempt = lastDownloadAttempts[exchangeCode]
+        return directory.coverage == Coverage.COVERED &&
+            directory.downloadedAt != null &&
+            !directory.isYoungerThan(policy.refreshOnMissAfter) &&
+            (lastDownloadAttempt == null || clock.now() >= lastDownloadAttempt + policy.refreshOnMissAfter)
+    }
+
+    private fun LoadedDirectory.isYoungerThan(age: Duration): Boolean =
+        downloadedAt?.let { clock.now() < it + age } ?: false
+
+    private suspend fun refreshAfterMiss(exchangeCode: ExchangeCode, missedIn: LoadedDirectory): LoadedDirectory =
+        lockOf(exchangeCode).withLock {
+            val directory = directories[exchangeCode] ?: missedIn
+            if (!isMissRefreshDue(exchangeCode, directory)) return@withLock directory
+            val known = newest(directory, loadStored(exchangeCode))
+            val recent = known?.takeIf { it.isYoungerThan(policy.refreshOnMissAfter) }
+            (recent ?: download(exchangeCode, known)).also { directories[exchangeCode] = it }
+        }
 
     private fun LoadedDirectory.lookup(symbol: Symbol): SymbolLookup =
         listings[symbol]?.let(SymbolLookup::Listed) ?: when (coverage) {
@@ -73,9 +96,11 @@ class ExchangeDirectoryService(
 
     private suspend fun directoryOf(exchangeCode: ExchangeCode): LoadedDirectory =
         current(exchangeCode)
-            ?: locks.computeIfAbsent(exchangeCode) { Mutex() }.withLock {
+            ?: lockOf(exchangeCode).withLock {
                 current(exchangeCode) ?: refresh(exchangeCode).also { directories[exchangeCode] = it }
             }
+
+    private fun lockOf(exchangeCode: ExchangeCode): Mutex = locks.computeIfAbsent(exchangeCode) { Mutex() }
 
     private fun current(exchangeCode: ExchangeCode): LoadedDirectory? =
         directories[exchangeCode]?.takeIf { clock.now() < it.nextRefreshAt }
@@ -86,6 +111,7 @@ class ExchangeDirectoryService(
     }
 
     private suspend fun download(exchangeCode: ExchangeCode, stale: LoadedDirectory?): LoadedDirectory {
+        lastDownloadAttempts[exchangeCode] = clock.now()
         val result = outcomes.recording { recorder ->
             guard.single(source.id, recorder) { source.exchangeSymbols(exchangeCode) }
         }
