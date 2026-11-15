@@ -12,6 +12,7 @@ Spec is built depending on app features described in REQUIREMENTS.md
 Android application used latest UI framework: Jetpack Compose with Material 3.
 Minimum Android version: Android 8.0 (API 26). Dynamic colors (Material You) are used on Android 12+ with a static color scheme fallback on older versions.
 Theme: follows the system light/dark setting.
+Display name: "Screener-16". Launcher icon: adaptive icon built from PNG background, foreground and monochrome (themed icons on Android 13+) layers for every density.
 The app only displays indicators returned by the backend; it doesn't calculate them.
 Language: Kotlin.
 HTTP client: OkHttp with kotlinx.serialization; all calls implemented by hand to match docs/openapi.yaml (no generated client, no Ktor Client). The same OkHttp client is used by Coil for logos.
