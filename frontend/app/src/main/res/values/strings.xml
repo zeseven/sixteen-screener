@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Sixteen Screener</string>
+    <string name="app_name">Screener-16</string>
 
     <string name="error_network">Cannot reach server. Check connection</string>
     <string name="error_unauthorized">The app cannot authenticate to the server</string>
