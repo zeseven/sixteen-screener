@@ -5,6 +5,7 @@ import com.sixteenscreener.domain.model.QuoteRecord
 import com.sixteenscreener.domain.model.SourceData
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.domain.model.WatchlistItem
+import com.sixteenscreener.domain.model.WatchlistMarketData
 import com.sixteenscreener.port.inbound.SearchResults
 import kotlinx.serialization.Serializable
 
@@ -49,8 +50,23 @@ data class WatchlistDto(
 )
 
 @Serializable
-data class WatchlistRowsDto(
-    val items: List<CompanySummaryDto>,
+data class IndicatorDto(
+    val ratioCode: String,
+    val name: String,
+    val level: String,
+)
+
+@Serializable
+data class MarketDataDto(
+    val symbol: String,
+    val status: String,
+    val quote: QuoteDto?,
+    val indicators: List<IndicatorDto> = emptyList(),
+)
+
+@Serializable
+data class WatchlistMarketDataDto(
+    val items: List<MarketDataDto>,
 )
 
 @Serializable
@@ -75,6 +91,12 @@ fun WatchlistItem.toDto() = WatchlistItemDto(
     logoUrl = logoUrlOf(identity.symbol),
     sector = sector,
     tags = tags,
+)
+
+fun WatchlistMarketData.toDto() = MarketDataDto(
+    symbol = symbol.value,
+    status = quote.status.name,
+    quote = quote.toQuoteDto(),
 )
 
 fun logoUrlOf(symbol: Symbol): String = "/logos/${symbol.value}"

@@ -34,6 +34,17 @@ data class WatchlistItem(
 )
 
 /**
+ * Market data of one watchlist row (ADR-058).
+ *
+ * @property symbol canonical symbol
+ * @property quote latest quote with its status; its status is the status of the row
+ */
+data class WatchlistMarketData(
+    val symbol: Symbol,
+    val quote: SourceData<QuoteRecord>,
+)
+
+/**
  * Data of a company row on the watchlist and search screens.
  *
  * @property identity symbol, exchange, name and market

@@ -38,11 +38,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.util.concurrent.atomic.AtomicBoolean
 
-data class WatchlistCompanyData(
-    val quote: SourceData<QuoteRecord>?,
-    val profile: SourceData<CompanyProfile>,
-)
-
 data class CachedCompanyData(
     val quote: SourceData<QuoteRecord>?,
     val profile: CompanyProfile?,
@@ -120,28 +115,20 @@ class CompanyDataService(
         return load(source, listOf(unexpiredProfilePlan(key, cached)))[key]
     }
 
-    suspend fun watchlistData(
+    suspend fun watchlistQuotes(
         source: SourceId,
         symbols: List<Symbol>,
         listings: Map<Symbol, ListedSymbol>,
-        refreshStaleQuotes: Boolean,
-    ): Map<Symbol, WatchlistCompanyData> {
+    ): Map<Symbol, SourceData<QuoteRecord>> {
         if (symbols.isEmpty()) return emptyMap()
-        val quoteKeys = symbols.associateWith { CacheKey(source, it, DataType.QUOTE) }
-        val profileKeys = symbols.associateWith { CacheKey(source, it, DataType.COMPANY_PROFILE) }
-        val cached = cache.getAll(quoteKeys.values + profileKeys.values)
-        val quotePlans = symbols.mapNotNull { symbol ->
-            val key = quoteKeys.getValue(symbol)
-            watchlistQuotePlan(key, cached[key], listings[symbol], refreshStaleQuotes)
+        val keys = symbols.associateWith { CacheKey(source, it, DataType.QUOTE) }
+        val cached = cache.getAll(keys.values)
+        val plans = symbols.map { symbol ->
+            val key = keys.getValue(symbol)
+            watchlistQuotePlan(key, cached[key], listings[symbol])
         }
-        val profilePlans = symbols.map { symbol ->
-            val key = profileKeys.getValue(symbol)
-            unexpiredProfilePlan(key, cached[key])
-        }
-        val loaded = load(source, oldestFirst(quotePlans) + oldestFirst(profilePlans))
-        return symbols.associateWith { symbol ->
-            WatchlistCompanyData(loaded.getOrNull(quoteKeys.getValue(symbol)), loaded[profileKeys.getValue(symbol)])
-        }
+        val loaded = load(source, oldestFirst(plans))
+        return symbols.associateWith { loaded[keys.getValue(it)] }
     }
 
     suspend fun cachedCompanies(source: SourceId, symbols: Collection<Symbol>): Map<Symbol, CachedCompanyData> {
@@ -191,11 +178,9 @@ class CompanyDataService(
         key: CacheKey<QuoteRecord>,
         cached: CacheEntry<QuoteRecord>?,
         listing: ListedSymbol?,
-        refreshStale: Boolean,
-    ): Plan<QuoteRecord>? = when {
+    ): Plan<QuoteRecord> = when {
         !supports(key) -> notSupported(key)
-        cached != null && (!refreshStale || freshness.isFresh(cached.fetchedAt)) -> Settled(key, fromCache(key, cached))
-        !refreshStale -> null
+        cached != null && freshness.isFresh(cached.fetchedAt) -> Settled(key, fromCache(key, cached))
         listing == null -> Settled(key, fallback(key, cached, DataStatus.SOURCE_ERROR))
         else -> quoteFetch(key, cached, listing)
     }
@@ -337,9 +322,6 @@ class CompanyDataService(
     private class Loaded(private val byKey: Map<CacheKey<*>, SourceData<*>>) {
         @Suppress("UNCHECKED_CAST")
         operator fun <T : Any> get(key: CacheKey<T>): SourceData<T> = byKey.getValue(key) as SourceData<T>
-
-        @Suppress("UNCHECKED_CAST")
-        fun <T : Any> getOrNull(key: CacheKey<T>): SourceData<T>? = byKey[key] as SourceData<T>?
     }
 
     private companion object {

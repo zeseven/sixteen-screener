@@ -1,7 +1,6 @@
 package com.sixteenscreener.domain.service
 
 import com.sixteenscreener.domain.model.CompanyIdentity
-import com.sixteenscreener.domain.model.CompanySummary
 import com.sixteenscreener.domain.model.DataStatus
 import com.sixteenscreener.domain.model.InvalidInputException
 import com.sixteenscreener.domain.model.Market
@@ -10,8 +9,9 @@ import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ResourceNotFoundException
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.domain.model.WatchlistItem
+import com.sixteenscreener.domain.model.WatchlistMarketData
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.profileKey
-import com.sixteenscreener.port.inbound.WatchlistUseCase.Companion.MAX_REFRESH_SYMBOLS
+import com.sixteenscreener.port.inbound.WatchlistUseCase.Companion.MAX_MARKET_DATA_SYMBOLS
 import com.sixteenscreener.watchlistEntries
 import com.sixteenscreener.watchlistEntry
 import io.kotest.assertions.throwables.shouldThrow
@@ -33,13 +33,13 @@ private class WatchlistFixture(vararg tickers: String) {
 
     suspend fun watchlist() = service.watchlist(data.profile.id)
 
-    suspend fun refresh(vararg tickers: String) = service.refreshWatchlistRows(data.profile.id, tickers.map(Symbol::of))
+    suspend fun marketData(vararg tickers: String) = service.marketData(data.profile.id, tickers.map(Symbol::of))
 }
 
-private fun List<CompanySummary>.symbols() = map { it.identity.symbol.value }
-
-@JvmName("itemSymbols")
 private fun List<WatchlistItem>.symbols() = map { it.identity.symbol.value }
+
+@JvmName("marketDataSymbols")
+private fun List<WatchlistMarketData>.symbols() = map { it.symbol.value }
 
 class WatchlistServiceTest : FunSpec({
 
@@ -99,73 +99,102 @@ class WatchlistServiceTest : FunSpec({
         item.sector shouldBe "Industrials"
     }
 
-    test("refreshed rows follow the watchlist order with identity, sector and quote") {
+    test("market data follows the watchlist order with the status of each quote") {
         val f = WatchlistFixture("SAP.DE", "AAPL")
-        f.data.listed(listing("AAPL", name = "APPLE INC"), listing("SAP.DE", mic = "XETR", currency = "EUR", name = "SAP SE"))
+        f.data.listed(listing("AAPL"), listing("SAP.DE", mic = "XETR", currency = "EUR"))
         f.data.cachedQuote("AAPL", 190.0, age = Duration.ofMinutes(5), previousPrice = 180.0)
-        f.data.cached(profileKey("AAPL"), sampleProfile(), age = Duration.ofDays(1))
         f.data.quoteFromSource("SAP.DE", 200.0, "EUR")
-        f.data.profileFromSource("SAP.DE", sampleProfile(name = "SAP SE", sector = "Software"))
 
-        val rows = f.refresh("AAPL", "SAP.DE")
+        val rows = f.marketData("AAPL", "SAP.DE")
 
-        rows.map { it.identity } shouldContainExactly listOf(
-            CompanyIdentity(Symbol.of("SAP.DE"), "XETRA", "SAP SE", Market.EU),
-            CompanyIdentity(Symbol.of("AAPL"), "NASDAQ", "APPLE INC", Market.US),
-        )
-        rows.map { it.sector } shouldContainExactly listOf("Software", "Technology")
-        rows[1].quote?.data?.trend shouldBe PriceTrend.UP
-        rows[0].quote?.data?.quote?.price shouldBe 200.0
+        rows.symbols() shouldContainExactly listOf("SAP.DE", "AAPL")
+        rows.map { it.quote.status } shouldContainExactly listOf(DataStatus.FRESH, DataStatus.FRESH)
+        rows[0].quote.data?.quote?.price shouldBe 200.0
+        rows[1].quote.data?.trend shouldBe PriceTrend.UP
+        f.data.quoteCalls() shouldContainExactly listOf("quote:SAP.DE")
     }
 
-    test("refreshed company without cached quote and without budget has no quote data") {
+    test("market data requests no company profiles") {
+        val f = WatchlistFixture("AAPL")
+        f.data.listed(listing("AAPL"))
+        f.data.quoteFromSource("AAPL", 1.0)
+        f.data.profileFromSource("AAPL")
+
+        f.marketData("AAPL")
+
+        f.data.profileCalls().shouldBeEmpty()
+    }
+
+    test("profile default source is used for the market data") {
+        val f = WatchlistFixture("AAPL")
+        f.data.listed(listing("AAPL"))
+        f.data.profiles.save(f.data.profile.copy(defaultSource = SEC_EDGAR, watchlist = watchlistEntries("AAPL")))
+
+        val quote = f.marketData("AAPL").single().quote
+
+        quote.source shouldBe SEC_EDGAR
+        quote.status shouldBe DataStatus.NOT_SUPPORTED
+        f.data.source.calls.shouldBeEmpty()
+    }
+
+    test("company without cached quote and without budget has LIMIT_REACHED without quote data") {
         val f = WatchlistFixture("AAPL")
         f.data.listed(listing("AAPL"))
         f.data.exhaustBudget()
 
-        val row = f.refresh("AAPL").single()
+        val quote = f.marketData("AAPL").single().quote
 
-        row.quote?.status shouldBe DataStatus.LIMIT_REACHED
-        row.quote?.data.shouldBeNull()
-        row.sector.shouldBeNull()
+        quote.status shouldBe DataStatus.LIMIT_REACHED
+        quote.data.shouldBeNull()
     }
 
-    test("refresh returns only requested watchlist symbols in watchlist order, ignoring duplicates") {
+    test("symbol no longer in the directory keeps its cached quote without a request") {
+        val f = WatchlistFixture("GONE.DE")
+        val cached = f.data.cachedQuote("GONE.DE", 12.0, age = Duration.ofHours(3))
+
+        val quote = f.marketData("GONE.DE").single().quote
+
+        quote.status shouldBe DataStatus.SOURCE_ERROR
+        quote.data shouldBe cached.data
+        f.data.quoteCalls().shouldBeEmpty()
+    }
+
+    test("market data covers only requested watchlist symbols in watchlist order, ignoring duplicates") {
         val f = WatchlistFixture("A", "B", "C", "D")
         listOf("A", "B", "C", "D", "X").forEach { f.data.listed(listing(it)); f.data.quoteFromSource(it, 1.0) }
 
-        val rows = f.refresh("D", "X", "B", "D", "B")
+        val rows = f.marketData("D", "X", "B", "D", "B")
 
         rows.symbols() shouldContainExactly listOf("B", "D")
         f.data.quoteCalls() shouldContainExactlyInAnyOrder listOf("quote:B", "quote:D")
     }
 
-    test("refresh of symbols outside the watchlist returns no rows and makes no calls") {
+    test("market data of symbols outside the watchlist returns no rows and makes no calls") {
         val f = WatchlistFixture("AAPL")
         f.data.listed(listing("MSFT"))
         f.data.quoteFromSource("MSFT", 1.0)
 
-        f.refresh("MSFT").shouldBeEmpty()
+        f.marketData("MSFT").shouldBeEmpty()
         f.data.source.calls.shouldBeEmpty()
         f.data.cache.getAllCalls shouldBe 0
     }
 
-    test("refresh accepts up to $MAX_REFRESH_SYMBOLS symbols") {
+    test("market data accepts up to $MAX_MARKET_DATA_SYMBOLS symbols") {
         val f = WatchlistFixture("AAPL")
 
-        f.refresh(*Array(MAX_REFRESH_SYMBOLS) { "AAPL" }).symbols() shouldContainExactly listOf("AAPL")
+        f.marketData(*Array(MAX_MARKET_DATA_SYMBOLS) { "AAPL" }).symbols() shouldContainExactly listOf("AAPL")
     }
 
-    test("refresh rejects no symbols and more than $MAX_REFRESH_SYMBOLS symbols") {
+    test("market data rejects no symbols and more than $MAX_MARKET_DATA_SYMBOLS symbols") {
         val f = WatchlistFixture("AAPL")
 
-        shouldThrow<InvalidInputException> { f.refresh() }
-        shouldThrow<InvalidInputException> { f.refresh(*Array(MAX_REFRESH_SYMBOLS + 1) { "C%03d".format(it) }) }
+        shouldThrow<InvalidInputException> { f.marketData() }
+        shouldThrow<InvalidInputException> { f.marketData(*Array(MAX_MARKET_DATA_SYMBOLS + 1) { "C%03d".format(it) }) }
     }
 
-    test("refresh for an unknown profile is not found") {
+    test("market data for an unknown profile is not found") {
         shouldThrow<ResourceNotFoundException> {
-            WatchlistFixture().service.refreshWatchlistRows(ProfileId.random(), listOf(Symbol.of("AAPL")))
+            WatchlistFixture().service.marketData(ProfileId.random(), listOf(Symbol.of("AAPL")))
         }
     }
 })

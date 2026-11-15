@@ -1,13 +1,12 @@
 package com.sixteenscreener.domain.service
 
-import com.sixteenscreener.domain.model.CompanySummary
 import com.sixteenscreener.domain.model.InvalidInputException
-import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.domain.model.WatchlistItem
+import com.sixteenscreener.domain.model.WatchlistMarketData
 import com.sixteenscreener.port.inbound.WatchlistUseCase
-import com.sixteenscreener.port.inbound.WatchlistUseCase.Companion.MAX_REFRESH_SYMBOLS
+import com.sixteenscreener.port.inbound.WatchlistUseCase.Companion.MAX_MARKET_DATA_SYMBOLS
 import com.sixteenscreener.port.outbound.ProfileRepository
 import com.sixteenscreener.port.outbound.SymbolDirectory
 
@@ -26,30 +25,15 @@ class WatchlistService(
         return entries.map { identities.watchlistItemOf(it, listings[it.symbol]) }
     }
 
-    override suspend fun refreshWatchlistRows(profileId: ProfileId, symbols: List<Symbol>): List<CompanySummary> {
-        if (symbols.size !in 1..MAX_REFRESH_SYMBOLS) {
-            throw InvalidInputException("Expected 1 to $MAX_REFRESH_SYMBOLS symbols, got ${symbols.size}")
+    override suspend fun marketData(profileId: ProfileId, symbols: List<Symbol>): List<WatchlistMarketData> {
+        if (symbols.size !in 1..MAX_MARKET_DATA_SYMBOLS) {
+            throw InvalidInputException("Expected 1 to $MAX_MARKET_DATA_SYMBOLS symbols, got ${symbols.size}")
         }
         val profile = profiles.existing(profileId)
         val requested = symbols.toSet()
-        return rows(profile, profile.watchlistSymbols.filter { it in requested })
-    }
-
-    private suspend fun rows(
-        profile: Profile,
-        symbols: List<Symbol>,
-    ): List<CompanySummary> {
-        if (symbols.isEmpty()) return emptyList()
-        val listings = symbolDirectory.findAll(symbols)
-        val data = companyData.watchlistData(catalog.defaultSourceOf(profile), symbols, listings, refreshStaleQuotes = true)
-        return symbols.map { symbol ->
-            val company = data.getValue(symbol)
-            val cachedProfile = company.profile.data
-            CompanySummary(
-                identity = identities.identify(symbol, listings[symbol], cachedProfile?.name),
-                sector = cachedProfile?.sector,
-                quote = company.quote,
-            )
-        }
+        val rows = profile.watchlistSymbols.filter { it in requested }
+        if (rows.isEmpty()) return emptyList()
+        val quotes = companyData.watchlistQuotes(catalog.defaultSourceOf(profile), rows, symbolDirectory.findAll(rows))
+        return rows.map { WatchlistMarketData(it, quotes.getValue(it)) }
     }
 }

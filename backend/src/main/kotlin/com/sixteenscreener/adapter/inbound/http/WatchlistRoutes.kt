@@ -16,9 +16,9 @@ fun Route.watchlistRoutes(watchlist: WatchlistUseCase, profiles: ProfileUseCase)
             val items = watchlist.watchlist(call.profileIdParameter()).map { it.toDto() }
             call.respond(WatchlistDto(items))
         }
-        get("/refresh") {
-            val rows = watchlist.refreshWatchlistRows(call.profileIdParameter(), call.symbolsParameter())
-            call.respond(WatchlistRowsDto(rows.map { it.toDto(inWatchlist = true) }))
+        get("/market-data") {
+            val rows = watchlist.marketData(call.profileIdParameter(), call.symbolsParameter())
+            call.respond(WatchlistMarketDataDto(rows.map { it.toDto() }))
         }
         put("/{symbol}") {
             call.respond(profiles.addToWatchlist(call.profileIdParameter(), call.symbolParameter()).toDto())

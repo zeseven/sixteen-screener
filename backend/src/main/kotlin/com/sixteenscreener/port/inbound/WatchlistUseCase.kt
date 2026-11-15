@@ -1,8 +1,8 @@
 package com.sixteenscreener.port.inbound
 
-import com.sixteenscreener.domain.model.CompanySummary
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.WatchlistMarketData
 import com.sixteenscreener.domain.model.WatchlistItem
 
 /**
@@ -22,21 +22,21 @@ interface WatchlistUseCase {
     suspend fun watchlist(profileId: ProfileId): List<WatchlistItem>
 
     /**
-     * Company summaries of the [symbols] that are in the watchlist of profile [profileId], in watchlist order.
+     * Market data of the [symbols] that are in the watchlist of profile [profileId], in watchlist order (ADR-058).
      *
-     * Symbols outside the watchlist are skipped and duplicates are ignored. Stale quotes (older than 1 hour) are
-     * refreshed oldest first within the source request limits; absent or expired company profiles are requested too. Companies that
-     * couldn't be refreshed keep their cached data. A symbol no longer found in the exchange directory keeps its cached
-     * quote without refresh.
+     * Symbols outside the watchlist are skipped and duplicates are ignored. Only quotes are loaded: stale quotes
+     * (older than 1 hour) are refreshed oldest first within the source request limits; company profiles are not
+     * requested. A row whose quote couldn't be refreshed keeps its cached quote, or none, with the status describing
+     * the reason. A symbol no longer found in the exchange directory keeps its cached quote without refresh.
      *
      * Throws [com.sixteenscreener.domain.model.InvalidInputException] when [symbols] is empty or holds more than
-     * [MAX_REFRESH_SYMBOLS] entries, and [com.sixteenscreener.domain.model.ResourceNotFoundException] for an unknown
+     * [MAX_MARKET_DATA_SYMBOLS] entries, and [com.sixteenscreener.domain.model.ResourceNotFoundException] for an unknown
      * profile.
      */
-    suspend fun refreshWatchlistRows(profileId: ProfileId, symbols: List<Symbol>): List<CompanySummary>
+    suspend fun marketData(profileId: ProfileId, symbols: List<Symbol>): List<WatchlistMarketData>
 
     companion object {
-        /** Maximum number of symbols in one [refreshWatchlistRows] request. */
-        const val MAX_REFRESH_SYMBOLS = 50
+        /** Maximum number of symbols in one [marketData] request. */
+        const val MAX_MARKET_DATA_SYMBOLS = 50
     }
 }
