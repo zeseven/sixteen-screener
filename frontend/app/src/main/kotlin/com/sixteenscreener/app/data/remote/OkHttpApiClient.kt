@@ -9,6 +9,7 @@ import com.sixteenscreener.app.data.remote.dto.ProfileCreateDto
 import com.sixteenscreener.app.data.remote.dto.ProfileDto
 import com.sixteenscreener.app.data.remote.dto.SearchResultsDto
 import com.sixteenscreener.app.data.remote.dto.SourcesDto
+import com.sixteenscreener.app.data.remote.dto.WatchlistAddDto
 import com.sixteenscreener.app.data.remote.dto.WatchlistDto
 import com.sixteenscreener.app.data.remote.dto.WatchlistItemDto
 import com.sixteenscreener.app.data.remote.dto.WatchlistMarketDataDto
@@ -39,6 +40,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.io.InterruptedIOException
@@ -80,8 +82,8 @@ class OkHttpApiClient @Inject constructor(
         return get(url) { json.decodeFromString<WatchlistMarketDataDto>(it).toDomain() }
     }
 
-    override suspend fun addToWatchlist(profileId: ProfileId, symbol: Symbol): ApiResult<WatchlistItem> =
-        send(Request.Builder().url(profileUrl(profileId, "watchlist", symbol.value)).put(EMPTY_BODY).build()) {
+    override suspend fun addToWatchlist(profileId: ProfileId, symbol: Symbol, name: String): ApiResult<WatchlistItem> =
+        send(Request.Builder().url(profileUrl(profileId, "watchlist", symbol.value)).put(watchlistAddBody(name)).build()) {
             json.decodeFromString<WatchlistItemDto>(it).toDomain()
         }
 
@@ -125,6 +127,13 @@ class OkHttpApiClient @Inject constructor(
 
     override suspend fun getSources(profileId: ProfileId): ApiResult<List<Source>> =
         get(profileUrl(profileId, "sources")) { json.decodeFromString<SourcesDto>(it).toDomain() }
+
+    private fun watchlistAddBody(name: String): RequestBody =
+        if (name.isBlank()) {
+            EMPTY_BODY
+        } else {
+            json.encodeToString(WatchlistAddDto(name.take(MAX_WATCHLIST_NAME_LENGTH))).toRequestBody(JSON_MEDIA_TYPE)
+        }
 
     private fun url(vararg segments: String): HttpUrl =
         segments.fold(baseUrl.newBuilder()) { builder, segment -> builder.addPathSegment(segment) }.build()
@@ -183,5 +192,6 @@ class OkHttpApiClient @Inject constructor(
     private companion object {
         val JSON_MEDIA_TYPE = "application/json".toMediaType()
         val EMPTY_BODY = ByteArray(0).toRequestBody()
+        const val MAX_WATCHLIST_NAME_LENGTH = 200
     }
 }

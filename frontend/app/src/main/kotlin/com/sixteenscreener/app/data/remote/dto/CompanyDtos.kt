@@ -27,6 +27,11 @@ data class QuoteDto(
 )
 
 @Serializable
+data class WatchlistAddDto(
+    val name: String,
+)
+
+@Serializable
 data class WatchlistItemDto(
     val symbol: String,
     val ticker: String,

@@ -263,7 +263,7 @@ class OkHttpApiClientTest {
     fun `addToWatchlist sends PUT and parses the stored item`() = runTest {
         enqueueFixture("watchlist_item.json")
 
-        val item = client.addToWatchlist(profileId, Symbol("SAP.DE")).value()
+        val item = client.addToWatchlist(profileId, Symbol("SAP.DE"), "SAP SE").value()
 
         val request = server.takeRequest()
         assertEquals("PUT", request.method)
@@ -272,19 +272,64 @@ class OkHttpApiClientTest {
     }
 
     @Test
+    fun `addToWatchlist sends the company name as JSON`() = runTest {
+        enqueueFixture("watchlist_item.json")
+
+        client.addToWatchlist(profileId, Symbol("AD.AS"), "Koninklijke Ahold Delhaize NV")
+
+        val request = server.takeRequest()
+        assertEquals("""{"name":"Koninklijke Ahold Delhaize NV"}""", request.body!!.utf8())
+        assertTrue(request.headers["Content-Type"]!!.startsWith("application/json"))
+    }
+
+    @Test
+    fun `addToWatchlist cuts a long company name to 200 characters`() = runTest {
+        enqueueFixture("watchlist_item.json")
+
+        client.addToWatchlist(profileId, Symbol("AD.AS"), "a".repeat(199) + "bc")
+
+        assertEquals("{\"name\":\"${"a".repeat(199)}b\"}", server.takeRequest().body!!.utf8())
+    }
+
+    @Test
+    fun `addToWatchlist keeps a company name of exactly 200 characters`() = runTest {
+        enqueueFixture("watchlist_item.json")
+
+        client.addToWatchlist(profileId, Symbol("AD.AS"), "a".repeat(200))
+
+        assertEquals("{\"name\":\"${"a".repeat(200)}\"}", server.takeRequest().body!!.utf8())
+    }
+
+    @Test
+    fun `addToWatchlist with a blank company name sends no body`() = runTest {
+        enqueueFixture("watchlist_item.json")
+        enqueueFixture("watchlist_item.json")
+
+        client.addToWatchlist(profileId, Symbol("SAP.DE"), "")
+        client.addToWatchlist(profileId, Symbol("SAP.DE"), "  ")
+
+        repeat(2) {
+            val request = server.takeRequest()
+            assertEquals("PUT", request.method)
+            assertEquals(0L, request.bodySize)
+            assertNull(request.headers["Content-Type"])
+        }
+    }
+
+    @Test
     fun `addToWatchlist parses a stored item without sector`() = runTest {
         enqueue(
             body = """{"symbol":"SAP.DE","ticker":"SAP","exchange":"XETRA","name":"SAP SE","market":"EU","logoUrl":"/logos/SAP.DE","sector":null,"tags":[]}""",
         )
 
-        assertNull(client.addToWatchlist(profileId, Symbol("SAP.DE")).value().sector)
+        assertNull(client.addToWatchlist(profileId, Symbol("SAP.DE"), "").value().sector)
     }
 
     @Test
     fun `addToWatchlist without a body is a parse error`() = runTest {
         server.enqueue(MockResponse.Builder().code(204).build())
 
-        assertTrue(client.addToWatchlist(profileId, Symbol("SAP.DE")).error() is ApiError.Parse)
+        assertTrue(client.addToWatchlist(profileId, Symbol("SAP.DE"), "").error() is ApiError.Parse)
     }
 
     @Test
@@ -302,7 +347,7 @@ class OkHttpApiClientTest {
     fun `addToWatchlist failure carries the problem detail`() = runTest {
         enqueue(400, """{"title":"Bad Request","status":400,"detail":"Watchlist is full (250 companies)"}""", "application/problem+json")
 
-        val error = client.addToWatchlist(profileId, Symbol("AAPL")).error()
+        val error = client.addToWatchlist(profileId, Symbol("AAPL"), "").error()
 
         assertEquals(ApiError.Http(400, ProblemDetails(null, "Bad Request", 400, "Watchlist is full (250 companies)")), error)
     }

@@ -196,7 +196,11 @@ class WatchlistViewModelTest {
     fun `remove hides the row and offers undo which adds it back at its position`() = runTest {
         stubWatchlist(apple, sap, shell)
         apiClient.removeFromWatchlist = { _, _ -> ApiResult.Success(Unit) }
-        apiClient.addToWatchlist = { _, symbol -> ApiResult.Success(stubbedWatchlist.first { it.symbol == symbol }) }
+        val sentNames = mutableListOf<String>()
+        apiClient.addToWatchlist = { _, symbol, name ->
+            sentNames += name
+            ApiResult.Success(stubbedWatchlist.first { it.symbol == symbol })
+        }
         val viewModel = viewModel()
         viewModel.refresh()
 
@@ -214,6 +218,7 @@ class WatchlistViewModelTest {
             listOf("getWatchlist(p1)", "removeFromWatchlist(p1, SAP.DE)", "addToWatchlist(p1, SAP.DE)"),
             apiClient.calls,
         )
+        assertEquals(listOf(sap.name), sentNames)
     }
 
     @Test
@@ -235,7 +240,7 @@ class WatchlistViewModelTest {
         stubWatchlist(apple)
         val failure = ApiError.Http(500, null)
         apiClient.removeFromWatchlist = { _, _ -> ApiResult.Success(Unit) }
-        apiClient.addToWatchlist = { _, _ -> ApiResult.Failure(failure) }
+        apiClient.addToWatchlist = { _, _, _ -> ApiResult.Failure(failure) }
         val viewModel = viewModel()
         viewModel.refresh()
 
@@ -560,7 +565,7 @@ class WatchlistViewModelTest {
         stubWatchlist(*rows(3).toTypedArray())
         stubRowRefresh()
         apiClient.removeFromWatchlist = { _, _ -> ApiResult.Success(Unit) }
-        apiClient.addToWatchlist = { _, symbol -> ApiResult.Success(stubbedWatchlist.first { it.symbol == symbol }) }
+        apiClient.addToWatchlist = { _, symbol, _ -> ApiResult.Success(stubbedWatchlist.first { it.symbol == symbol }) }
         val viewModel = viewModel()
         viewModel.refresh()
         showRows(viewModel, 0, 2)

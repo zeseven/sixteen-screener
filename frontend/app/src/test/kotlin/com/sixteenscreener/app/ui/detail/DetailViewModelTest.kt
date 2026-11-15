@@ -348,7 +348,7 @@ class DetailViewModelTest {
     fun `added company carries the sector of the loaded company profile until the stored item arrives`() = runTest {
         apiClient.getWatchlist = { ApiResult.Success(emptyList()) }
         val response = CompletableDeferred<ApiResult<WatchlistItem>>()
-        apiClient.addToWatchlist = { _, _ -> response.await() }
+        apiClient.addToWatchlist = { _, _, _ -> response.await() }
         val viewModel = viewModel(DetailRoute(Symbol("AAPL")))
         watchlistRepository.refresh()
 
@@ -361,8 +361,34 @@ class DetailViewModelTest {
     }
 
     @Test
+    fun `add sends the name of the route company shown in the header`() = runTest {
+        val sentNames = mutableListOf<String>()
+        apiClient.addToWatchlist = { _, _, name -> sentNames += name; ApiResult.Success(Companies.item("AAPL")) }
+        val viewModel = viewModel()
+
+        viewModel.onToggleWatchlist()
+
+        assertEquals(listOf("Apple Inc."), sentNames)
+    }
+
+    @Test
+    fun `add sends the name of the loaded company profile shown in the header`() = runTest {
+        apiClient.getCompanyProfile = { _, _, _, _ ->
+            ApiResult.Success(CompanyData.companyProfileData(CompanyData.companyProfile(name = "Apple Incorporated")))
+        }
+        val sentNames = mutableListOf<String>()
+        apiClient.addToWatchlist = { _, _, name -> sentNames += name; ApiResult.Success(Companies.item("AAPL")) }
+        val viewModel = viewModel()
+        viewModel.onTabSelected(DetailTab.COMPANY_PROFILE)
+
+        viewModel.onToggleWatchlist()
+
+        assertEquals(listOf("Apple Incorporated"), sentNames)
+    }
+
+    @Test
     fun `toggling adds the company to the watchlist and removes it again`() = runTest {
-        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(Companies.item("AAPL")) }
+        apiClient.addToWatchlist = { _, _, _ -> ApiResult.Success(Companies.item("AAPL")) }
         apiClient.removeFromWatchlist = { _, _ -> ApiResult.Success(Unit) }
         val viewModel = viewModel()
 
@@ -376,7 +402,7 @@ class DetailViewModelTest {
 
     @Test
     fun `failed add reverts and shows a message`() = runTest {
-        apiClient.addToWatchlist = { _, _ -> ApiResult.Failure(ApiError.Http(409, null)) }
+        apiClient.addToWatchlist = { _, _, _ -> ApiResult.Failure(ApiError.Http(409, null)) }
         val viewModel = viewModel()
 
         viewModel.onToggleWatchlist()

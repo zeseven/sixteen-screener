@@ -33,8 +33,11 @@ interface ApiClient {
      */
     suspend fun getWatchlistMarketData(profileId: ProfileId, symbols: List<Symbol>): ApiResult<List<MarketData>>
 
-    /** `PUT /profiles/{profileId}/watchlist/{symbol}`; idempotent, returns the stored watchlist item. */
-    suspend fun addToWatchlist(profileId: ProfileId, symbol: Symbol): ApiResult<WatchlistItem>
+    /**
+     * `PUT /profiles/{profileId}/watchlist/{symbol}`; idempotent, returns the stored watchlist item. The company [name] shown
+     * to the user is sent (cut to 200 characters) for symbols missing from the exchange directory; a blank name sends no body.
+     */
+    suspend fun addToWatchlist(profileId: ProfileId, symbol: Symbol, name: String): ApiResult<WatchlistItem>
 
     /** `DELETE /profiles/{profileId}/watchlist/{symbol}`; idempotent. */
     suspend fun removeFromWatchlist(profileId: ProfileId, symbol: Symbol): ApiResult<Unit>

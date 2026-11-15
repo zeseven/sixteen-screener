@@ -45,7 +45,10 @@ interface WatchlistRepository {
      */
     suspend fun loadMarketData(symbols: List<Symbol>): ApiResult<List<MarketData>>
 
-    /** Adds [item] with `PUT`, showing it at [index] (or at the end) until the call fails; on success the stored item replaces it. */
+    /**
+     * Adds [item] with `PUT`, sending its name, and shows it at [index] (or at the end) until the call fails; on success the
+     * stored item replaces it.
+     */
     suspend fun add(item: WatchlistItem, index: Int? = null): ApiResult<WatchlistItem>
 
     /** Removes the company with `DELETE`, hiding it until the call fails. */
@@ -110,7 +113,7 @@ class DefaultWatchlistRepository @Inject constructor(
         val addedNow = updateState { list, known ->
             if (symbol in known) list to known else list?.insertedAt(index, item) to known + symbol
         }
-        mutationMutex.withLock { apiClient.addToWatchlist(profileId, symbol) }
+        mutationMutex.withLock { apiClient.addToWatchlist(profileId, symbol, item.name) }
             .also { result ->
                 if (!isActive(profileId)) return@also
                 when (result) {

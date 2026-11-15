@@ -378,7 +378,7 @@ class DefaultWatchlistRepositoryTest {
     fun `add shows the company at once and replaces it with the stored item on success`() = runRepositoryTest {
         stubWatchlist(apple)
         val response = CompletableDeferred<ApiResult<WatchlistItem>>()
-        apiClient.addToWatchlist = { _, _ -> response.await() }
+        apiClient.addToWatchlist = { _, _, _ -> response.await() }
         val repository = repository()
         repository.refresh()
 
@@ -394,9 +394,24 @@ class DefaultWatchlistRepositoryTest {
     }
 
     @Test
+    fun `add sends the name of the company and the stored name replaces it`() = runRepositoryTest {
+        stubWatchlist(apple)
+        val sentNames = mutableListOf<String>()
+        val storedSap = sap.copy(name = "SAP SE (stored)")
+        apiClient.addToWatchlist = { _, _, name -> sentNames += name; ApiResult.Success(storedSap) }
+        val repository = repository()
+        repository.refresh()
+
+        repository.add(sap)
+
+        assertEquals(listOf("SAP SE"), sentNames)
+        assertEquals(listOf(apple, storedSap), repository.watchlist.value)
+    }
+
+    @Test
     fun `add at an index restores the original position`() = runRepositoryTest {
         stubWatchlist(apple, microsoft)
-        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(sap) }
+        apiClient.addToWatchlist = { _, _, _ -> ApiResult.Success(sap) }
         val repository = repository()
         repository.refresh()
 
@@ -409,7 +424,7 @@ class DefaultWatchlistRepositoryTest {
     fun `failed add is reverted`() = runRepositoryTest {
         stubWatchlist(apple)
         val full = ApiError.Http(400, null)
-        apiClient.addToWatchlist = { _, _ -> ApiResult.Failure(full) }
+        apiClient.addToWatchlist = { _, _, _ -> ApiResult.Failure(full) }
         val repository = repository()
         repository.refresh()
 
@@ -422,7 +437,7 @@ class DefaultWatchlistRepositoryTest {
     @Test
     fun `add of a company already in the watchlist updates it with the stored item`() = runRepositoryTest {
         stubWatchlist(apple, microsoft)
-        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(storedMicrosoft) }
+        apiClient.addToWatchlist = { _, _, _ -> ApiResult.Success(storedMicrosoft) }
         val repository = repository()
         repository.refresh()
 
@@ -435,7 +450,7 @@ class DefaultWatchlistRepositoryTest {
     fun `stored item of a previous profile is not inserted`() = runRepositoryTest {
         apiClient.getWatchlist = { profileId -> ApiResult.Success(if (profileId.value == "p1") listOf(apple) else listOf(sap)) }
         val response = CompletableDeferred<ApiResult<WatchlistItem>>()
-        apiClient.addToWatchlist = { _, _ -> response.await() }
+        apiClient.addToWatchlist = { _, _, _ -> response.await() }
         val repository = repository()
         repository.refresh()
 
@@ -451,7 +466,7 @@ class DefaultWatchlistRepositoryTest {
     @Test
     fun `failed add of a company already in the watchlist keeps it`() = runRepositoryTest {
         stubWatchlist(apple)
-        apiClient.addToWatchlist = { _, _ -> ApiResult.Failure(ApiError.Network(isTimeout = false)) }
+        apiClient.addToWatchlist = { _, _, _ -> ApiResult.Failure(ApiError.Network(isTimeout = false)) }
         val repository = repository()
         repository.refresh()
 
@@ -462,7 +477,7 @@ class DefaultWatchlistRepositoryTest {
 
     @Test
     fun `add before the first load is reflected in the symbols`() = runRepositoryTest {
-        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(storedMicrosoft) }
+        apiClient.addToWatchlist = { _, _, _ -> ApiResult.Success(storedMicrosoft) }
         val repository = repository()
 
         repository.add(microsoft)
@@ -506,7 +521,7 @@ class DefaultWatchlistRepositoryTest {
         stubWatchlist(apple)
         val removeResponse = CompletableDeferred<ApiResult<Unit>>()
         apiClient.removeFromWatchlist = { _, _ -> removeResponse.await() }
-        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(apple) }
+        apiClient.addToWatchlist = { _, _, _ -> ApiResult.Success(apple) }
         val repository = repository()
         repository.refresh()
 

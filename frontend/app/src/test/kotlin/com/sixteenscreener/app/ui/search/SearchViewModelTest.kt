@@ -292,7 +292,7 @@ class SearchViewModelTest {
     fun `add updates in watchlist at once`() = runTest {
         stubSearch(apple, applied)
         val response = CompletableDeferred<ApiResult<WatchlistItem>>()
-        apiClient.addToWatchlist = { _, _ -> response.await() }
+        apiClient.addToWatchlist = { _, _, _ -> response.await() }
         val viewModel = viewModel()
         viewModel.onQueryChange("app")
 
@@ -306,11 +306,26 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun `add sends the name of the search result`() = runTest {
+        apiClient.getWatchlist = { ApiResult.Success(emptyList()) }
+        stubSearch(apple)
+        val sentNames = mutableListOf<String>()
+        apiClient.addToWatchlist = { _, _, name -> sentNames += name; ApiResult.Success(item("AAPL", name = "Apple Inc.")) }
+        val viewModel = viewModel()
+        viewModel.onQueryChange("app")
+
+        viewModel.onAdd(apple)
+        runCurrent()
+
+        assertEquals(listOf("Apple Inc."), sentNames)
+    }
+
+    @Test
     fun `added company gets the sector of the stored item in the loaded watchlist`() = runTest {
         apiClient.getWatchlist = { ApiResult.Success(emptyList()) }
         stubSearch(apple)
         val response = CompletableDeferred<ApiResult<WatchlistItem>>()
-        apiClient.addToWatchlist = { _, _ -> response.await() }
+        apiClient.addToWatchlist = { _, _, _ -> response.await() }
         val viewModel = viewModel()
         watchlistRepository.refresh()
         viewModel.onQueryChange("app")
@@ -329,7 +344,7 @@ class SearchViewModelTest {
     fun `add failure shows an error message and reverts the row`() = runTest {
         stubSearch(apple)
         val full = ApiError.Http(409, ProblemDetails(null, "Conflict", 409, "Watchlist is full"))
-        apiClient.addToWatchlist = { _, _ -> ApiResult.Failure(full) }
+        apiClient.addToWatchlist = { _, _, _ -> ApiResult.Failure(full) }
         val viewModel = viewModel()
         viewModel.onQueryChange("app")
 
