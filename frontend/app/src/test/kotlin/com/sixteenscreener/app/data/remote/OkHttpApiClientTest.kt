@@ -254,11 +254,11 @@ class OkHttpApiClientTest {
 
     @Test
     fun `addToWatchlist failure carries the problem detail`() = runTest {
-        enqueue(409, """{"title":"Conflict","status":409,"detail":"Watchlist is full (100 companies)"}""", "application/problem+json")
+        enqueue(400, """{"title":"Bad Request","status":400,"detail":"Watchlist is full (100 companies)"}""", "application/problem+json")
 
         val error = client.addToWatchlist(profileId, Symbol("AAPL")).error()
 
-        assertEquals(ApiError.Http(409, ProblemDetails(null, "Conflict", 409, "Watchlist is full (100 companies)")), error)
+        assertEquals(ApiError.Http(400, ProblemDetails(null, "Bad Request", 400, "Watchlist is full (100 companies)")), error)
     }
 
     @Test

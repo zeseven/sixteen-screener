@@ -125,7 +125,7 @@ class DefaultWatchlistRepositoryTest {
     @Test
     fun `failed add is reverted`() = runRepositoryTest {
         stubWatchlist(apple)
-        val full = ApiError.Http(409, null)
+        val full = ApiError.Http(400, null)
         apiClient.addToWatchlist = { _, _ -> ApiResult.Failure(full) }
         val repository = repository()
         repository.refresh()
