@@ -191,7 +191,9 @@ paths:
       description: |
         Searches the profile's default source by ticker or the first letters of a company name.
         No quote requests are made for search results; a quote is included only when it is already cached.
-        The app sends requests after at least 3 letters, no more than 1 request per second.
+        Queries of 1 or 2 characters match tickers only: results whose ticker starts with the query, exact ticker matches first.
+        Longer queries match tickers and company names. At most 25 results are returned.
+        The app sends requests from the first character, no more than 1 request per second, and never sends an empty query.
         When the source request limit is reached or the source call fails, the response is still `200` with empty items and
         the corresponding status; the app shows the reason under the search box.
       x-milestone: alpha
@@ -201,7 +203,7 @@ paths:
           required: true
           schema:
             type: string
-            minLength: 3
+            minLength: 1
             maxLength: 50
       responses:
         '200':
@@ -686,6 +688,7 @@ components:
           enum: [OK, LIMIT_REACHED, SOURCE_ERROR]
         items:
           type: array
+          maxItems: 25
           items:
             $ref: '#/components/schemas/CompanySummary'
 

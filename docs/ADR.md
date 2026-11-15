@@ -531,3 +531,14 @@ External sources are distributed as follows:
 **Status:** Accepted
 
 **Decision:** The balance sheet tab shows a table: one row per line item (label as provided by the source), one column per fiscal year, newest year first. The table scrolls horizontally when the years don't fit the screen width; the label column stays visible. Large values are abbreviated (thousands `K`, millions `M`, billions `B`, trillions `T`, e.g. `352.6 B`); missing values are shown as `-`.
+
+## ADR-054: Search from the first character
+
+**Date:** 2026-11-15
+**Status:** Accepted
+
+**Context:** Some tickers have one or two letters (e.g. `F`, `GM`). With a 3-character minimum (ADR-029, REQUIREMENTS) they can't be found.
+
+**Decision:** The app sends a search request from the first typed character, at most one request per second: the first request goes out immediately, then the latest query once the second has passed, and a newer query cancels the request in flight. An empty input (after trimming) clears the results without a request. The backend accepts queries of 1 to 50 characters after trimming. Queries of 1 or 2 characters match tickers only: the backend keeps the source's hits whose ticker starts with the query, exact ticker matches first; longer queries match tickers and company names as before. Every search response is limited to 25 results.
+
+**Consequences:** Typing spends up to one source request per second from the first letter. The 5-minute in-memory search cache and the 25-result limit keep responses small for short queries.

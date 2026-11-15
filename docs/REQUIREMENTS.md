@@ -35,7 +35,7 @@ There are 3 tabs on the main screen of the app:
 - Watchlist. Displays selected companies. There are buttons to add stock and remove any existing one.
 Contains filters (drop-down controls): Market (USA/EU/all), sector (finances/technology/etc), user tags.
 - Search. Contains input box for search; searches default source by company ticker or first letters from company name.
-Search can be triggered after input of minimum 3 letters, then after each letter typed, but no more than 1 request/sec.
+Search is triggered after each letter typed, but no more than 1 request/sec.
 Companies found displayed as a list; any company can be added to the watchlist.
 If the source request limit is reached or the source fails, the search shows no results and the reason under the input box.
 - Sources. Displays all the sources for stock prices and ratios. Default one is marked and can be changed by user.
