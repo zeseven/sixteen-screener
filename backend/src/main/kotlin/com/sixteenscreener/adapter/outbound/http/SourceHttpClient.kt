@@ -18,7 +18,7 @@ object SourceHttpClient {
     fun create(engine: HttpClientEngine = CIO.create()): HttpClient =
         HttpClient(engine) {
             expectSuccess = false
-            followRedirects = false
+            followRedirects = true
             install(HttpTimeout)
             install(ContentNegotiation) { json(json) }
         }

@@ -13,6 +13,7 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandler
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.url
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -22,6 +23,7 @@ import kotlinx.serialization.Serializable
 import java.net.ConnectException
 import java.net.ServerSocket
 import java.nio.channels.UnresolvedAddressException
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -55,7 +57,6 @@ class SourceHttpCallTest : FunSpec({
     context("responses outside 2XX are HTTP errors with the status code") {
         withData(
             nameFn = { "status $it" },
-            HttpStatusCode.MovedPermanently,
             HttpStatusCode.NotModified,
             HttpStatusCode.BadRequest,
             HttpStatusCode.Forbidden,
@@ -68,6 +69,75 @@ class SourceHttpCallTest : FunSpec({
             }.price()
 
             result shouldBe SourceResult.SourceError(SourceCallOutcome.httpError(status.value, now))
+        }
+    }
+
+    context("redirects are followed as one call whose outcome is the final response") {
+        fun redirecting(status: HttpStatusCode, target: String, final: MockRequestHandler): MockRequestHandler = { request ->
+            if (request.url.host == "source.test") respond("", status, headersOf(HttpHeaders.Location, target)) else final(request)
+        }
+
+        withData(
+            nameFn = { "status $it" },
+            HttpStatusCode.MovedPermanently,
+            HttpStatusCode.Found,
+            HttpStatusCode.SeeOther,
+            HttpStatusCode.TemporaryRedirect,
+            HttpStatusCode.PermanentRedirect,
+        ) { status ->
+            val targetRequests = CopyOnWriteArrayList<HttpRequestData>()
+            val call = callWith(
+                redirecting(status, "https://files.source.test/quote.json?signature=x") { request ->
+                    targetRequests += request
+                    respond("""{"c": 12.5}""", HttpStatusCode.OK, jsonHeaders)
+                },
+            )
+
+            call.price() shouldBe SourceResult.Success(12.5, SourceCallOutcome.success(now))
+            targetRequests.single().url.toString() shouldBe "https://files.source.test/quote.json?signature=x"
+        }
+
+        test("error status of the redirect target is mapped as the outcome") {
+            val mapping = ErrorStatusMapping.overriding(403 to { outcome -> SourceResult.NotSupported(outcome) })
+            val call = callWith(redirecting(HttpStatusCode.Found, "https://files.source.test/q") { respond("", HttpStatusCode.Forbidden) })
+
+            call.price(mapping) shouldBe SourceResult.NotSupported(SourceCallOutcome.httpError(403, now))
+        }
+
+        test("redirect target exceeding the timeout is a timeout") {
+            val call = callWith(
+                redirecting(HttpStatusCode.Found, "https://files.source.test/q") {
+                    delay(10.seconds)
+                    respond("""{"c": 1}""", HttpStatusCode.OK, jsonHeaders)
+                },
+            )
+
+            call.price() shouldBe SourceResult.SourceError(SourceCallOutcome.timeout(now))
+        }
+
+        test("redirect from https to http is not followed and is an HTTP error") {
+            val targetRequests = CopyOnWriteArrayList<HttpRequestData>()
+            val call = callWith(
+                redirecting(HttpStatusCode.Found, "http://files.source.test/q") { request ->
+                    targetRequests += request
+                    respond("""{"c": 1}""", HttpStatusCode.OK, jsonHeaders)
+                },
+            )
+
+            call.price() shouldBe SourceResult.SourceError(SourceCallOutcome.httpError(302, now))
+            targetRequests shouldBe emptyList()
+        }
+
+        test("redirect without a location is an HTTP error") {
+            val result = callWith { respond("", HttpStatusCode.Found) }.price()
+
+            result shouldBe SourceResult.SourceError(SourceCallOutcome.httpError(302, now))
+        }
+
+        test("endless redirects are an application error") {
+            val result = callWith { respond("", HttpStatusCode.Found, headersOf(HttpHeaders.Location, "/again")) }.price()
+
+            result shouldBe SourceResult.SourceError(SourceCallOutcome.appError(now))
         }
     }
 

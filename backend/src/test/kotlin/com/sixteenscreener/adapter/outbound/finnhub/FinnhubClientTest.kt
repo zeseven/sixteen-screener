@@ -25,6 +25,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.MockRequestHandler
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.HttpRequestData
 import io.ktor.http.HttpHeaders
@@ -49,6 +50,7 @@ private class MockFinnhub(
     private val status: HttpStatusCode = HttpStatusCode.OK,
     private val body: String = "",
     private val delay: Duration? = null,
+    private val handler: MockRequestHandler = { respond(body, status, jsonHeaders) },
 ) {
     val clock = MutableClock()
     val requests: MutableList<HttpRequestData> = CopyOnWriteArrayList()
@@ -61,7 +63,7 @@ private class MockFinnhub(
                 MockEngine { request ->
                     requests += request
                     delay?.let { delay(it) }
-                    respond(body, status, jsonHeaders)
+                    handler(request)
                 },
             ),
             timeout = 200.milliseconds,
@@ -329,6 +331,38 @@ class FinnhubClientTest : FunSpec({
             val finnhub = fixture("symbols-empty.json")
 
             finnhub.client.exchangeSymbols(ExchangeCode("XX")) shouldBe SourceResult.NoData(finnhub.success)
+        }
+
+        test("the redirect to the symbol list file is followed and the file is decoded") {
+            val fileUrl = "https://static.finnhub.test/file/symbols/USf.json?Authorization=x"
+            val finnhub = MockFinnhub { request ->
+                if (request.url.host == "finnhub.test") {
+                    respond("", HttpStatusCode.Found, headersOf(HttpHeaders.Location, fileUrl))
+                } else {
+                    respond(Fixtures.text("finnhub/symbols-de.json"), HttpStatusCode.OK, jsonHeaders)
+                }
+            }
+
+            finnhub.client.exchangeSymbols(ExchangeCode.US).shouldBeInstanceOf<SourceResult.Success<List<ListedSymbol>>>()
+                .let { it.data.map(ListedSymbol::symbol) to it.outcome } shouldBe
+                (listOf(sapDe, Symbol.of("SIE.DE"), Symbol.of("APC.DE")) to finnhub.success)
+            finnhub.requests.map { it.url.toString() } shouldBe listOf(
+                "https://finnhub.test/api/v1/stock/symbol?exchange=US",
+                fileUrl,
+            )
+        }
+
+        test("a redirect to a file answering an error is the mapped error of the final response") {
+            val finnhub = MockFinnhub { request ->
+                if (request.url.host == "finnhub.test") {
+                    respond("", HttpStatusCode.Found, headersOf(HttpHeaders.Location, "https://static.finnhub.test/file/USf.json"))
+                } else {
+                    respond("<Error>AccessDenied</Error>", HttpStatusCode.Forbidden)
+                }
+            }
+
+            finnhub.client.exchangeSymbols(ExchangeCode.US) shouldBe
+                SourceResult.NotSupported(SourceCallOutcome.httpError(403, finnhub.clock.now()))
         }
 
         test("the directory download uses its own, longer timeout") {
