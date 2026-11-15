@@ -550,7 +550,7 @@ External sources are distributed as follows:
 
 **Context:** `GET /watchlist` refreshed every stale quote of the watchlist at once. Most of those rows are never looked at, while each refresh spends source requests (Finnhub free plan: 60 per minute); a larger watchlist makes it worse.
 
-**Decision:** `GET /watchlist` returns cached quotes as is and makes no quote requests. A new endpoint `GET /watchlist/refresh?symbols=...` (1 to 50 symbols, only those in the watchlist) refreshes stale quotes of the given rows within the source limits and returns them. The app calls it for the displayed rows plus 5 rows below them: when the watchlist is shown, when rows that have not been refreshed since the watchlist was loaded scroll into view, and when a filter changes (all displayed rows plus the buffer). Absent or expired company profiles are still requested by `GET /watchlist`, because the sector filter needs the sector of every row; they are fetched once per 14 days per company (ADR-032).
+**Decision:** (Endpoint and payload superseded by ADR-057 and ADR-058.) `GET /watchlist` returns cached quotes as is and makes no quote requests. A new endpoint `GET /watchlist/refresh?symbols=...` (1 to 50 symbols, only those in the watchlist) refreshes stale quotes of the given rows within the source limits and returns them. The app calls it for the displayed rows plus 5 rows below them: when the watchlist is shown, when rows that have not been refreshed since the watchlist was loaded scroll into view, and when a filter changes (all displayed rows plus the buffer). Absent or expired company profiles are still requested by `GET /watchlist`, because the sector filter needs the sector of every row; they are fetched once per 14 days per company (ADR-032).
 
 **Consequences:** Opening the watchlist spends quote requests for about one screen of rows instead of the whole list. Rows scrolled into view show cached data until their refresh arrives. Scrolling through the whole list still spends one request per stale row.
 
@@ -564,4 +564,58 @@ External sources are distributed as follows:
 **Decision:** A watchlist holds at most 250 companies. Adding a company that is not in the watchlist yet to a full watchlist returns `400`.
 
 **Consequences:** `GET /watchlist` returns up to 250 rows; filtering stays in memory in the app. Absent or expired company profiles are still requested by `GET /watchlist`, so filling a watchlist quickly spends up to one profile request per new company.
+
+## ADR-057: Watchlist entries store symbol, sector and tags
+
+**Date:** 2026-11-15
+**Status:** Accepted
+
+**Context:** The watchlist screen needs the name, exchange and market of every row and the filter values (market, sector, tags) before any market data is loaded. Name, exchange and market come from the exchange directory without source requests; the sector needs the company profile, which is a source request.
+
+**Decision:** Each watchlist entry in the profile document is `{symbol, sector, tags}`. `GET /watchlist` returns the entries with ticker, exchange, name and market from the exchange directory; it reads no cached company data and makes no source requests. `PUT /watchlist/{symbol}` stores the sector from the default source's company profile (cached if not expired, otherwise requested; `null` when it can't be loaded) and returns the stored item (`200`). When the detailed screen fetches the company profile from the profile's default source, the sector of the entry is updated if the company is in the requesting profile's watchlist. A sector from another source never overwrites it. A watchlist row missing from the directory gets the ticker as its name (supersedes the cached-profile name of ADR-041).
+
+**Consequences:** Watchlists of other profiles keep their sector until their own detailed screen refreshes it. Sectors stay source-specific until they are mapped to a fixed list (beta). A company added while the source fails has no sector until the detailed screen loads its profile.
+
+## ADR-058: Market data lazy-loaded with a status per row
+
+**Date:** 2026-11-15
+**Status:** Accepted
+
+**Context:** With ADR-057 the watchlist carries no prices. ADR-055 already refreshed only displayed rows, but returned whole rows without the status of the quote, so the app couldn't tell a failed refresh from cached data.
+
+**Decision:** `GET /watchlist/market-data?symbols=...` replaces `GET /watchlist/refresh` (same symbol rules as ADR-055). It returns `{symbol, status, quote, indicators}` per row: stale quotes are refreshed within the source limits, company profiles are not requested, and indicators are empty until they are implemented. The app keeps the last market data it received per row, across watchlist reloads, and shows it until newer data arrives. Price and indicators are drawn:
+- `-` in the default text color while nothing has been received for the row, or when the status is `NO_DATA` or `NOT_SUPPORTED` without a quote;
+- in orange (a theme color with light and dark variants) when the last load failed: network error, error response of the backend, `LIMIT_REACHED` or `SOURCE_ERROR`; the value stays the last one received, or `-`;
+- otherwise with the usual price coloring and cache indicator.
+
+**Consequences:** The first paint of the watchlist shows `-` in every row until the market data arrives. Red stays reserved for a falling price.
+
+## ADR-059: Search results contain directory data only
+
+**Date:** 2026-11-15
+**Status:** Accepted
+
+**Context:** Search rows showed a cached quote and sector when present. Showing prices or sectors for every result would need a quote or profile request per result, at up to one search per second.
+
+**Decision:** Search results contain only directory data (ticker, exchange, name, market, logo) and the watchlist marker; the search reads no cached company data. The response keeps its limit of 25 results. The company profile is requested when a company is added to the watchlist or by the detailed screen.
+
+**Consequences:** One search costs one source request (unless answered from the in-memory search cache). Logos of search rows are still loaded through the logo endpoint.
+
+## ADR-060: Company profiles cached for 90 days
+
+**Date:** 2026-11-15
+**Status:** Accepted
+
+**Decision:** Company profile cache entries expire 90 days after they were fetched; the other cached company data keeps the 14-day TTL (ADR-013). The expiry is written into each document's `expireAt` field, which the existing Firestore TTL policy uses, so no infrastructure change is needed. A profile is fetched again when it is older than 90 days (supersedes the 14 days of ADR-032).
+
+**Consequences:** Profiles cached before the change keep their 14-day `expireAt` until they are fetched again.
+
+## ADR-061: User tags only for watchlist companies
+
+**Date:** 2026-11-15
+**Status:** Accepted
+
+**Decision:** User tags are stored in the watchlist entry (ADR-057). Only companies in the watchlist can have tags: the tags endpoint returns `400` for other companies, and tag editing on the detailed screen is disabled for them. Removing a company from the watchlist removes its tags.
+
+**Consequences:** Tags for companies outside the watchlist would need a new decision and a separate storage.
 

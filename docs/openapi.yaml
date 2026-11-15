@@ -133,11 +133,10 @@ paths:
       operationId: getWatchlist
       summary: Get watchlist
       description: |
-        Returns all companies of the profile's watchlist with data from the profile's default source.
-        No quote requests are made: quotes are returned from the cache as is, and a company without any cached quote has
-        `quote = null`. Stale quotes are refreshed only for the rows the app displays, with `GET /watchlist/refresh`.
-        A company profile (name and sector) that is absent or expired is requested from the source if the source limits
-        allow, because the app filters by sector in memory.
+        Returns all companies of the profile's watchlist in insertion order. The watchlist stores the symbol, sector and
+        tags of each company; ticker, exchange, name and market come from the exchange directory. No company data is read
+        from the cache and no source requests are made (except the daily exchange directory download, ADR-034).
+        Prices and indicators are loaded separately for the displayed rows with `GET /watchlist/market-data`.
         Filtering by market, sector and tags is done by the app in memory.
       x-milestone: alpha
       responses:
@@ -152,17 +151,17 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /profiles/{profileId}/watchlist/refresh:
+  /profiles/{profileId}/watchlist/market-data:
     parameters:
       - $ref: '#/components/parameters/ProfileId'
     get:
       tags: [Watchlist]
-      operationId: refreshWatchlistRows
-      summary: Refresh watchlist rows
+      operationId: getWatchlistMarketData
+      summary: Get market data of watchlist rows
       description: |
-        Returns the given companies of the profile's watchlist with data from the profile's default source, refreshing
-        stale quotes (older than 1 hour) if the source limits allow; otherwise, or when the source fails, cached data is
-        returned. Absent or expired company profiles are requested as in `GET /watchlist`.
+        Returns the quote and indicators of the given watchlist companies from the profile's default source, refreshing
+        stale quotes (older than 1 hour) oldest first if the source limits allow; otherwise, or when the source fails,
+        cached data is returned with the corresponding status. Company profiles are not requested.
         The app calls it for the rows it displays plus a buffer of 5 rows below them: when the watchlist is shown, when
         new rows are scrolled into view and when a filter changes.
         Items follow the watchlist order. Symbols that are not in the watchlist are skipped; duplicates are ignored.
@@ -182,11 +181,11 @@ paths:
               $ref: '#/components/schemas/Symbol'
       responses:
         '200':
-          description: Refreshed watchlist rows
+          description: Market data of the requested watchlist rows
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Watchlist'
+                $ref: '#/components/schemas/WatchlistMarketData'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -200,11 +199,20 @@ paths:
       tags: [Watchlist]
       operationId: addToWatchlist
       summary: Add company to watchlist
-      description: Idempotent. Returns `400` when the company is not in the watchlist yet and the watchlist is full (250 companies).
+      description: |
+        Idempotent. A new company is stored with its sector from the company profile of the profile's default source:
+        the cached profile if not expired, otherwise the profile is requested from the source. When the profile can't be
+        loaded (limit reached, source error, no data), the company is added with `sector = null`.
+        Adding a company that is already in the watchlist returns it unchanged without source requests.
+        Returns `400` when the company is not in the watchlist yet and the watchlist is full (250 companies).
       x-milestone: alpha
       responses:
-        '204':
+        '200':
           description: Company is in the watchlist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchlistItem'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -232,7 +240,8 @@ paths:
       summary: Search companies
       description: |
         Searches the profile's default source by ticker or the first letters of a company name.
-        No quote requests are made for search results; a quote is included only when it is already cached.
+        Results contain directory data only (ticker, exchange, name, market, logo); no company data is read from the cache
+        and no requests other than the search itself are made.
         Queries of 1 or 2 characters match tickers only: results whose ticker starts with the query, exact ticker matches first.
         Longer queries match tickers and company names. At most 25 results are returned.
         The app sends requests from the first character, no more than 1 request per second, and never sends an empty query.
@@ -366,7 +375,10 @@ paths:
       tags: [Tags]
       operationId: setCompanyTags
       summary: Set user tags of a company
-      description: Replaces all profile tags of the company. An empty list removes all tags.
+      description: |
+        Replaces all profile tags of the company. An empty list removes all tags. Tags are stored with the watchlist
+        entry, so only companies in the watchlist can have tags: `400` for a company outside the watchlist. Removing a
+        company from the watchlist removes its tags.
       x-milestone: beta
       requestBody:
         required: true
@@ -649,9 +661,9 @@ components:
         defaultSource:
           $ref: '#/components/schemas/SourceId'
 
-    CompanySummary:
+    Company:
       type: object
-      description: Data for a company row on the watchlist and search screens.
+      description: Company identity from the exchange directory.
       required: [symbol, ticker, exchange, name, market, logoUrl]
       properties:
         symbol:
@@ -671,39 +683,46 @@ components:
             - $ref: '#/components/schemas/Market'
           nullable: true
           description: Null for exchanges outside the US and EU markets (no flag; shown only with the "all" market filter).
-        sector:
-          type: string
-          nullable: true
-          description: Sector name as provided by the source.
-          example: Technology
-        sectorGroup:
-          type: string
-          nullable: true
-          description: Sector mapped to the fixed list of predefined sectors (optional feature).
-          x-milestone: beta
         logoUrl:
           type: string
           description: Relative URL of the logo endpoint.
           example: /logos/AAPL
-        quote:
-          allOf:
-            - $ref: '#/components/schemas/Quote'
-          nullable: true
-          description: Null when no quote is available (e.g. a search result without cached data).
-        indicators:
-          type: array
-          items:
-            $ref: '#/components/schemas/Indicator'
-          x-milestone: beta
-        tags:
-          type: array
-          description: Profile tags of the company.
-          items:
-            type: string
-          x-milestone: beta
-        inWatchlist:
-          type: boolean
-          description: Whether the company is in the profile's watchlist (set in search results).
+
+    WatchlistItem:
+      description: A watchlist row without market data.
+      allOf:
+        - $ref: '#/components/schemas/Company'
+        - type: object
+          required: [sector, tags]
+          properties:
+            sector:
+              type: string
+              nullable: true
+              description: |
+                Sector as provided by the profile's default source, stored with the watchlist entry when the company is added
+                and updated when the detailed screen fetches the company profile from the default source. Null when unknown.
+              example: Technology
+            sectorGroup:
+              type: string
+              nullable: true
+              description: Sector mapped to the fixed list of predefined sectors (optional feature).
+              x-milestone: beta
+            tags:
+              type: array
+              description: Profile tags of the company, stored with the watchlist entry; empty until tags are implemented.
+              items:
+                type: string
+
+    SearchItem:
+      description: A search result.
+      allOf:
+        - $ref: '#/components/schemas/Company'
+        - type: object
+          required: [inWatchlist]
+          properties:
+            inWatchlist:
+              type: boolean
+              description: Whether the company is in the profile's watchlist.
 
     Watchlist:
       type: object
@@ -713,7 +732,42 @@ components:
           type: array
           maxItems: 250
           items:
-            $ref: '#/components/schemas/CompanySummary'
+            $ref: '#/components/schemas/WatchlistItem'
+
+    MarketData:
+      type: object
+      description: Quote and indicators of one watchlist row.
+      required: [symbol, status, quote, indicators]
+      properties:
+        symbol:
+          $ref: '#/components/schemas/Symbol'
+        status:
+          type: string
+          description: |
+            Status of the quote, as in `SourceDataMeta.status`. The app draws the price and indicators in orange for
+            LIMIT_REACHED and SOURCE_ERROR, and in the neutral color when there is no quote for NOT_SUPPORTED and NO_DATA.
+          enum: [FRESH, CACHED, LIMIT_REACHED, SOURCE_ERROR, NOT_SUPPORTED, NO_DATA]
+        quote:
+          allOf:
+            - $ref: '#/components/schemas/Quote'
+          nullable: true
+          description: Null when no quote is available.
+        indicators:
+          type: array
+          description: Empty until indicators are implemented.
+          items:
+            $ref: '#/components/schemas/Indicator'
+          x-milestone: beta
+
+    WatchlistMarketData:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/MarketData'
 
     SearchResults:
       type: object
@@ -732,7 +786,7 @@ components:
           type: array
           maxItems: 25
           items:
-            $ref: '#/components/schemas/CompanySummary'
+            $ref: '#/components/schemas/SearchItem'
 
     Quote:
       type: object
