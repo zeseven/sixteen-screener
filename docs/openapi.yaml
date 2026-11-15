@@ -200,7 +200,7 @@ paths:
       tags: [Watchlist]
       operationId: addToWatchlist
       summary: Add company to watchlist
-      description: Idempotent. Returns `400` when the company is not in the watchlist yet and the watchlist is full.
+      description: Idempotent. Returns `400` when the company is not in the watchlist yet and the watchlist is full (250 companies).
       x-milestone: alpha
       responses:
         '204':
@@ -711,7 +711,7 @@ components:
       properties:
         items:
           type: array
-          maxItems: 100
+          maxItems: 250
           items:
             $ref: '#/components/schemas/CompanySummary'
 

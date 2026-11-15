@@ -67,7 +67,7 @@ Same for source-related counters (requests sent to the source this hour/day/mont
 Requests are counted before they are sent: a batch of calls (e.g. a watchlist refresh) reserves its budget in one Firestore transaction and makes only the granted number of calls. When a source answers 429, the backend sets its current counters to their limits, so no instance calls the source again until the window resets.
 The watchlist endpoint makes no quote requests and returns cached quotes as is. The app refreshes stale quotes only for the rows it displays plus a 5-row buffer below them, with a separate endpoint taking the symbols to refresh (at most 50 per request): when the watchlist is shown, when new rows are scrolled into view (each row once per loaded watchlist) and when a filter changes (all displayed rows plus the buffer). Absent or expired company profiles are still requested by the watchlist endpoint, because the sector filter needs them for every row.
 Watchlist, user tags, default source and indicator settings are per-user info, stored with the user profile and used for the user it belongs to.
-Watchlist filtering doesn't require any special database feature (like search or index). Amount of stocks expected in watchlist is less than 100. All the filtering can be done in-memory (either frontend or backend).
+Watchlist filtering doesn't require any special database feature (like search or index). A watchlist holds at most 250 companies. All the filtering can be done in-memory (either frontend or backend).
 
 ## Source calls and failures
 Detailed screen endpoints return cached data as is; when nothing is cached, the data is requested from the source automatically (within its request limits). A manual refresh requests the source even if the cache is fresh.

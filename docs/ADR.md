@@ -554,3 +554,14 @@ External sources are distributed as follows:
 
 **Consequences:** Opening the watchlist spends quote requests for about one screen of rows instead of the whole list. Rows scrolled into view show cached data until their refresh arrives. Scrolling through the whole list still spends one request per stale row.
 
+## ADR-056: Watchlist holds up to 250 companies
+
+**Date:** 2026-11-15
+**Status:** Accepted
+
+**Context:** The watchlist was limited to 100 companies. Since ADR-055, `GET /watchlist` makes no quote requests, so the size of the watchlist no longer drives source requests.
+
+**Decision:** A watchlist holds at most 250 companies. Adding a company that is not in the watchlist yet to a full watchlist returns `400`.
+
+**Consequences:** `GET /watchlist` returns up to 250 rows; filtering stays in memory in the app. Absent or expired company profiles are still requested by `GET /watchlist`, so filling a watchlist quickly spends up to one profile request per new company.
+
