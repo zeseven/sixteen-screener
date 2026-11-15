@@ -12,6 +12,7 @@ import com.sixteenscreener.domain.model.Market
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ResourceNotFoundException
 import com.sixteenscreener.domain.model.SearchHit
+import com.sixteenscreener.domain.model.SearchQuery
 import com.sixteenscreener.domain.model.SearchStatus
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceCallResult
@@ -104,7 +105,7 @@ private class MockFinnhubSearch(
 class SearchServiceTest : FunSpec({
 
     context("query validation") {
-        withData(nameFn = { "'$it' is rejected without a call" }, "ab", "  ab  ", "a".repeat(51), "   ") { raw ->
+        withData(nameFn = { "'$it' is rejected without a call" }, "", "   ", "a".repeat(51), " ${"a".repeat(51)} ") { raw ->
             val f = SearchFixture()
 
             shouldThrow<InvalidInputException> { f.search(raw) }
@@ -113,7 +114,16 @@ class SearchServiceTest : FunSpec({
             f.data.countingCounters.tryAcquireCalls shouldBe 0
         }
 
-        withData(nameFn = { "'$it' is accepted" }, "abc", "a".repeat(50), "  abc  ", " ${"a".repeat(50)} ") { raw ->
+        withData(
+            nameFn = { "'$it' is accepted" },
+            "a",
+            " F ",
+            "ab",
+            "abc",
+            "a".repeat(50),
+            "  abc  ",
+            " ${"a".repeat(50)} ",
+        ) { raw ->
             val f = SearchFixture()
             f.hits(raw.trim())
 
@@ -235,6 +245,145 @@ class SearchServiceTest : FunSpec({
 
             f.search("apple").source shouldBe FINNHUB
             f.data.sourceCalls.writes.map { it.first } shouldContainExactly listOf(FINNHUB)
+        }
+    }
+
+    context("ticker-only queries of 1 or 2 characters") {
+        test("1-character query keeps only tickers starting with it, exact ticker first") {
+            val f = SearchFixture()
+            f.hits(
+                "F",
+                "FORD.MX" to "FORD MOTOR CO",
+                "FDX" to "FEDEX CORP",
+                "AAPL" to "FIRST APPLE",
+                "F" to "FORD MOTOR CO",
+                "FB" to "META",
+            )
+
+            f.search("F").symbols() shouldContainExactly listOf("F", "FORD.MX", "FDX", "FB")
+        }
+
+        test("2-character query keeps only tickers starting with it, exact ticker first") {
+            val f = SearchFixture()
+            f.hits(
+                "GM",
+                "GME" to "GAMESTOP CORP",
+                "XOM" to "GMEXICO",
+                "GM" to "GENERAL MOTORS CO",
+                "GMAB" to "GENMAB",
+            )
+
+            f.search("GM").symbols() shouldContainExactly listOf("GM", "GME", "GMAB")
+        }
+
+        test("tickers are matched ignoring case") {
+            val f = SearchFixture()
+            f.hits("gm", "GME" to "GAMESTOP CORP", "GM" to "GENERAL MOTORS CO", "AGM" to "FARMER MAC")
+
+            f.search("gm").symbols() shouldContainExactly listOf("GM", "GME")
+        }
+
+        test("suffixed symbols are matched by their ticker") {
+            val f = SearchFixture()
+            f.hits(
+                "sa",
+                "DSY.PA" to "DASSAULT SYSTEMES SA",
+                "SAP.DE" to "SAP SE",
+                "SAN.PA" to "SANOFI SA",
+                "SA" to "SEABRIDGE GOLD",
+            )
+
+            f.search("sa").symbols() shouldContainExactly listOf("SA", "SAP.DE", "SAN.PA")
+        }
+
+        test("exact ticker matches on several exchanges keep the source order among themselves") {
+            val f = SearchFixture()
+            f.hits("F", "FDX" to "FEDEX CORP", "F.DE" to "FORD MOTOR CO", "F" to "FORD MOTOR CO")
+
+            f.search("F").symbols() shouldContainExactly listOf("F.DE", "F", "FDX")
+        }
+
+        test("name-only matches give OK with empty items") {
+            val f = SearchFixture()
+            f.hits("X", "AAPL" to "XAPPLE", "MSFT" to "X MICROSOFT")
+
+            val result = f.search("X")
+
+            result.status shouldBe SearchStatus.OK
+            result.items.shouldBeEmpty()
+            f.data.cache.getAllCalls shouldBe 0
+        }
+
+        test("dropped hits are not looked up in the directory") {
+            val f = SearchFixture()
+            f.data.listed(listing("AAPL"), listing("F"))
+            f.hits("F", "AAPL" to "FRUIT", "F" to "FORD MOTOR CO")
+
+            f.search("F").items.single().company.identity.symbol shouldBe Symbol.of("F")
+
+            f.data.directory.findAllRequests shouldContainExactly listOf(listOf(Symbol.of("F")))
+        }
+
+        test("raw source hits are kept in memory and filtered on every answer") {
+            val f = SearchFixture()
+            f.hits("F", "AAPL" to "FRUIT", "FDX" to "FEDEX CORP", "F" to "FORD MOTOR CO")
+            f.search("F")
+
+            f.search(" f ").symbols() shouldContainExactly listOf("F", "FDX")
+            f.searchCalls() shouldContainExactly listOf("search:F")
+            f.responses.get(FINNHUB, SearchQuery.of("F"))
+                ?.map { it.symbol.value } shouldBe listOf("AAPL", "FDX", "F")
+        }
+
+        test("3-character query keeps name matches in the order of the source") {
+            val f = SearchFixture()
+            f.hits("for", "F" to "FORD MOTOR CO", "FORTY" to "FORTY", "ABC" to "FORMULA ONE")
+
+            f.search("for").symbols() shouldContainExactly listOf("F", "FORTY", "ABC")
+        }
+    }
+
+    context("result limit") {
+        fun tickers(count: Int) = (1..count).map { "T$it" to "COMPANY $it" }.toTypedArray()
+
+        test("long result lists are cut to the first 25 in the order of the source") {
+            val f = SearchFixture()
+            f.hits("company", *tickers(40))
+
+            f.search("company").symbols() shouldContainExactly (1..25).map { "T$it" }
+        }
+
+        withData(nameFn = { "$it results are returned in full" }, 0, 1, 24, 25) { count ->
+            val f = SearchFixture()
+            f.hits("company", *tickers(count))
+
+            f.search("company").symbols() shouldContainExactly (1..count).map { "T$it" }
+        }
+
+        test("ticker-only results are limited to 25 after filtering, exact match first") {
+            val f = SearchFixture()
+            f.hits("T", "AAPL" to "TAPPLE", *tickers(30), "T" to "AT&T INC")
+
+            val symbols = f.search("T").symbols()
+
+            symbols shouldHaveSize SearchService.MAX_RESULTS
+            symbols shouldContainExactly listOf("T") + (1..24).map { "T$it" }
+        }
+
+        test("duplicates are removed before the limit") {
+            val f = SearchFixture()
+            f.hits("company", "T1" to "COMPANY 1", *tickers(30))
+
+            f.search("company").symbols() shouldContainExactly (1..25).map { "T$it" }
+        }
+
+        test("dropped results are not looked up in the directory") {
+            val f = SearchFixture()
+            f.hits("company", *tickers(26))
+
+            f.search("company")
+
+            f.data.directory.findAllRequests.single() shouldContainExactly (1..25).map { Symbol.of("T$it") }
         }
     }
 

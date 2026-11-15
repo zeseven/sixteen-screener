@@ -21,7 +21,7 @@ data class SearchResult(
  *
  * @property source source that was searched
  * @property status outcome of the search; items are empty unless [SearchStatus.OK]
- * @property items results in the order of the source
+ * @property items at most 25 results in the order of the source, exact ticker matches first for ticker-only queries
  */
 data class SearchResults(
     val source: SourceId,
@@ -30,11 +30,16 @@ data class SearchResults(
 )
 
 /**
- * Company search in the profile's default source (ADR-029, ADR-034, ADR-035).
+ * Company search in the profile's default source (ADR-029, ADR-034, ADR-035, ADR-054).
  */
 interface SearchUseCase {
     /**
      * Searches the default source of profile [profileId] by ticker or the first letters of a company name.
+     *
+     * Queries of 1 or 2 characters match tickers only: of the source's results, only those whose ticker (the symbol
+     * without the exchange suffix) starts with the query, ignoring case, are kept, exact ticker matches first and
+     * otherwise in the order of the source. Longer queries keep all results of the source. At most 25 results are
+     * returned (ADR-054).
      *
      * Exchange, market and name of each result are resolved from the exchange directory; results not found there are
      * returned with best-effort data (the exchange code as exchange name, the name from the source, no market).
@@ -43,7 +48,7 @@ interface SearchUseCase {
      * the limit is reached. A reached limit or a failed source call gives empty items with `LIMIT_REACHED` or
      * `SOURCE_ERROR`; a default source without the search capability gives `SOURCE_ERROR` without a call.
      *
-     * Throws [com.sixteenscreener.domain.model.InvalidInputException] when [rawQuery] is shorter than 3 or longer than
+     * Throws [com.sixteenscreener.domain.model.InvalidInputException] when [rawQuery] is blank or longer than
      * 50 characters after trimming, and [com.sixteenscreener.domain.model.ResourceNotFoundException] for an unknown profile.
      */
     suspend fun search(profileId: ProfileId, rawQuery: String): SearchResults

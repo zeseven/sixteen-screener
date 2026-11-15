@@ -10,6 +10,10 @@ class SearchQueryTest : FunSpec({
     context("accepted lengths after trimming") {
         withData(
             nameFn = { "'$it'" },
+            "a",
+            " F ",
+            "ab",
+            "  ab  ",
             "abc",
             "  abc  ",
             "a".repeat(50),
@@ -25,11 +29,21 @@ class SearchQueryTest : FunSpec({
             nameFn = { "'$it'" },
             "",
             "   ",
-            "ab",
-            "  ab  ",
+            "\t\n",
             "a".repeat(51),
+            " ${"a".repeat(51)} ",
         ) { raw ->
             shouldThrow<InvalidInputException> { SearchQuery.of(raw) }
+        }
+    }
+
+    context("ticker-only matching") {
+        withData(nameFn = { "'$it' matches tickers only" }, "F", "gm", " GM ") { raw ->
+            SearchQuery.of(raw).matchesTickersOnly shouldBe true
+        }
+
+        withData(nameFn = { "'$it' matches tickers and names" }, "abc", "apple", " ab c ") { raw ->
+            SearchQuery.of(raw).matchesTickersOnly shouldBe false
         }
     }
 

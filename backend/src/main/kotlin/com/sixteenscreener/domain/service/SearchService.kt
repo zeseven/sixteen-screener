@@ -34,7 +34,7 @@ class SearchService(
         val profile = profiles.existing(profileId)
         val source = catalog.defaultSourceOf(profile)
         val answer = answer(source, query)
-        val hits = answer.hits.distinctBy { it.symbol }
+        val hits = answer.hits.distinctBy { it.symbol }.matching(query).take(MAX_RESULTS)
         val symbols = hits.map { it.symbol }
         val listings = if (symbols.isEmpty()) emptyMap() else symbolDirectory.findAll(symbols)
         val cached = companyData.cachedCompanies(source, symbols)
@@ -53,6 +53,14 @@ class SearchService(
         return SearchResults(source, answer.status, items)
     }
 
+    private fun List<SearchHit>.matching(query: SearchQuery): List<SearchHit> {
+        if (!query.matchesTickersOnly) return this
+        val (exactTickers, prefixedTickers) = this
+            .filter { it.symbol.ticker.startsWith(query.value, ignoreCase = true) }
+            .partition { it.symbol.ticker.equals(query.value, ignoreCase = true) }
+        return exactTickers + prefixedTickers
+    }
+
     private suspend fun answer(source: SourceId, query: SearchQuery): SourceAnswer {
         val searchable = marketDataSources[source]?.takeIf { catalog.supports(source, Capability.SEARCH) }
             ?: return SourceAnswer(SearchStatus.SOURCE_ERROR, emptyList())
@@ -67,5 +75,10 @@ class SearchService(
             is SourceResult.LimitReached -> SourceAnswer(SearchStatus.LIMIT_REACHED, emptyList())
             is SourceResult.NotSupported, is SourceResult.SourceError -> SourceAnswer(SearchStatus.SOURCE_ERROR, emptyList())
         }
+    }
+
+    companion object {
+        /** Maximum number of results in a search response (ADR-054). */
+        const val MAX_RESULTS = 25
     }
 }

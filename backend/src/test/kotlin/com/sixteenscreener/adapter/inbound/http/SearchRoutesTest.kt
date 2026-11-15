@@ -91,6 +91,19 @@ class SearchRoutesTest : FunSpec({
         }
     }
 
+    test("1-character query is accepted and matches tickers only") {
+        routeTest { ports ->
+            val profile = ports.savedProfile()
+            ports.searchHits("F", "FDX", "AAPL", "F")
+
+            val response = client.get("/profiles/${profile.id}/search") { parameter("query", " F ") }
+
+            response.status shouldBe HttpStatusCode.OK
+            response.json().items().map { it["symbol"] } shouldContainExactly
+                listOf(JsonPrimitive("F"), JsonPrimitive("FDX"))
+        }
+    }
+
     test("limit reached answers 200 with empty items and LIMIT_REACHED") {
         routeTest { ports ->
             val profile = ports.savedProfile()
@@ -120,7 +133,7 @@ class SearchRoutesTest : FunSpec({
     }
 
     context("invalid query is a bad request") {
-        withData(nameFn = { "'$it'" }, "ab", "  ab  ", "a".repeat(51), "") { query ->
+        withData(nameFn = { "'$it'" }, "", "   ", "a".repeat(51)) { query ->
             routeTest { ports ->
                 val profile = ports.savedProfile()
 
