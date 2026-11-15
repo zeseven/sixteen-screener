@@ -71,7 +71,7 @@ private fun priceColor(trend: Trend): Color = when (trend) {
     Trend.UNCHANGED -> SixteenTheme.priceColors.unchanged
 }
 
-private fun trendDescription(trend: Trend): Int = when (trend) {
+internal fun trendDescription(trend: Trend): Int = when (trend) {
     Trend.UP -> R.string.trend_up
     Trend.DOWN -> R.string.trend_down
     Trend.UNCHANGED -> R.string.trend_unchanged

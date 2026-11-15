@@ -6,7 +6,7 @@ import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.AppInfo
 import com.sixteenscreener.app.domain.model.ProfileId
-import com.sixteenscreener.app.testing.Companies.summary
+import com.sixteenscreener.app.testing.Companies.item
 import com.sixteenscreener.app.testing.FakeApiClient
 import com.sixteenscreener.app.testing.FakeProfileRepository
 import com.sixteenscreener.app.testing.MainDispatcherRule
@@ -139,8 +139,8 @@ class SettingsViewModelTest {
     @Test
     fun `watchlist reloads with the new profile ID after a switch`() = runTest {
         val apiClient = FakeApiClient()
-        val viewerWatchlist = listOf(summary("AAPL"))
-        val annaWatchlist = listOf(summary("SAP.DE", name = "SAP SE"))
+        val viewerWatchlist = listOf(item("AAPL"))
+        val annaWatchlist = listOf(item("SAP.DE", name = "SAP SE"))
         apiClient.getWatchlist = { profileId -> ApiResult.Success(if (profileId == ProfileId("p1")) viewerWatchlist else annaWatchlist) }
         profileRepository.selectResult = { ApiResult.Success(ActiveProfile(ProfileId("p2"), "Anna")) }
         val watchlistViewModel = WatchlistViewModel(DefaultWatchlistRepository(apiClient, profileRepository, backgroundScope), profileRepository)

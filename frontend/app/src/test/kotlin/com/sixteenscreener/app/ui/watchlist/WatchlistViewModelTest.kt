@@ -7,11 +7,14 @@ import com.sixteenscreener.app.domain.WatchlistFilter
 import com.sixteenscreener.app.domain.model.ActiveProfile
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
-import com.sixteenscreener.app.domain.model.CompanySummary
 import com.sixteenscreener.app.domain.model.Market
+import com.sixteenscreener.app.domain.model.MarketData
+import com.sixteenscreener.app.domain.model.MarketDataLoad
 import com.sixteenscreener.app.domain.model.ProfileId
+import com.sixteenscreener.app.domain.model.WatchlistItem
+import com.sixteenscreener.app.testing.Companies.item
+import com.sixteenscreener.app.testing.Companies.marketData
 import com.sixteenscreener.app.testing.Companies.quote
-import com.sixteenscreener.app.testing.Companies.summary
 import com.sixteenscreener.app.testing.FakeApiClient
 import com.sixteenscreener.app.testing.FakeProfileRepository
 import com.sixteenscreener.app.testing.MainDispatcherRule
@@ -37,17 +40,17 @@ class WatchlistViewModelTest {
     private val apiClient = FakeApiClient()
     private val profileRepository = FakeProfileRepository(ActiveProfile(ProfileId("p1"), "Viktor"))
 
-    private val apple = summary("AAPL", market = Market.US, sector = "Technology")
-    private val sap = summary("SAP.DE", name = "SAP SE", market = Market.EU, sector = "Technology")
-    private val shell = summary("SHEL", name = "Shell", market = Market.EU, sector = "Energy")
-    private val unknownMarket = summary("7203.T", name = "Toyota", market = null, sector = null)
+    private val apple = item("AAPL", market = Market.US, sector = "Technology")
+    private val sap = item("SAP.DE", name = "SAP SE", market = Market.EU, sector = "Technology")
+    private val shell = item("SHEL", name = "Shell", market = Market.EU, sector = "Energy")
+    private val unknownMarket = item("7203.T", name = "Toyota", market = null, sector = null)
 
     private fun TestScope.viewModel(): WatchlistViewModel =
         WatchlistViewModel(DefaultWatchlistRepository(apiClient, profileRepository, backgroundScope), profileRepository)
 
-    private var stubbedWatchlist = emptyList<CompanySummary>()
+    private var stubbedWatchlist = emptyList<WatchlistItem>()
 
-    private fun stubWatchlist(vararg companies: CompanySummary) {
+    private fun stubWatchlist(vararg companies: WatchlistItem) {
         stubbedWatchlist = companies.toList()
         apiClient.getWatchlist = { ApiResult.Success(companies.toList()) }
     }
@@ -57,14 +60,16 @@ class WatchlistViewModelTest {
     private val refreshRequests = mutableListOf<List<String>>()
 
     private fun rows(count: Int, market: (Int) -> Market = { Market.US }) =
-        (0 until count).map { summary("S$it", name = "Company $it", market = market(it)) }
+        (0 until count).map { item("S$it", name = "Company $it", market = market(it)) }
 
-    private fun stubRowRefresh(result: (List<CompanySummary>) -> ApiResult<List<CompanySummary>> = { ApiResult.Success(it) }) {
-        apiClient.refreshWatchlistRows = { _, symbols ->
+    private fun stubRowRefresh(result: (List<MarketData>) -> ApiResult<List<MarketData>> = { ApiResult.Success(it) }) {
+        apiClient.getWatchlistMarketData = { _, symbols ->
             refreshRequests += symbols.map { it.value }
-            result(stubbedWatchlist.filter { it.symbol in symbols }.map { it.copy(quote = quote(price = 1.0)) })
+            result(stubbedWatchlist.filter { it.symbol in symbols }.map { marketData(it.symbol.value, quote = quote(price = 1.0)) })
         }
     }
+
+    private fun WatchlistViewModel.priceOf(index: Int): Double? = state.marketData[state.companies[index].symbol]?.quote?.price
 
     private fun symbols(range: IntRange) = range.map { "S$it" }
 
@@ -90,13 +95,13 @@ class WatchlistViewModelTest {
 
         assertTrue(viewModel.state.isLoaded)
         assertFalse(viewModel.state.hasCompanies)
-        assertEquals(emptyList<CompanySummary>(), viewModel.state.companies)
+        assertEquals(emptyList<WatchlistItem>(), viewModel.state.companies)
         assertFalse(viewModel.state.isRefreshing)
     }
 
     @Test
     fun `refresh shows the loading state until the backend answers and ignores repeated requests`() = runTest {
-        val response = CompletableDeferred<ApiResult<List<CompanySummary>>>()
+        val response = CompletableDeferred<ApiResult<List<WatchlistItem>>>()
         apiClient.getWatchlist = { response.await() }
         val viewModel = viewModel()
 
@@ -153,7 +158,7 @@ class WatchlistViewModelTest {
 
         viewModel.onMarketSelected(MarketFilter.US)
 
-        assertEquals(emptyList<CompanySummary>(), viewModel.state.companies)
+        assertEquals(emptyList<WatchlistItem>(), viewModel.state.companies)
         assertTrue(viewModel.state.hasCompanies)
     }
 
@@ -191,7 +196,7 @@ class WatchlistViewModelTest {
     fun `remove hides the row and offers undo which adds it back at its position`() = runTest {
         stubWatchlist(apple, sap, shell)
         apiClient.removeFromWatchlist = { _, _ -> ApiResult.Success(Unit) }
-        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(Unit) }
+        apiClient.addToWatchlist = { _, symbol -> ApiResult.Success(stubbedWatchlist.first { it.symbol == symbol }) }
         val viewModel = viewModel()
         viewModel.refresh()
 
@@ -237,7 +242,7 @@ class WatchlistViewModelTest {
         viewModel.onRemove(apple)
         viewModel.onUndo(WatchlistMessage.Removed(apple, 0))
 
-        assertEquals(emptyList<CompanySummary>(), viewModel.state.companies)
+        assertEquals(emptyList<WatchlistItem>(), viewModel.state.companies)
         assertEquals(WatchlistMessage.UndoFailed(apple, failure), viewModel.state.message)
     }
 
@@ -332,7 +337,7 @@ class WatchlistViewModelTest {
 
     @Test
     fun `load of the previous profile still running is replaced by the new profile's load`() = runTest {
-        val previousLoad = CompletableDeferred<ApiResult<List<CompanySummary>>>()
+        val previousLoad = CompletableDeferred<ApiResult<List<WatchlistItem>>>()
         apiClient.getWatchlist = { profileId -> if (profileId.value == "p1") previousLoad.await() else ApiResult.Success(listOf(sap)) }
         val viewModel = viewModel()
         viewModel.refresh()
@@ -358,8 +363,8 @@ class WatchlistViewModelTest {
         advanceUntilIdle()
 
         assertEquals(listOf(symbols(0..9)), refreshRequests)
-        assertEquals(1.0, viewModel.state.companies[0].quote?.price)
-        assertEquals(189.84, viewModel.state.companies[10].quote?.price)
+        assertEquals(1.0, viewModel.priceOf(0))
+        assertNull(viewModel.state.marketData[viewModel.state.companies[10].symbol])
     }
 
     @Test
@@ -462,7 +467,7 @@ class WatchlistViewModelTest {
         val viewModel = viewModel()
         viewModel.refresh()
         showRows(viewModel, 0, 4)
-        assertEquals(189.84, viewModel.state.companies[0].quote?.price)
+        assertEquals(MarketDataLoad.Failed, viewModel.state.marketData[viewModel.state.companies[0].symbol]?.lastLoad)
         assertNull(viewModel.state.message)
 
         stubRowRefresh()
@@ -474,8 +479,8 @@ class WatchlistViewModelTest {
     @Test
     fun `rows in flight are not requested again`() = runTest {
         stubWatchlist(*rows(20) { if (it < 3) Market.US else Market.EU }.toTypedArray())
-        val response = CompletableDeferred<ApiResult<List<CompanySummary>>>()
-        apiClient.refreshWatchlistRows = { _, symbols ->
+        val response = CompletableDeferred<ApiResult<List<MarketData>>>()
+        apiClient.getWatchlistMarketData = { _, symbols ->
             refreshRequests += symbols.map { it.value }
             if (refreshRequests.size == 1) response.await() else ApiResult.Success(emptyList())
         }
@@ -517,5 +522,66 @@ class WatchlistViewModelTest {
         advanceUntilIdle()
 
         assertEquals(listOf(symbols(0..9), symbols(0..9)), refreshRequests)
+    }
+
+    @Test
+    fun `rows are marked as loading while their market data is requested`() = runTest {
+        stubWatchlist(*rows(3).toTypedArray())
+        val response = CompletableDeferred<ApiResult<List<MarketData>>>()
+        apiClient.getWatchlistMarketData = { _, _ -> response.await() }
+        val viewModel = viewModel()
+        viewModel.refresh()
+
+        showRows(viewModel, 0, 2)
+
+        assertEquals(List(3) { MarketDataLoad.Loading }, viewModel.state.companies.map { viewModel.state.marketData[it.symbol]?.lastLoad })
+        response.complete(ApiResult.Success(emptyList()))
+    }
+
+    @Test
+    fun `market data is kept when the watchlist is reloaded`() = runTest {
+        stubWatchlist(*rows(3).toTypedArray())
+        stubRowRefresh()
+        val viewModel = viewModel()
+        viewModel.refresh()
+        showRows(viewModel, 0, 2)
+        val response = CompletableDeferred<ApiResult<List<MarketData>>>()
+        apiClient.getWatchlistMarketData = { _, _ -> response.await() }
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals(1.0, viewModel.priceOf(0))
+        response.complete(ApiResult.Success(emptyList()))
+    }
+
+    @Test
+    fun `undone removal loads the market data of the row again`() = runTest {
+        stubWatchlist(*rows(3).toTypedArray())
+        stubRowRefresh()
+        apiClient.removeFromWatchlist = { _, _ -> ApiResult.Success(Unit) }
+        apiClient.addToWatchlist = { _, symbol -> ApiResult.Success(stubbedWatchlist.first { it.symbol == symbol }) }
+        val viewModel = viewModel()
+        viewModel.refresh()
+        showRows(viewModel, 0, 2)
+
+        viewModel.onRemove(viewModel.state.companies[0])
+        advanceUntilIdle()
+        viewModel.onUndo(viewModel.state.message as WatchlistMessage.Removed)
+        advanceUntilIdle()
+
+        assertEquals(listOf(symbols(0..2), listOf("S0")), refreshRequests)
+        assertEquals(1.0, viewModel.priceOf(0))
+    }
+
+    @Test
+    fun `sector filter uses the sector of the watchlist entries`() = runTest {
+        stubWatchlist(apple, shell)
+        val viewModel = viewModel()
+        viewModel.refresh()
+
+        viewModel.onSectorSelected("Energy")
+
+        assertEquals(listOf(shell), viewModel.state.companies)
     }
 }

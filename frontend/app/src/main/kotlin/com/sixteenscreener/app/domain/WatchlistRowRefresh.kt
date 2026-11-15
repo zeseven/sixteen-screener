@@ -7,7 +7,7 @@ import kotlin.time.Duration.Companion.milliseconds
 /** Indices of the first and last visible row within the watchlist as displayed (after filtering). */
 data class VisibleRows(val first: Int, val last: Int)
 
-/** Which watchlist rows get their stale quotes refreshed: the displayed rows plus a buffer below them (ADR-055). */
+/** Which watchlist rows get their market data loaded: the displayed rows plus a buffer below them (ADR-055, ADR-058). */
 object WatchlistRowRefresh {
     const val BUFFER_ROWS = 5
     const val MAX_SYMBOLS_PER_REQUEST = 50

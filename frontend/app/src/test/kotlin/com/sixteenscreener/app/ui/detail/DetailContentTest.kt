@@ -59,7 +59,7 @@ class DetailContentTest {
     val composeRule = createComposeRule()
 
     private val clock = MutableClock(CompanyData.FETCHED_AT + Duration.ofHours(2))
-    private val apple = Companies.summary("AAPL", name = "Apple Inc.", inWatchlist = false)
+    private val apple = Companies.identity("AAPL", name = "Apple Inc.")
     private val sourceNames = mapOf(SourceId.FINNHUB to "Finnhub", SourceId.SEC_EDGAR to "SEC EDGAR")
 
     private val events = mutableListOf<String>()
@@ -92,6 +92,7 @@ class DetailContentTest {
     ) = DetailUiState(
         symbol = apple.symbol,
         header = apple,
+        headerQuote = CompanyData.priceAndRatios().quote,
         selectedTab = selectedTab,
         priceAndRatios = priceAndRatios,
         balanceSheet = balanceSheet,
@@ -118,6 +119,20 @@ class DetailContentTest {
         composeRule.onNodeWithText("NASDAQ").assertExists()
         composeRule.onNodeWithContentDescription("Add Apple Inc. to the watchlist").performClick()
         assertEquals(listOf("toggle"), events)
+    }
+
+    @Test
+    fun `header shows the price of the company`() {
+        setContent(state())
+
+        tagged(CompanyRowTags.PRICE).assertTextEquals("189.84 USD")
+    }
+
+    @Test
+    fun `header shows a dash without a price`() {
+        setContent(state().copy(headerQuote = null))
+
+        tagged(CompanyRowTags.PRICE).assertTextEquals("-")
     }
 
     @Test

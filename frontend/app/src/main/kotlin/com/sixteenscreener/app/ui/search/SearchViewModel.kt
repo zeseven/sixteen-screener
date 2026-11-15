@@ -10,9 +10,10 @@ import com.sixteenscreener.app.domain.SearchRequest
 import com.sixteenscreener.app.domain.SearchThrottle
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
-import com.sixteenscreener.app.domain.model.CompanySummary
+import com.sixteenscreener.app.domain.model.SearchItem
 import com.sixteenscreener.app.domain.model.SearchResults
 import com.sixteenscreener.app.domain.model.SearchStatus
+import com.sixteenscreener.app.domain.model.WatchlistItem
 import com.sixteenscreener.app.domain.throttleSearch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,13 +30,13 @@ import javax.inject.Inject
 enum class SearchNotice { LIMIT_REACHED, SOURCE_ERROR, NOTHING_FOUND, REQUEST_FAILED }
 
 /** Adding [company] to the watchlist failed; shown as a snackbar. */
-data class AddFailedMessage(val company: CompanySummary, val error: ApiError)
+data class AddFailedMessage(val company: SearchItem, val error: ApiError)
 
 data class SearchUiState(
     /** Input as typed, at most [SearchThrottle.MAX_INPUT_LENGTH] characters. */
     val query: String = "",
     /** Found companies; `inWatchlist` follows the shared watchlist state. */
-    val results: List<CompanySummary> = emptyList(),
+    val results: List<SearchItem> = emptyList(),
     val isSearching: Boolean = false,
     val notice: SearchNotice? = null,
     val message: AddFailedMessage? = null,
@@ -43,7 +44,8 @@ data class SearchUiState(
 
 /**
  * Search tab: throttled search from the first typed character ([throttleSearch]), a newer query cancels the running request and an
- * empty input clears the results without a request. Adding a result updates the shared watchlist at once and reverts on failure.
+ * empty input clears the results without a request. Adding a result updates the shared watchlist at once (the sector is known once the
+ * backend returns the stored item) and reverts on failure.
  * A profile change clears the query and the results.
  */
 @HiltViewModel
@@ -54,7 +56,7 @@ class SearchViewModel @Inject constructor(
 ) : ViewModel() {
 
     private data class SearchOutcome(
-        val hits: List<CompanySummary> = emptyList(),
+        val hits: List<SearchItem> = emptyList(),
         val isSearching: Boolean = false,
         val notice: SearchNotice? = null,
     )
@@ -100,9 +102,9 @@ class SearchViewModel @Inject constructor(
         query.value = text.take(SearchThrottle.MAX_INPUT_LENGTH)
     }
 
-    fun onAdd(company: CompanySummary) {
+    fun onAdd(company: SearchItem) {
         viewModelScope.launch {
-            val result = watchlistRepository.add(company)
+            val result = watchlistRepository.add(WatchlistItem.of(company))
             if (result is ApiResult.Failure) message.value = AddFailedMessage(company, result.error)
         }
     }

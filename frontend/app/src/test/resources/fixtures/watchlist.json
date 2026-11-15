@@ -6,22 +6,10 @@
       "exchange": "NASDAQ",
       "name": "Apple Inc",
       "market": "US",
+      "logoUrl": "/logos/AAPL",
       "sector": "Technology",
       "sectorGroup": "Information Technology",
-      "logoUrl": "/logos/AAPL",
-      "quote": {
-        "price": 228.52,
-        "currency": "USD",
-        "fetchedAt": "2026-11-14T15:42:07.123Z",
-        "previousCachedPrice": 226.1,
-        "trend": "UP",
-        "source": "finnhub"
-      },
-      "indicators": [
-        { "ratioCode": "PE", "name": "P/E", "level": "WARNING" }
-      ],
-      "tags": ["core", "dividend"],
-      "inWatchlist": true
+      "tags": ["core", "dividend"]
     },
     {
       "symbol": "SAP.DE",
@@ -29,17 +17,9 @@
       "exchange": "XETRA",
       "name": "SAP SE",
       "market": "EU",
-      "sector": "Technology",
       "logoUrl": "/logos/SAP.DE",
-      "quote": {
-        "price": 241.35,
-        "currency": "EUR",
-        "fetchedAt": "2026-11-12T09:15:00Z",
-        "previousCachedPrice": 243.0,
-        "trend": "DOWN",
-        "source": "finnhub"
-      },
-      "inWatchlist": true
+      "sector": "Technology",
+      "tags": []
     },
     {
       "symbol": "7203.T",
@@ -47,10 +27,10 @@
       "exchange": "TSE",
       "name": "Toyota Motor Corp",
       "market": null,
-      "sector": null,
       "logoUrl": "/logos/7203.T",
-      "quote": null,
-      "inWatchlist": true
+      "sector": null,
+      "sectorGroup": null,
+      "tags": []
     },
     {
       "symbol": "NESN.SW",
@@ -58,13 +38,7 @@
       "exchange": "SIX",
       "name": "Nestle SA",
       "market": "EU",
-      "logoUrl": "/logos/NESN.SW",
-      "quote": {
-        "price": 76.12,
-        "currency": "CHF",
-        "fetchedAt": "2026-11-14T08:00:00Z",
-        "trend": "UNCHANGED"
-      }
+      "logoUrl": "/logos/NESN.SW"
     }
   ]
 }

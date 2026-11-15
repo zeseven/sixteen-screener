@@ -19,11 +19,18 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.sixteenscreener.app.domain.model.CompanySummary
+import com.sixteenscreener.app.domain.model.Company
+import com.sixteenscreener.app.domain.model.DataStatus
+import com.sixteenscreener.app.domain.model.Indicator
+import com.sixteenscreener.app.domain.model.IndicatorLevel
 import com.sixteenscreener.app.domain.model.Market
+import com.sixteenscreener.app.domain.model.MarketDataLoad
+import com.sixteenscreener.app.domain.model.Quote
+import com.sixteenscreener.app.domain.model.RowMarketData
 import com.sixteenscreener.app.domain.model.Trend
+import com.sixteenscreener.app.testing.Companies.item
 import com.sixteenscreener.app.testing.Companies.quote
-import com.sixteenscreener.app.testing.Companies.summary
+import com.sixteenscreener.app.testing.Companies.searchItem
 import com.sixteenscreener.app.testing.MutableClock
 import com.sixteenscreener.app.ui.theme.PriceColors
 import com.sixteenscreener.app.ui.theme.SixteenTheme
@@ -48,18 +55,26 @@ class CompanyRowTest {
     private val now = Instant.parse("2026-11-14T12:00:00Z")
     private lateinit var priceColors: PriceColors
 
+    private fun loaded(quote: Quote?, status: DataStatus = DataStatus.CACHED) =
+        RowMarketData(quote, lastLoad = MarketDataLoad.Loaded(status))
+
     private fun setRow(
-        company: CompanySummary,
+        company: Company = item(),
+        marketData: (@Composable RowScope.() -> Unit)? = { WatchlistMarketData(loaded(quote())) },
+        darkTheme: Boolean = false,
         onClick: () -> Unit = {},
         action: @Composable RowScope.() -> Unit = {},
     ) = composeRule.setContent {
-        SixteenTheme(darkTheme = false, dynamicColor = false) {
+        SixteenTheme(darkTheme = darkTheme, dynamicColor = false) {
             priceColors = SixteenTheme.priceColors
             CompositionLocalProvider(LocalClock provides MutableClock(now)) {
-                CompanyRow(company = company, onClick = onClick, modifier = Modifier.width(400.dp), action = action)
+                CompanyRow(company = company, onClick = onClick, modifier = Modifier.width(400.dp), marketData = marketData, action = action)
             }
         }
     }
+
+    private fun setWatchlistRow(data: RowMarketData?, darkTheme: Boolean = false) =
+        setRow(marketData = { WatchlistMarketData(data) }, darkTheme = darkTheme)
 
     private fun node(tag: String): SemanticsNodeInteraction = composeRule.onNodeWithTag(tag, useUnmergedTree = true)
 
@@ -73,7 +88,7 @@ class CompanyRowTest {
 
     @Test
     fun `long name is truncated with ellipsis at half of the row width`() {
-        setRow(summary(name = "International Business Machines Corporation Holdings Worldwide Limited"))
+        setRow(item(name = "International Business Machines Corporation Holdings Worldwide Limited"))
 
         val rowWidth = node(CompanyRowTags.ROW).getUnclippedBoundsInRoot().let { it.right - it.left }
         val contentWidth = rowWidth - 32.dp
@@ -86,13 +101,13 @@ class CompanyRowTest {
 
     @Test
     fun `short name is not truncated`() {
-        setRow(summary(name = "IBM"))
+        setRow(item(name = "IBM"))
         assertFalse(node(CompanyRowTags.NAME).textLayout().isLineEllipsized(0))
     }
 
     @Test
     fun `flag follows a short name directly`() {
-        setRow(summary(name = "IBM", market = Market.US))
+        setRow(item(name = "IBM", market = Market.US))
 
         val nameRight = node(CompanyRowTags.NAME).getUnclippedBoundsInRoot().right
         val flagLeft = node(CompanyRowTags.FLAG).getUnclippedBoundsInRoot().left
@@ -102,7 +117,7 @@ class CompanyRowTest {
 
     @Test
     fun `flag follows a truncated name directly`() {
-        setRow(summary(name = "Very Long Company Name That Does Not Fit Into Half Of The Row", market = Market.EU))
+        setRow(item(name = "Very Long Company Name That Does Not Fit Into Half Of The Row", market = Market.EU))
 
         val nameRight = node(CompanyRowTags.NAME).getUnclippedBoundsInRoot().right
         val flagLeft = node(CompanyRowTags.FLAG).getUnclippedBoundsInRoot().left
@@ -112,14 +127,14 @@ class CompanyRowTest {
 
     @Test
     fun `no flag without market`() {
-        setRow(summary(market = null))
+        setRow(item(market = null))
 
         node(CompanyRowTags.FLAG).assertDoesNotExist()
     }
 
     @Test
     fun `rising price is green`() {
-        setRow(summary(quote = quote(trend = Trend.UP)))
+        setWatchlistRow(loaded(quote(trend = Trend.UP)))
 
         assertEquals(priceColors.up, node(CompanyRowTags.PRICE).textColor())
         node(CompanyRowTags.PRICE).assertTextEquals("189.84 USD")
@@ -128,7 +143,7 @@ class CompanyRowTest {
 
     @Test
     fun `falling price is red`() {
-        setRow(summary(quote = quote(trend = Trend.DOWN)))
+        setWatchlistRow(loaded(quote(trend = Trend.DOWN)))
 
         assertEquals(priceColors.down, node(CompanyRowTags.PRICE).textColor())
         node(CompanyRowTags.PRICE).assertContentDescriptionEquals("Price 189.84 USD, lower than the previous price")
@@ -136,30 +151,117 @@ class CompanyRowTest {
 
     @Test
     fun `unchanged price uses the default text color`() {
-        setRow(summary(quote = quote(trend = Trend.UNCHANGED)))
+        setWatchlistRow(loaded(quote(trend = Trend.UNCHANGED)))
 
         assertEquals(Color.Black, node(CompanyRowTags.PRICE).textColor())
         node(CompanyRowTags.PRICE).assertContentDescriptionEquals("Price 189.84 USD, unchanged")
     }
 
     @Test
-    fun `price and indicator are dashes without quote`() {
-        setRow(summary(quote = null))
+    fun `price and indicators are dashes in the default color before any data arrives`() {
+        setWatchlistRow(null)
 
         node(CompanyRowTags.PRICE).assertTextEquals("-").assertContentDescriptionEquals("No price available")
-        node(CompanyRowTags.CACHE_INDICATOR).assertTextEquals("-")
+        node(CompanyRowTags.INDICATORS).assertTextEquals("-").assertContentDescriptionEquals("No indicators")
+        node(CompanyRowTags.CACHE_INDICATOR).assertDoesNotExist()
+        assertEquals(Color.Black, node(CompanyRowTags.PRICE).textColor())
+        assertEquals(Color.Black, node(CompanyRowTags.INDICATORS).textColor())
+    }
+
+    @Test
+    fun `loading row keeps the last price in its trend color`() {
+        setWatchlistRow(RowMarketData(quote(trend = Trend.UP), lastLoad = MarketDataLoad.Loading))
+
+        node(CompanyRowTags.PRICE).assertTextEquals("189.84 USD")
+        assertEquals(priceColors.up, node(CompanyRowTags.PRICE).textColor())
+    }
+
+    @Test
+    fun `no data without a quote shows dashes in the default color`() {
+        setWatchlistRow(loaded(null, DataStatus.NO_DATA))
+
+        node(CompanyRowTags.PRICE).assertTextEquals("-")
+        assertEquals(Color.Black, node(CompanyRowTags.PRICE).textColor())
+        assertEquals(Color.Black, node(CompanyRowTags.INDICATORS).textColor())
+    }
+
+    @Test
+    fun `failed load keeps the last price in orange`() {
+        setWatchlistRow(RowMarketData(quote(trend = Trend.DOWN, fetchedAt = now - Duration.ofHours(2)), lastLoad = MarketDataLoad.Failed))
+
+        node(CompanyRowTags.PRICE).assertTextEquals("189.84 USD")
+            .assertContentDescriptionEquals("Price 189.84 USD, last update failed")
+        node(CompanyRowTags.INDICATORS).assertContentDescriptionEquals("No indicators, last update failed")
+        node(CompanyRowTags.CACHE_INDICATOR).assertTextEquals("\uD83D\uDD52" + "1")
+        assertEquals(priceColors.loadFailed, node(CompanyRowTags.PRICE).textColor())
+        assertEquals(priceColors.loadFailed, node(CompanyRowTags.INDICATORS).textColor())
+    }
+
+    @Test
+    fun `failed load without a price shows orange dashes`() {
+        setWatchlistRow(RowMarketData(lastLoad = MarketDataLoad.Failed))
+
+        node(CompanyRowTags.PRICE).assertTextEquals("-").assertContentDescriptionEquals("No price available, last update failed")
+        assertEquals(priceColors.loadFailed, node(CompanyRowTags.PRICE).textColor())
+        assertEquals(priceColors.loadFailed, node(CompanyRowTags.INDICATORS).textColor())
+    }
+
+    @Test
+    fun `limit reached is drawn in orange`() {
+        setWatchlistRow(loaded(quote(trend = Trend.UP), DataStatus.LIMIT_REACHED))
+
+        assertEquals(priceColors.loadFailed, node(CompanyRowTags.PRICE).textColor())
+    }
+
+    @Test
+    fun `failed load uses the dark orange in the dark theme`() {
+        setWatchlistRow(RowMarketData(lastLoad = MarketDataLoad.Failed), darkTheme = true)
+
+        assertEquals(priceColors.loadFailed, node(CompanyRowTags.PRICE).textColor())
+    }
+
+    @Test
+    fun `received indicators are shown by name`() {
+        setWatchlistRow(RowMarketData(quote(), listOf(Indicator("PE", "P/E", IndicatorLevel.BAD)), MarketDataLoad.Loaded(DataStatus.FRESH)))
+
+        node(CompanyRowTags.INDICATORS).assertTextEquals("P/E").assertContentDescriptionEquals("Indicators P/E")
+    }
+
+    @Test
+    fun `row without market data has no price, indicators or cache indicator`() {
+        setRow(company = searchItem(), marketData = null)
+
+        node(CompanyRowTags.PRICE).assertDoesNotExist()
+        node(CompanyRowTags.INDICATORS).assertDoesNotExist()
+        node(CompanyRowTags.CACHE_INDICATOR).assertDoesNotExist()
+        node(CompanyRowTags.NAME).assertTextEquals("Apple Inc.")
+    }
+
+    @Test
+    fun `quote price shows a dash without a quote`() {
+        setRow(marketData = { QuotePriceAndCacheIndicator(null) })
+
+        node(CompanyRowTags.PRICE).assertTextEquals("-").assertContentDescriptionEquals("No price available")
+        node(CompanyRowTags.CACHE_INDICATOR).assertDoesNotExist()
+    }
+
+    @Test
+    fun `quote price uses the trend color`() {
+        setRow(marketData = { QuotePriceAndCacheIndicator(quote(trend = Trend.DOWN)) })
+
+        assertEquals(priceColors.down, node(CompanyRowTags.PRICE).textColor())
     }
 
     @Test
     fun `cache indicator is hidden for fresh data`() {
-        setRow(summary(quote = quote(fetchedAt = now - Duration.ofMinutes(59))))
+        setWatchlistRow(loaded(quote(fetchedAt = now - Duration.ofMinutes(59))))
 
         node(CompanyRowTags.CACHE_INDICATOR).assertDoesNotExist()
     }
 
     @Test
     fun `cache indicator shows today's data older than one hour`() {
-        setRow(summary(quote = quote(fetchedAt = now - Duration.ofHours(2))))
+        setWatchlistRow(loaded(quote(fetchedAt = now - Duration.ofHours(2))))
 
         node(CompanyRowTags.CACHE_INDICATOR).assertTextEquals("\uD83D\uDD52" + "1")
             .assertContentDescriptionEquals("Cached earlier today")
@@ -167,7 +269,7 @@ class CompanyRowTest {
 
     @Test
     fun `cache indicator shows days for older data`() {
-        setRow(summary(quote = quote(fetchedAt = now - Duration.ofDays(2))))
+        setWatchlistRow(loaded(quote(fetchedAt = now - Duration.ofDays(2))))
 
         node(CompanyRowTags.CACHE_INDICATOR).assertTextEquals("\uD83D\uDD52" + "3")
             .assertContentDescriptionEquals("Cached 2 days ago")
@@ -175,7 +277,7 @@ class CompanyRowTest {
 
     @Test
     fun `ticker and exchange are shown`() {
-        setRow(summary(symbol = "SAP.DE", exchange = "XETRA"))
+        setRow(item(symbol = "SAP.DE", exchange = "XETRA"))
 
         composeRule.onNodeWithText("SAP", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText("XETRA", useUnmergedTree = true).assertExists()
@@ -185,7 +287,7 @@ class CompanyRowTest {
     fun `row click and action are forwarded`() {
         var rowClicks = 0
         var removed = 0
-        setRow(summary(name = "Apple Inc."), onClick = { rowClicks++ }) {
+        setRow(item(name = "Apple Inc."), onClick = { rowClicks++ }) {
             RemoveFromWatchlistButton(companyName = "Apple Inc.", onClick = { removed++ })
         }
 
@@ -198,7 +300,7 @@ class CompanyRowTest {
 
     @Test
     fun `logo has a content description`() {
-        setRow(summary(name = "Apple Inc."))
+        setRow(item(name = "Apple Inc."))
 
         composeRule.onNodeWithContentDescription("Logo of Apple Inc.", useUnmergedTree = true).assertExists()
     }

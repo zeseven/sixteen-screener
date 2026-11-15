@@ -27,11 +27,11 @@ private val AppScreens = AppDestinations(
     tab = { tab, navigator, modifier ->
         when (tab) {
             MainTab.WATCHLIST -> WatchlistScreen(
-                onOpenDetail = { navigator.openDetail(it) },
+                onOpenDetail = { navigator.openDetail(it, inWatchlist = true) },
                 onAddCompany = { navigator.selectTab(MainTab.SEARCH) },
                 modifier = modifier,
             )
-            MainTab.SEARCH -> SearchScreen(onOpenDetail = { navigator.openDetail(it) }, modifier = modifier)
+            MainTab.SEARCH -> SearchScreen(onOpenDetail = { navigator.openDetail(it, it.inWatchlist) }, modifier = modifier)
             MainTab.SOURCES -> SourcesScreen(modifier = modifier)
         }
     },

@@ -16,7 +16,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sixteenscreener.app.domain.model.Symbol
-import com.sixteenscreener.app.testing.Companies.summary
+import com.sixteenscreener.app.testing.Companies.item
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 import org.junit.Rule
 import org.junit.Test
@@ -28,7 +28,7 @@ class AppNavHostTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-    private val apple = summary("AAPL", name = "Apple Inc.")
+    private val apple = item("AAPL", name = "Apple Inc.")
 
     private val fakeDestinations = AppDestinations(
         profile = { Text("Profile prompt") },
@@ -37,11 +37,11 @@ class AppNavHostTest {
             Column(modifier = modifier) {
                 Text("Tab ${tab.name}")
                 Button(onClick = { count++ }) { Text("${tab.name} count $count") }
-                Button(onClick = { navigator.openDetail(apple) }) { Text("Open row") }
+                Button(onClick = { navigator.openDetail(apple, inWatchlist = true) }) { Text("Open row") }
                 Button(onClick = { navigator.openDetail(Symbol("MSFT")) }) { Text("Open symbol") }
             }
         },
-        detail = { route, _ -> Text("Detail ${route.symbol.value}: ${route.initialSummary?.name ?: "no summary"}") },
+        detail = { route, _ -> Text("Detail ${route.symbol.value}: ${route.initialCompany?.name ?: "no summary"}") },
         settings = { navigator ->
             Column {
                 Text("Settings content")

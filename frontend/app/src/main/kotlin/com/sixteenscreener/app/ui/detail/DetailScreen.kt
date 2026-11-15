@@ -30,6 +30,7 @@ import com.sixteenscreener.app.domain.model.Symbol
 import com.sixteenscreener.app.ui.component.AddToWatchlistButton
 import com.sixteenscreener.app.ui.component.BackTopAppBar
 import com.sixteenscreener.app.ui.component.CompanyRow
+import com.sixteenscreener.app.ui.component.QuotePriceAndCacheIndicator
 import com.sixteenscreener.app.ui.component.RemoveFromWatchlistButton
 import com.sixteenscreener.app.ui.component.apiErrorMessage
 import com.sixteenscreener.app.ui.detail.balancesheet.BalanceSheetGrid
@@ -114,7 +115,7 @@ private fun Header(uiState: DetailUiState, onToggleWatchlist: () -> Unit) {
         )
         return
     }
-    CompanyRow(company = header, onClick = null) {
+    CompanyRow(company = header, onClick = null, marketData = { QuotePriceAndCacheIndicator(uiState.headerQuote) }) {
         if (uiState.inWatchlist) {
             RemoveFromWatchlistButton(companyName = header.name, onClick = onToggleWatchlist)
         } else {

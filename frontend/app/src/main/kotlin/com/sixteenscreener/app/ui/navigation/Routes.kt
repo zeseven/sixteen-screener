@@ -4,7 +4,7 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.navigation3.runtime.NavKey
 import com.sixteenscreener.app.R
-import com.sixteenscreener.app.domain.model.CompanySummary
+import com.sixteenscreener.app.domain.model.CompanyIdentity
 import com.sixteenscreener.app.domain.model.Symbol
 import kotlinx.serialization.Serializable
 
@@ -16,11 +16,15 @@ data object ProfileRoute : NavKey
 @Serializable
 data object MainRoute : NavKey
 
-/** Detailed screen of [symbol]; [initialSummary] fills the header until the company profile arrives. */
+/**
+ * Detailed screen of [symbol]; [initialCompany] fills the header until the company profile arrives, [initiallyInWatchlist] tells
+ * whether the company was in the watchlist when the screen was opened.
+ */
 @Serializable
 data class DetailRoute(
     val symbol: Symbol,
-    val initialSummary: CompanySummary? = null,
+    val initialCompany: CompanyIdentity? = null,
+    val initiallyInWatchlist: Boolean = false,
 ) : NavKey
 
 /** Settings screen. */

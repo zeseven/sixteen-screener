@@ -5,13 +5,15 @@ import com.sixteenscreener.app.data.repository.DefaultWatchlistRepository
 import com.sixteenscreener.app.domain.model.ActiveProfile
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
-import com.sixteenscreener.app.domain.model.CompanySummary
 import com.sixteenscreener.app.domain.model.ProblemDetails
 import com.sixteenscreener.app.domain.model.ProfileId
+import com.sixteenscreener.app.domain.model.SearchItem
 import com.sixteenscreener.app.domain.model.SearchResults
 import com.sixteenscreener.app.domain.model.SearchStatus
 import com.sixteenscreener.app.domain.model.SourceId
-import com.sixteenscreener.app.testing.Companies.summary
+import com.sixteenscreener.app.domain.model.WatchlistItem
+import com.sixteenscreener.app.testing.Companies.item
+import com.sixteenscreener.app.testing.Companies.searchItem
 import com.sixteenscreener.app.testing.FakeApiClient
 import com.sixteenscreener.app.testing.FakeProfileRepository
 import com.sixteenscreener.app.testing.MainDispatcherRule
@@ -38,10 +40,10 @@ class SearchViewModelTest {
     private val apiClient = FakeApiClient()
     private val profileRepository = FakeProfileRepository(ActiveProfile(ProfileId("p1"), "Viktor"))
 
-    private val apple = summary("AAPL", name = "Apple Inc.", inWatchlist = false)
-    private val applied = summary("AMAT", name = "Applied Materials", inWatchlist = false)
-    private val ford = summary("F", name = "Ford Motor Company", inWatchlist = false)
-    private val generalMotors = summary("GM", name = "General Motors Company", inWatchlist = false)
+    private val apple = searchItem("AAPL", name = "Apple Inc.")
+    private val applied = searchItem("AMAT", name = "Applied Materials")
+    private val ford = searchItem("F", name = "Ford Motor Company")
+    private val generalMotors = searchItem("GM", name = "General Motors Company")
 
     private lateinit var watchlistRepository: DefaultWatchlistRepository
 
@@ -50,10 +52,10 @@ class SearchViewModelTest {
         return SearchViewModel(DefaultSearchRepository(apiClient, profileRepository), watchlistRepository, profileRepository)
     }
 
-    private fun results(status: SearchStatus = SearchStatus.OK, vararg items: CompanySummary) =
+    private fun results(status: SearchStatus = SearchStatus.OK, vararg items: SearchItem) =
         ApiResult.Success(SearchResults(SourceId.FINNHUB, status, items.toList()))
 
-    private fun stubSearch(vararg items: CompanySummary) {
+    private fun stubSearch(vararg items: SearchItem) {
         apiClient.search = { _, _ -> results(SearchStatus.OK, *items) }
     }
 
@@ -259,7 +261,7 @@ class SearchViewModelTest {
         viewModel.onQueryChange("app")
 
         assertEquals(SearchNotice.REQUEST_FAILED, viewModel.state.notice)
-        assertEquals(emptyList<CompanySummary>(), viewModel.state.results)
+        assertEquals(emptyList<SearchItem>(), viewModel.state.results)
     }
 
     @Test
@@ -289,7 +291,7 @@ class SearchViewModelTest {
     @Test
     fun `add updates in watchlist at once`() = runTest {
         stubSearch(apple, applied)
-        val response = CompletableDeferred<ApiResult<Unit>>()
+        val response = CompletableDeferred<ApiResult<WatchlistItem>>()
         apiClient.addToWatchlist = { _, _ -> response.await() }
         val viewModel = viewModel()
         viewModel.onQueryChange("app")
@@ -297,10 +299,30 @@ class SearchViewModelTest {
         viewModel.onAdd(apple)
 
         assertEquals(listOf(true, false), viewModel.state.results.map { it.inWatchlist })
-        response.complete(ApiResult.Success(Unit))
+        response.complete(ApiResult.Success(item("AAPL", name = "Apple Inc.")))
         runCurrent()
         assertEquals(listOf(true, false), viewModel.state.results.map { it.inWatchlist })
         assertTrue("addToWatchlist(p1, AAPL)" in apiClient.calls)
+    }
+
+    @Test
+    fun `added company gets the sector of the stored item in the loaded watchlist`() = runTest {
+        apiClient.getWatchlist = { ApiResult.Success(emptyList()) }
+        stubSearch(apple)
+        val response = CompletableDeferred<ApiResult<WatchlistItem>>()
+        apiClient.addToWatchlist = { _, _ -> response.await() }
+        val viewModel = viewModel()
+        watchlistRepository.refresh()
+        viewModel.onQueryChange("app")
+
+        viewModel.onAdd(apple)
+
+        assertEquals(listOf(WatchlistItem.of(apple)), watchlistRepository.watchlist.value)
+        assertNull(watchlistRepository.watchlist.value?.single()?.sector)
+        val stored = item("AAPL", name = "Apple Inc.", sector = "Technology")
+        response.complete(ApiResult.Success(stored))
+        runCurrent()
+        assertEquals(listOf(stored), watchlistRepository.watchlist.value)
     }
 
     @Test
@@ -323,7 +345,7 @@ class SearchViewModelTest {
 
     @Test
     fun `watchlist changes in the other tab update the rows`() = runTest {
-        apiClient.getWatchlist = { ApiResult.Success(listOf(apple.copy(inWatchlist = true))) }
+        apiClient.getWatchlist = { ApiResult.Success(listOf(WatchlistItem.of(apple))) }
         apiClient.removeFromWatchlist = { _, _ -> ApiResult.Success(Unit) }
         stubSearch(apple, applied)
         val viewModel = viewModel()
@@ -358,7 +380,7 @@ class SearchViewModelTest {
         advanceTimeBy(5_000)
 
         assertEquals("", viewModel.state.query)
-        assertEquals(emptyList<CompanySummary>(), viewModel.state.results)
+        assertEquals(emptyList<SearchItem>(), viewModel.state.results)
         assertNull(viewModel.state.notice)
         assertEquals(listOf("search(p1, app)"), searches)
     }
@@ -376,7 +398,7 @@ class SearchViewModelTest {
         response.complete(results(SearchStatus.OK, apple))
 
         assertFalse(viewModel.state.isSearching)
-        assertEquals(emptyList<CompanySummary>(), viewModel.state.results)
+        assertEquals(emptyList<SearchItem>(), viewModel.state.results)
     }
 
     @Test

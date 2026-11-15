@@ -11,7 +11,8 @@ import androidx.compose.runtime.setValue
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberNavBackStack
-import com.sixteenscreener.app.domain.model.CompanySummary
+import com.sixteenscreener.app.domain.model.Company
+import com.sixteenscreener.app.domain.model.identity
 import com.sixteenscreener.app.domain.model.Symbol
 
 /**
@@ -31,9 +32,9 @@ class AppNavigator(
         selectedTab = tab
     }
 
-    /** Opens the detailed screen with the row data as its header until the company profile arrives. */
-    fun openDetail(summary: CompanySummary) {
-        backStack.add(DetailRoute(summary.symbol, summary))
+    /** Opens the detailed screen with the row's [company] as its header until the company profile arrives. */
+    fun openDetail(company: Company, inWatchlist: Boolean) {
+        backStack.add(DetailRoute(company.symbol, company.identity(), inWatchlist))
     }
 
     /** Opens the detailed screen without row data; the screen loads its header itself. */

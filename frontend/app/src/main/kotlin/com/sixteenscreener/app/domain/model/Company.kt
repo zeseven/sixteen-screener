@@ -8,20 +8,18 @@ import java.time.Instant
 enum class Market { US, EU }
 
 /** Price compared to the previous cached price. */
-@Serializable
 enum class Trend { UP, DOWN, UNCHANGED }
 
 /**
  * Latest cached price of a company.
  */
-@Serializable
 data class Quote(
     /** Price in [currency]. */
     val price: Double,
     /** ISO 4217 currency code. */
     val currency: String,
     /** When the price was received from the source. */
-    @Serializable(with = InstantSerializer::class) val fetchedAt: Instant,
+    val fetchedAt: Instant,
     /** Latest cached price of the most recent earlier market day, if any. */
     val previousCachedPrice: Double?,
     /** Price compared to [previousCachedPrice]. */
@@ -31,26 +29,70 @@ data class Quote(
 )
 
 /**
- * Data for a company row on the watchlist and search screens.
+ * Company identity from the exchange directory, shown by every company row.
+ */
+interface Company {
+    /** Canonical company identifier. */
+    val symbol: Symbol
+
+    /** Ticker displayed in the row. */
+    val ticker: String
+
+    /** Short exchange name displayed under the ticker. */
+    val exchange: String
+
+    /** Company name. */
+    val name: String
+
+    /** Market of the exchange, `null` outside the US and EU markets. */
+    val market: Market?
+
+    /** Logo endpoint URL relative to the backend URL. */
+    val logoUrl: String
+}
+
+/**
+ * Company identity alone, e.g. passed to the detailed screen.
  */
 @Serializable
-data class CompanySummary(
-    /** Canonical company identifier. */
-    val symbol: Symbol,
-    /** Ticker displayed in the row. */
-    val ticker: String,
-    /** Short exchange name displayed under the ticker. */
-    val exchange: String,
-    /** Company name. */
-    val name: String,
-    /** Market of the exchange, `null` outside the US and EU markets. */
-    val market: Market?,
-    /** Sector as provided by the source. */
+data class CompanyIdentity(
+    override val symbol: Symbol,
+    override val ticker: String,
+    override val exchange: String,
+    override val name: String,
+    override val market: Market?,
+    override val logoUrl: String,
+) : Company
+
+/** Identity of this company without the data of its row. */
+fun Company.identity(): CompanyIdentity = this as? CompanyIdentity ?: CompanyIdentity(symbol, ticker, exchange, name, market, logoUrl)
+
+/**
+ * Watchlist row without market data.
+ */
+data class WatchlistItem(
+    override val symbol: Symbol,
+    override val ticker: String,
+    override val exchange: String,
+    override val name: String,
+    override val market: Market?,
+    override val logoUrl: String,
+    /** Sector as provided by the profile's default source, `null` when unknown. */
     val sector: String?,
-    /** Logo endpoint URL relative to the backend URL. */
-    val logoUrl: String,
-    /** Cached quote, `null` when none is available. */
-    val quote: Quote?,
-    /** Whether the company is in the profile's watchlist (set in search results). */
-    val inWatchlist: Boolean,
-)
+    /** Profile tags of the company. */
+    val tags: List<String>,
+) : Company {
+    companion object {
+        /** Watchlist row of [company] before the backend returned the stored item. */
+        fun of(company: Company, sector: String? = null): WatchlistItem = WatchlistItem(
+            symbol = company.symbol,
+            ticker = company.ticker,
+            exchange = company.exchange,
+            name = company.name,
+            market = company.market,
+            logoUrl = company.logoUrl,
+            sector = sector,
+            tags = emptyList(),
+        )
+    }
+}

@@ -11,12 +11,15 @@ import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfile
 import com.sixteenscreener.app.domain.model.CompanyProfileData
-import com.sixteenscreener.app.domain.model.CompanySummary
+import com.sixteenscreener.app.domain.model.CompanyIdentity
 import com.sixteenscreener.app.domain.model.PriceAndRatios
+import com.sixteenscreener.app.domain.model.Quote
+import com.sixteenscreener.app.domain.model.RowMarketData
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceDataMeta
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.WatchlistItem
 import com.sixteenscreener.app.ui.navigation.DetailRoute
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -66,8 +69,10 @@ sealed interface DetailMessage {
 
 data class DetailUiState(
     val symbol: Symbol,
-    /** Company row data of the header: the route's summary until the company profile arrives; `null` while neither is known. */
-    val header: CompanySummary? = null,
+    /** Company of the header: the route's company until the company profile arrives; `null` while neither is known. */
+    val header: CompanyIdentity? = null,
+    /** Price of the header: the loaded price, or the last watchlist market data of the company until it arrives. */
+    val headerQuote: Quote? = null,
     val inWatchlist: Boolean = false,
     val selectedTab: DetailTab = DetailTab.PRICE_AND_RATIOS,
     val priceAndRatios: TabData<PriceAndRatios> = TabData(),
@@ -125,13 +130,15 @@ class DetailViewModel @AssistedInject constructor(
         screenState,
         watchlistRepository.watchlist,
         watchlistRepository.watchlistSymbols,
+        watchlistRepository.marketData,
         sourceRepository.sources,
-    ) { screen, watchlist, watchlistSymbols, sources -> toUiState(screen, watchlist != null, watchlistSymbols, sources) }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, toUiState(ScreenState(), false, emptySet(), null))
+    ) { screen, watchlist, watchlistSymbols, marketData, sources ->
+        toUiState(screen, watchlist != null, watchlistSymbols, marketData[symbol], sources)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, toUiState(ScreenState(), false, emptySet(), null, null))
 
     init {
         loadOnce(DetailTab.PRICE_AND_RATIOS)
-        if (route.initialSummary == null) loadOnce(DetailTab.COMPANY_PROFILE)
+        if (route.initialCompany == null) loadOnce(DetailTab.COMPANY_PROFILE)
     }
 
     fun onTabSelected(tab: DetailTab) {
@@ -162,8 +169,9 @@ class DetailViewModel @AssistedInject constructor(
     fun onToggleWatchlist() {
         val state = uiState.value
         val company = state.header ?: return
+        val sector = state.companyProfile.value?.profile?.sector
         viewModelScope.launch {
-            val result = if (state.inWatchlist) watchlistRepository.remove(symbol) else watchlistRepository.add(company)
+            val result = if (state.inWatchlist) watchlistRepository.remove(symbol) else watchlistRepository.add(WatchlistItem.of(company, sector))
             if (result is ApiResult.Failure) {
                 val message = if (state.inWatchlist) DetailMessage.RemoveFailed(result.error) else DetailMessage.AddFailed(result.error)
                 screenState.update { it.copy(message = message) }
@@ -238,12 +246,14 @@ class DetailViewModel @AssistedInject constructor(
         screen: ScreenState,
         isWatchlistLoaded: Boolean,
         watchlistSymbols: Set<Symbol>,
+        rowMarketData: RowMarketData?,
         sources: List<Source>?,
     ): DetailUiState {
-        val inWatchlist = symbol in watchlistSymbols || (!isWatchlistLoaded && route.initialSummary?.inWatchlist == true)
+        val inWatchlist = symbol in watchlistSymbols || (!isWatchlistLoaded && route.initiallyInWatchlist)
         return DetailUiState(
             symbol = symbol,
-            header = header(screen)?.copy(inWatchlist = inWatchlist),
+            header = screen.companyProfile.value?.profile?.toIdentity() ?: route.initialCompany,
+            headerQuote = screen.priceAndRatios.value?.quote ?: rowMarketData?.quote,
             inWatchlist = inWatchlist,
             selectedTab = screen.selectedTab,
             priceAndRatios = screen.priceAndRatios,
@@ -259,23 +269,13 @@ class DetailViewModel @AssistedInject constructor(
         )
     }
 
-    private fun header(screen: ScreenState): CompanySummary? {
-        val initial = route.initialSummary
-        val quote = screen.priceAndRatios.value?.quote ?: initial?.quote
-        return screen.companyProfile.value?.profile?.toSummary(initial)?.copy(quote = quote)
-            ?: initial?.copy(quote = quote)
-    }
-
-    private fun CompanyProfile.toSummary(initial: CompanySummary?) = CompanySummary(
+    private fun CompanyProfile.toIdentity() = CompanyIdentity(
         symbol = symbol,
         ticker = ticker,
         exchange = exchange,
         name = name,
         market = market,
-        sector = sector ?: initial?.sector,
-        logoUrl = initial?.logoUrl ?: "$LOGO_PATH${symbol.value}",
-        quote = initial?.quote,
-        inWatchlist = initial?.inWatchlist ?: false,
+        logoUrl = route.initialCompany?.logoUrl ?: "$LOGO_PATH${symbol.value}",
     )
 
     private companion object {

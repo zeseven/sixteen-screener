@@ -8,9 +8,7 @@
       "exchange": "LSE",
       "name": "Shell PLC",
       "market": "EU",
-      "sector": "Energy",
       "logoUrl": "/logos/SHEL.L",
-      "quote": null,
       "inWatchlist": false
     },
     {
@@ -18,17 +16,8 @@
       "ticker": "SHW",
       "exchange": "NYSE",
       "name": "Sherwin-Williams Co",
-      "market": "US",
-      "sector": null,
+      "market": null,
       "logoUrl": "/logos/SHW",
-      "quote": {
-        "price": 352.4,
-        "currency": "USD",
-        "fetchedAt": "2026-11-14T14:00:00Z",
-        "previousCachedPrice": null,
-        "trend": "UNCHANGED",
-        "source": "finnhub"
-      },
       "inWatchlist": true
     }
   ]

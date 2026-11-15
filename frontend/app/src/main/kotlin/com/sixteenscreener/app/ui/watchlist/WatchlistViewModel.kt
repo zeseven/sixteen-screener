@@ -11,8 +11,9 @@ import com.sixteenscreener.app.domain.WatchlistFilter
 import com.sixteenscreener.app.domain.WatchlistRowRefresh
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
-import com.sixteenscreener.app.domain.model.CompanySummary
+import com.sixteenscreener.app.domain.model.RowMarketData
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.WatchlistItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -34,16 +35,18 @@ sealed interface WatchlistMessage {
     data class LoadFailed(val error: ApiError) : WatchlistMessage
 
     /** [company] was removed from [index]; offers undo. */
-    data class Removed(val company: CompanySummary, val index: Int) : WatchlistMessage
+    data class Removed(val company: WatchlistItem, val index: Int) : WatchlistMessage
 
-    data class RemoveFailed(val company: CompanySummary, val error: ApiError) : WatchlistMessage
+    data class RemoveFailed(val company: WatchlistItem, val error: ApiError) : WatchlistMessage
 
-    data class UndoFailed(val company: CompanySummary, val error: ApiError) : WatchlistMessage
+    data class UndoFailed(val company: WatchlistItem, val error: ApiError) : WatchlistMessage
 }
 
 data class WatchlistUiState(
     /** Companies matching [filter]. */
-    val companies: List<CompanySummary> = emptyList(),
+    val companies: List<WatchlistItem> = emptyList(),
+    /** Market data of the rows that have been requested at least once. */
+    val marketData: Map<Symbol, RowMarketData> = emptyMap(),
     /** Whether the watchlist has been loaded for the active profile. */
     val isLoaded: Boolean = false,
     /** Whether the loaded watchlist has any company, regardless of the filter. */
@@ -60,8 +63,8 @@ data class WatchlistUiState(
 /**
  * Watchlist tab: loads the watchlist when shown, filters it in memory (filters are not persisted, ADR-045) and removes companies
  * optimistically with undo. A profile change resets the screen and loads the new profile's watchlist.
- * Stale quotes are refreshed only for the displayed rows plus a buffer (ADR-055): each row once per loaded watchlist when it comes
- * into view, and all of them again when a filter changes. A failed row refresh is silent; its rows are retried when next in view.
+ * Market data is loaded only for the displayed rows plus a buffer (ADR-055, ADR-058): each row once per loaded watchlist when it comes
+ * into view, and all of them again when a filter changes. A failed load is shown on its rows; they are retried when next in view.
  */
 @OptIn(FlowPreview::class)
 @HiltViewModel
@@ -93,11 +96,17 @@ class WatchlistViewModel @Inject constructor(
     private var lastRowRefreshFilter: WatchlistFilter? = null
 
     val uiState: StateFlow<WatchlistUiState> =
-        combine(watchlistRepository.watchlist, filter, screenState) { watchlist, filter, screen ->
+        combine(
+            watchlistRepository.watchlist,
+            watchlistRepository.marketData,
+            filter,
+            screenState,
+        ) { watchlist, marketData, filter, screen ->
             val companies = watchlist.orEmpty()
             val sectors = WatchlistFilter.sectorsOf(companies)
             WatchlistUiState(
                 companies = filter.apply(companies),
+                marketData = marketData,
                 isLoaded = watchlist != null,
                 hasCompanies = companies.isNotEmpty(),
                 filter = filter,
@@ -112,7 +121,7 @@ class WatchlistViewModel @Inject constructor(
         profileRepository.onActiveProfileChange(viewModelScope) { resetForNewProfile() }
         viewModelScope.launch {
             combine(
-                uiState.map { it.filter to it.companies.map(CompanySummary::symbol) }.distinctUntilChanged(),
+                uiState.map { it.filter to it.companies.map(WatchlistItem::symbol) }.distinctUntilChanged(),
                 visibleRows.filterNotNull(),
                 loadCount,
             ) { (filter, rows), visible, loads -> RowRefreshTrigger(filter, rows, visible, loads) }
@@ -121,7 +130,7 @@ class WatchlistViewModel @Inject constructor(
         }
     }
 
-    /** Reports the rows currently displayed; their stale quotes are refreshed once the visible range settles. */
+    /** Reports the rows currently displayed; their market data is loaded once the visible range settles. */
     fun onVisibleRowsChanged(visible: VisibleRows) {
         visibleRows.value = visible
     }
@@ -150,8 +159,9 @@ class WatchlistViewModel @Inject constructor(
     /** Selects [sector], `null` for all sectors. */
     fun onSectorSelected(sector: String?) = filter.update { it.copy(sector = sector) }
 
-    fun onRemove(company: CompanySummary) {
+    fun onRemove(company: WatchlistItem) {
         val index = watchlistRepository.watchlist.value?.indexOfFirst { it.symbol == company.symbol } ?: -1
+        rowRefreshTracker.refreshed -= company.symbol
         showMessage(WatchlistMessage.Removed(company, index.coerceAtLeast(0)))
         viewModelScope.launch {
             val result = watchlistRepository.remove(company.symbol)
@@ -179,7 +189,7 @@ class WatchlistViewModel @Inject constructor(
             .forEach { symbols ->
                 tracker.inFlight += symbols
                 viewModelScope.launch {
-                    val result = watchlistRepository.refreshRows(symbols)
+                    val result = watchlistRepository.loadMarketData(symbols)
                     tracker.inFlight -= symbols
                     if (result is ApiResult.Success) tracker.refreshed += symbols
                 }

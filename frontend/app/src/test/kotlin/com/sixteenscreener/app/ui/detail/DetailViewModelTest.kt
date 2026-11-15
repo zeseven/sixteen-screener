@@ -10,9 +10,11 @@ import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.Capability
 import com.sixteenscreener.app.domain.model.CompanyProfileData
 import com.sixteenscreener.app.domain.model.DataStatus
+import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.ProfileId
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.WatchlistItem
 import com.sixteenscreener.app.testing.Companies
 import com.sixteenscreener.app.testing.CompanyData
 import com.sixteenscreener.app.testing.CompanyData.item
@@ -41,7 +43,7 @@ class DetailViewModelTest {
 
     private val apiClient = FakeApiClient()
     private val profileRepository = FakeProfileRepository(ActiveProfile(ProfileId("p1"), "Viktor"))
-    private val apple = Companies.summary("AAPL", name = "Apple Inc.", inWatchlist = false)
+    private val apple = Companies.identity("AAPL", name = "Apple Inc.")
 
     private val finnhub = source("finnhub", "Finnhub", isDefault = true)
     private val secEdgar = source("sec-edgar", "SEC EDGAR", capabilities = listOf(Capability.BALANCE_SHEET))
@@ -111,7 +113,7 @@ class DetailViewModelTest {
         assertEquals("Apple Inc.", header?.name)
         assertEquals("NASDAQ", header?.exchange)
         assertEquals("/logos/AAPL", header?.logoUrl)
-        assertEquals(CompanyData.priceAndRatios().quote, header?.quote)
+        assertEquals(CompanyData.priceAndRatios().quote, viewModel.state.headerQuote)
 
         viewModel.onTabSelected(DetailTab.COMPANY_PROFILE)
         assertEquals(1, callsOf("getCompanyProfile").size)
@@ -233,7 +235,7 @@ class DetailViewModelTest {
                 },
             )
         }
-        val viewModel = viewModel(DetailRoute(Symbol("SAP.DE"), Companies.summary("SAP.DE", name = "SAP SE")))
+        val viewModel = viewModel(DetailRoute(Symbol("SAP.DE"), Companies.identity("SAP.DE", name = "SAP SE")))
         viewModel.onTabSelected(DetailTab.BALANCE_SHEET)
 
         viewModel.onSourceSelected(SourceId.SEC_EDGAR)
@@ -320,15 +322,47 @@ class DetailViewModelTest {
     }
 
     @Test
-    fun `watchlist state follows the initial summary until the watchlist is loaded`() = runTest {
-        val viewModel = viewModel(DetailRoute(apple.symbol, apple.copy(inWatchlist = true)))
+    fun `watchlist state follows the route until the watchlist is loaded`() = runTest {
+        val viewModel = viewModel(DetailRoute(apple.symbol, apple, initiallyInWatchlist = true))
 
         assertTrue(viewModel.state.inWatchlist)
     }
 
     @Test
+    fun `header price falls back to the watchlist market data until the price is loaded`() = runTest {
+        val rowQuote = Companies.quote(price = 150.0)
+        apiClient.getWatchlist = { ApiResult.Success(listOf(Companies.item("AAPL"))) }
+        apiClient.getWatchlistMarketData = { _, _ -> ApiResult.Success(listOf(Companies.marketData("AAPL", quote = rowQuote))) }
+        val response = CompletableDeferred<ApiResult<PriceAndRatios>>()
+        apiClient.getPriceAndRatios = { _, _, _, _ -> response.await() }
+        val viewModel = viewModel()
+        watchlistRepository.refresh()
+        watchlistRepository.loadMarketData(listOf(apple.symbol))
+
+        assertEquals(rowQuote, viewModel.state.headerQuote)
+        response.complete(ApiResult.Success(CompanyData.priceAndRatios()))
+        assertEquals(CompanyData.priceAndRatios().quote, viewModel.state.headerQuote)
+    }
+
+    @Test
+    fun `added company carries the sector of the loaded company profile until the stored item arrives`() = runTest {
+        apiClient.getWatchlist = { ApiResult.Success(emptyList()) }
+        val response = CompletableDeferred<ApiResult<WatchlistItem>>()
+        apiClient.addToWatchlist = { _, _ -> response.await() }
+        val viewModel = viewModel(DetailRoute(Symbol("AAPL")))
+        watchlistRepository.refresh()
+
+        viewModel.onToggleWatchlist()
+
+        val sector = CompanyData.companyProfileData().profile?.sector
+        assertEquals(listOf(sector), watchlistRepository.watchlist.value?.map { it.sector })
+        response.complete(ApiResult.Success(Companies.item("AAPL", sector = "Stored")))
+        assertEquals(listOf("Stored"), watchlistRepository.watchlist.value?.map { it.sector })
+    }
+
+    @Test
     fun `toggling adds the company to the watchlist and removes it again`() = runTest {
-        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(Unit) }
+        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(Companies.item("AAPL")) }
         apiClient.removeFromWatchlist = { _, _ -> ApiResult.Success(Unit) }
         val viewModel = viewModel()
 

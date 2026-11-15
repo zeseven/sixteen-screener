@@ -10,6 +10,8 @@ import com.sixteenscreener.app.data.remote.dto.ProfileDto
 import com.sixteenscreener.app.data.remote.dto.SearchResultsDto
 import com.sixteenscreener.app.data.remote.dto.SourcesDto
 import com.sixteenscreener.app.data.remote.dto.WatchlistDto
+import com.sixteenscreener.app.data.remote.dto.WatchlistItemDto
+import com.sixteenscreener.app.data.remote.dto.WatchlistMarketDataDto
 import com.sixteenscreener.app.data.remote.dto.toDomain
 import com.sixteenscreener.app.di.AuthenticatedHttpClient
 import com.sixteenscreener.app.di.BackendUrl
@@ -18,7 +20,7 @@ import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfileData
-import com.sixteenscreener.app.domain.model.CompanySummary
+import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.ProblemDetails
 import com.sixteenscreener.app.domain.model.Profile
@@ -27,6 +29,7 @@ import com.sixteenscreener.app.domain.model.SearchResults
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.WatchlistItem
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
@@ -67,18 +70,20 @@ class OkHttpApiClient @Inject constructor(
     override suspend fun getProfile(profileId: ProfileId): ApiResult<Profile> =
         get(profileUrl(profileId)) { json.decodeFromString<ProfileDto>(it).toDomain() }
 
-    override suspend fun getWatchlist(profileId: ProfileId): ApiResult<List<CompanySummary>> =
+    override suspend fun getWatchlist(profileId: ProfileId): ApiResult<List<WatchlistItem>> =
         get(profileUrl(profileId, "watchlist")) { json.decodeFromString<WatchlistDto>(it).toDomain() }
 
-    override suspend fun refreshWatchlistRows(profileId: ProfileId, symbols: List<Symbol>): ApiResult<List<CompanySummary>> {
-        val url = profileUrl(profileId, "watchlist", "refresh").newBuilder()
+    override suspend fun getWatchlistMarketData(profileId: ProfileId, symbols: List<Symbol>): ApiResult<List<MarketData>> {
+        val url = profileUrl(profileId, "watchlist", "market-data").newBuilder()
             .addEncodedQueryParameter("symbols", symbols.joinToString(",") { it.value.encodedAsQueryValue() })
             .build()
-        return get(url) { json.decodeFromString<WatchlistDto>(it).toDomain() }
+        return get(url) { json.decodeFromString<WatchlistMarketDataDto>(it).toDomain() }
     }
 
-    override suspend fun addToWatchlist(profileId: ProfileId, symbol: Symbol): ApiResult<Unit> =
-        send(Request.Builder().url(profileUrl(profileId, "watchlist", symbol.value)).put(EMPTY_BODY).build()) {}
+    override suspend fun addToWatchlist(profileId: ProfileId, symbol: Symbol): ApiResult<WatchlistItem> =
+        send(Request.Builder().url(profileUrl(profileId, "watchlist", symbol.value)).put(EMPTY_BODY).build()) {
+            json.decodeFromString<WatchlistItemDto>(it).toDomain()
+        }
 
     override suspend fun removeFromWatchlist(profileId: ProfileId, symbol: Symbol): ApiResult<Unit> =
         send(Request.Builder().url(profileUrl(profileId, "watchlist", symbol.value)).delete().build()) {}

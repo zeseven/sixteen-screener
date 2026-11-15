@@ -41,13 +41,15 @@ import com.sixteenscreener.app.R
 import com.sixteenscreener.app.domain.MarketFilter
 import com.sixteenscreener.app.domain.VisibleRows
 import com.sixteenscreener.app.domain.WatchlistFilter
-import com.sixteenscreener.app.domain.model.CompanySummary
 import com.sixteenscreener.app.domain.model.Market
+import com.sixteenscreener.app.domain.model.RowMarketData
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.WatchlistItem
 import com.sixteenscreener.app.ui.component.CenteredMessage
 import com.sixteenscreener.app.ui.component.CompanyRow
 import com.sixteenscreener.app.ui.component.FilterDropdown
 import com.sixteenscreener.app.ui.component.RemoveFromWatchlistButton
+import com.sixteenscreener.app.ui.component.WatchlistMarketData
 import com.sixteenscreener.app.ui.component.apiErrorMessage
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -61,7 +63,7 @@ object WatchlistScreenTags {
 /** Watchlist tab; loads the watchlist when shown and when the app returns to the foreground. */
 @Composable
 fun WatchlistScreen(
-    onOpenDetail: (CompanySummary) -> Unit,
+    onOpenDetail: (WatchlistItem) -> Unit,
     onAddCompany: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: WatchlistViewModel = hiltViewModel(),
@@ -90,10 +92,10 @@ fun WatchlistContent(
     onRefresh: () -> Unit,
     onMarketSelected: (MarketFilter) -> Unit,
     onSectorSelected: (String?) -> Unit,
-    onRemove: (CompanySummary) -> Unit,
+    onRemove: (WatchlistItem) -> Unit,
     onUndo: (WatchlistMessage.Removed) -> Unit,
     onMessageShown: (WatchlistMessage) -> Unit,
-    onOpenDetail: (CompanySummary) -> Unit,
+    onOpenDetail: (WatchlistItem) -> Unit,
     onAddCompany: () -> Unit,
     modifier: Modifier = Modifier,
     onVisibleRowsChanged: (VisibleRows) -> Unit = {},
@@ -123,7 +125,8 @@ fun WatchlistContent(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 when {
-                    uiState.companies.isNotEmpty() -> CompanyList(uiState.companies, onVisibleRowsChanged, onOpenDetail, onRemove)
+                    uiState.companies.isNotEmpty() ->
+                        CompanyList(uiState.companies, uiState.marketData, onVisibleRowsChanged, onOpenDetail, onRemove)
                     uiState.hasCompanies -> CenteredMessage(stringResource(R.string.watchlist_no_matches))
                     uiState.isLoaded -> CenteredMessage(stringResource(R.string.watchlist_empty))
                     uiState.loadError != null -> CenteredMessage(apiErrorMessage(uiState.loadError))
@@ -207,10 +210,11 @@ private fun marketFilterLabel(market: MarketFilter): String = when (market) {
 
 @Composable
 private fun CompanyList(
-    companies: List<CompanySummary>,
+    companies: List<WatchlistItem>,
+    marketData: Map<Symbol, RowMarketData>,
     onVisibleRowsChanged: (VisibleRows) -> Unit,
-    onOpenDetail: (CompanySummary) -> Unit,
-    onRemove: (CompanySummary) -> Unit,
+    onOpenDetail: (WatchlistItem) -> Unit,
+    onRemove: (WatchlistItem) -> Unit,
 ) {
     val listState = rememberLazyListState()
     val currentOnVisibleRowsChanged by rememberUpdatedState(onVisibleRowsChanged)
@@ -222,7 +226,12 @@ private fun CompanyList(
     }
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag(WatchlistScreenTags.LIST)) {
         items(companies, key = { it.symbol.value }) { company ->
-            CompanyRow(company = company, onClick = { onOpenDetail(company) }) {
+            val rowMarketData = marketData[company.symbol]
+            CompanyRow(
+                company = company,
+                onClick = { onOpenDetail(company) },
+                marketData = { WatchlistMarketData(rowMarketData) },
+            ) {
                 RemoveFromWatchlistButton(companyName = company.name, onClick = { onRemove(company) })
             }
             HorizontalDivider()
@@ -240,7 +249,7 @@ private fun WatchlistContentPreview() {
         WatchlistContent(
             uiState = WatchlistUiState(
                 companies = listOf(
-                    CompanySummary(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc.", Market.US, "Technology", "/logos/AAPL", null, true),
+                    WatchlistItem(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc.", Market.US, "/logos/AAPL", "Technology", emptyList()),
                 ),
                 isLoaded = true,
                 hasCompanies = true,

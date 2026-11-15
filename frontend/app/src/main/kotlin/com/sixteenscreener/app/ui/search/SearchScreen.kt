@@ -39,8 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sixteenscreener.app.R
-import com.sixteenscreener.app.domain.model.CompanySummary
 import com.sixteenscreener.app.domain.model.Market
+import com.sixteenscreener.app.domain.model.SearchItem
 import com.sixteenscreener.app.domain.model.Symbol
 import com.sixteenscreener.app.ui.component.AddToWatchlistButton
 import com.sixteenscreener.app.ui.component.CompanyRow
@@ -56,7 +56,7 @@ object SearchScreenTags {
 /** Search tab. */
 @Composable
 fun SearchScreen(
-    onOpenDetail: (CompanySummary) -> Unit,
+    onOpenDetail: (SearchItem) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
@@ -75,9 +75,9 @@ fun SearchScreen(
 fun SearchContent(
     uiState: SearchUiState,
     onQueryChange: (String) -> Unit,
-    onAdd: (CompanySummary) -> Unit,
+    onAdd: (SearchItem) -> Unit,
     onMessageShown: (AddFailedMessage) -> Unit,
-    onOpenDetail: (CompanySummary) -> Unit,
+    onOpenDetail: (SearchItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -171,7 +171,7 @@ private fun SearchContentPreview() {
             uiState = SearchUiState(
                 query = "app",
                 results = listOf(
-                    CompanySummary(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc.", Market.US, "Technology", "/logos/AAPL", null, false),
+                    SearchItem(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc.", Market.US, "/logos/AAPL", false),
                 ),
             ),
             onQueryChange = {},

@@ -6,24 +6,28 @@ import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheetItem
 import com.sixteenscreener.app.domain.model.CallResult
 import com.sixteenscreener.app.domain.model.Capability
-import com.sixteenscreener.app.domain.model.CompanySummary
 import com.sixteenscreener.app.domain.model.DataStatus
 import com.sixteenscreener.app.domain.model.FiscalPeriod
+import com.sixteenscreener.app.domain.model.Indicator
+import com.sixteenscreener.app.domain.model.IndicatorLevel
 import com.sixteenscreener.app.domain.model.LimitInterval
 import com.sixteenscreener.app.domain.model.LimitUnit
 import com.sixteenscreener.app.domain.model.Market
+import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.ProblemDetails
 import com.sixteenscreener.app.domain.model.Profile
 import com.sixteenscreener.app.domain.model.ProfileId
 import com.sixteenscreener.app.domain.model.Quote
 import com.sixteenscreener.app.domain.model.Ratio
 import com.sixteenscreener.app.domain.model.RequestLimit
+import com.sixteenscreener.app.domain.model.SearchItem
 import com.sixteenscreener.app.domain.model.SearchStatus
 import com.sixteenscreener.app.domain.model.SourceCallOutcome
 import com.sixteenscreener.app.domain.model.SourceDataMeta
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
 import com.sixteenscreener.app.domain.model.Trend
+import com.sixteenscreener.app.domain.model.WatchlistItem
 import com.sixteenscreener.app.testing.Fixtures
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -159,65 +163,20 @@ class OkHttpApiClientTest {
     }
 
     @Test
-    fun `getWatchlist parses companies with nullable fields absent or null and ignores beta fields`() = runTest {
+    fun `getWatchlist parses items with nullable fields absent or null and ignores beta fields`() = runTest {
         enqueueFixture("watchlist.json")
 
         val items = client.getWatchlist(profileId).value()
 
-        assertEquals("/profiles/${profileId.value}/watchlist", server.takeRequest().pathAndQuery())
+        val request = server.takeRequest()
+        assertEquals("GET", request.method)
+        assertEquals("/profiles/${profileId.value}/watchlist", request.pathAndQuery())
         assertEquals(
             listOf(
-                CompanySummary(
-                    symbol = Symbol("AAPL"),
-                    ticker = "AAPL",
-                    exchange = "NASDAQ",
-                    name = "Apple Inc",
-                    market = Market.US,
-                    sector = "Technology",
-                    logoUrl = "/logos/AAPL",
-                    quote = Quote(
-                        price = 228.52,
-                        currency = "USD",
-                        fetchedAt = Instant.parse("2026-11-14T15:42:07.123Z"),
-                        previousCachedPrice = 226.1,
-                        trend = Trend.UP,
-                        source = SourceId.FINNHUB,
-                    ),
-                    inWatchlist = true,
-                ),
-                CompanySummary(
-                    symbol = Symbol("SAP.DE"),
-                    ticker = "SAP",
-                    exchange = "XETRA",
-                    name = "SAP SE",
-                    market = Market.EU,
-                    sector = "Technology",
-                    logoUrl = "/logos/SAP.DE",
-                    quote = Quote(241.35, "EUR", Instant.parse("2026-11-12T09:15:00Z"), 243.0, Trend.DOWN, SourceId.FINNHUB),
-                    inWatchlist = true,
-                ),
-                CompanySummary(
-                    symbol = Symbol("7203.T"),
-                    ticker = "7203",
-                    exchange = "TSE",
-                    name = "Toyota Motor Corp",
-                    market = null,
-                    sector = null,
-                    logoUrl = "/logos/7203.T",
-                    quote = null,
-                    inWatchlist = true,
-                ),
-                CompanySummary(
-                    symbol = Symbol("NESN.SW"),
-                    ticker = "NESN",
-                    exchange = "SIX",
-                    name = "Nestle SA",
-                    market = Market.EU,
-                    sector = null,
-                    logoUrl = "/logos/NESN.SW",
-                    quote = Quote(76.12, "CHF", Instant.parse("2026-11-14T08:00:00Z"), null, Trend.UNCHANGED, null),
-                    inWatchlist = false,
-                ),
+                WatchlistItem(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc", Market.US, "/logos/AAPL", "Technology", listOf("core", "dividend")),
+                WatchlistItem(Symbol("SAP.DE"), "SAP", "XETRA", "SAP SE", Market.EU, "/logos/SAP.DE", "Technology", emptyList()),
+                WatchlistItem(Symbol("7203.T"), "7203", "TSE", "Toyota Motor Corp", null, "/logos/7203.T", null, emptyList()),
+                WatchlistItem(Symbol("NESN.SW"), "NESN", "SIX", "Nestle SA", Market.EU, "/logos/NESN.SW", null, emptyList()),
             ),
             items,
         )
@@ -227,55 +186,105 @@ class OkHttpApiClientTest {
     fun `empty watchlist is parsed`() = runTest {
         enqueue(body = """{"items":[]}""")
 
-        assertEquals(emptyList<CompanySummary>(), client.getWatchlist(profileId).value())
+        assertEquals(emptyList<WatchlistItem>(), client.getWatchlist(profileId).value())
     }
 
     @Test
-    fun `refreshWatchlistRows sends the symbols comma separated and parses the rows`() = runTest {
-        enqueueFixture("watchlist_refresh.json")
+    fun `getWatchlistMarketData sends the symbols comma separated and parses the rows with every status`() = runTest {
+        enqueueFixture("watchlist_market_data.json")
 
-        val items = client.refreshWatchlistRows(profileId, listOf(Symbol("AAPL"), Symbol("SAP.DE"))).value()
+        val items = client.getWatchlistMarketData(profileId, listOf(Symbol("AAPL"), Symbol("SAP.DE"))).value()
 
-        assertEquals("/profiles/${profileId.value}/watchlist/refresh?symbols=AAPL,SAP.DE", server.takeRequest().pathAndQuery())
-        assertEquals(listOf(Symbol("AAPL"), Symbol("SAP.DE")), items.map { it.symbol })
+        val request = server.takeRequest()
+        assertEquals("GET", request.method)
+        assertEquals("/profiles/${profileId.value}/watchlist/market-data?symbols=AAPL,SAP.DE", request.pathAndQuery())
         assertEquals(
-            Quote(229.1, "USD", Instant.parse("2026-11-15T10:05:00Z"), 228.52, Trend.UP, SourceId.FINNHUB),
-            items[0].quote,
+            listOf(
+                MarketData(
+                    symbol = Symbol("AAPL"),
+                    status = DataStatus.FRESH,
+                    quote = Quote(229.1, "USD", Instant.parse("2026-11-15T10:05:00Z"), 228.52, Trend.UP, SourceId.FINNHUB),
+                    indicators = listOf(Indicator("PE", "P/E", IndicatorLevel.WARNING)),
+                ),
+                MarketData(
+                    symbol = Symbol("SAP.DE"),
+                    status = DataStatus.LIMIT_REACHED,
+                    quote = Quote(241.35, "EUR", Instant.parse("2026-11-12T09:15:00Z"), null, Trend.DOWN, null),
+                    indicators = emptyList(),
+                ),
+                MarketData(Symbol("7203.T"), DataStatus.NO_DATA, null, emptyList()),
+                MarketData(Symbol("NESN.SW"), DataStatus.SOURCE_ERROR, null, emptyList()),
+                MarketData(Symbol("SHEL.L"), DataStatus.NOT_SUPPORTED, null, listOf(Indicator("ROE", "ROE", IndicatorLevel.UNKNOWN))),
+            ),
+            items,
         )
-        assertNull(items[1].quote)
-        assertTrue(items.all { it.inWatchlist })
     }
 
     @Test
-    fun `refreshWatchlistRows encodes each symbol so that separators stay unambiguous`() = runTest {
+    fun `getWatchlistMarketData maps unknown status and missing indicators`() = runTest {
+        enqueue(body = """{"items":[{"symbol":"AAPL","status":"STALE","quote":null}]}""")
+
+        val items = client.getWatchlistMarketData(profileId, listOf(Symbol("AAPL"))).value()
+
+        assertEquals(listOf(MarketData(Symbol("AAPL"), DataStatus.UNKNOWN, null, emptyList())), items)
+    }
+
+    @Test
+    fun `getWatchlistMarketData encodes each symbol so that separators stay unambiguous`() = runTest {
         enqueue(body = """{"items":[]}""")
 
-        client.refreshWatchlistRows(profileId, listOf(Symbol("BRK/B"), Symbol("A,B"), Symbol("C D+&#"))).value()
+        client.getWatchlistMarketData(profileId, listOf(Symbol("BRK/B"), Symbol("A,B"), Symbol("C D+&#"))).value()
 
         assertEquals(
-            "/profiles/${profileId.value}/watchlist/refresh?symbols=BRK%2FB,A%2CB,C%20D%2B%26%23",
+            "/profiles/${profileId.value}/watchlist/market-data?symbols=BRK%2FB,A%2CB,C%20D%2B%26%23",
             server.takeRequest().pathAndQuery(),
         )
     }
 
     @Test
-    fun `refreshWatchlistRows failure carries the problem detail`() = runTest {
+    fun `getWatchlistMarketData failure carries the problem detail`() = runTest {
         enqueueProblem("problem_400.json", code = 400)
 
-        val error = client.refreshWatchlistRows(profileId, listOf(Symbol("AAPL"))).error()
+        val error = client.getWatchlistMarketData(profileId, listOf(Symbol("AAPL"))).error()
 
         assertTrue(error is ApiError.Http && error.status == 400)
     }
 
     @Test
-    fun `addToWatchlist sends PUT and accepts 204`() = runTest {
-        server.enqueue(MockResponse.Builder().code(204).build())
+    fun `getWatchlistMarketData with an invalid quote time is a parse error`() = runTest {
+        enqueue(body = """{"items":[{"symbol":"AAPL","status":"FRESH","quote":{"price":1.0,"currency":"USD","fetchedAt":"yesterday","trend":"UP"},"indicators":[]}]}""")
 
-        assertEquals(Unit, client.addToWatchlist(profileId, Symbol("SAP.DE")).value())
+        val error = client.getWatchlistMarketData(profileId, listOf(Symbol("AAPL"))).error()
+
+        assertTrue(error is ApiError.Parse)
+    }
+
+    @Test
+    fun `addToWatchlist sends PUT and parses the stored item`() = runTest {
+        enqueueFixture("watchlist_item.json")
+
+        val item = client.addToWatchlist(profileId, Symbol("SAP.DE")).value()
 
         val request = server.takeRequest()
         assertEquals("PUT", request.method)
         assertEquals("/profiles/${profileId.value}/watchlist/SAP.DE", request.pathAndQuery())
+        assertEquals(WatchlistItem(Symbol("SAP.DE"), "SAP", "XETRA", "SAP SE", Market.EU, "/logos/SAP.DE", "Technology", emptyList()), item)
+    }
+
+    @Test
+    fun `addToWatchlist parses a stored item without sector`() = runTest {
+        enqueue(
+            body = """{"symbol":"SAP.DE","ticker":"SAP","exchange":"XETRA","name":"SAP SE","market":"EU","logoUrl":"/logos/SAP.DE","sector":null,"tags":[]}""",
+        )
+
+        assertNull(client.addToWatchlist(profileId, Symbol("SAP.DE")).value().sector)
+    }
+
+    @Test
+    fun `addToWatchlist without a body is a parse error`() = runTest {
+        server.enqueue(MockResponse.Builder().code(204).build())
+
+        assertTrue(client.addToWatchlist(profileId, Symbol("SAP.DE")).error() is ApiError.Parse)
     }
 
     @Test
@@ -321,18 +330,32 @@ class OkHttpApiClientTest {
     }
 
     @Test
-    fun `search parses status and results with and without cached quotes`() = runTest {
+    fun `search parses status and directory data of the results`() = runTest {
         enqueueFixture("search_ok.json")
 
         val results = client.search(profileId, "she").value()
 
         assertEquals(SourceId.FINNHUB, results.source)
         assertEquals(SearchStatus.OK, results.status)
-        assertEquals(listOf(Symbol("SHEL.L"), Symbol("SHW")), results.items.map { it.symbol })
-        assertNull(results.items[0].quote)
-        assertEquals(false, results.items[0].inWatchlist)
-        assertEquals(Quote(352.4, "USD", Instant.parse("2026-11-14T14:00:00Z"), null, Trend.UNCHANGED, SourceId.FINNHUB), results.items[1].quote)
-        assertEquals(true, results.items[1].inWatchlist)
+        assertEquals(
+            listOf(
+                SearchItem(Symbol("SHEL.L"), "SHEL", "LSE", "Shell PLC", Market.EU, "/logos/SHEL.L", inWatchlist = false),
+                SearchItem(Symbol("SHW"), "SHW", "NYSE", "Sherwin-Williams Co", null, "/logos/SHW", inWatchlist = true),
+            ),
+            results.items,
+        )
+    }
+
+    @Test
+    fun `search result without inWatchlist is not in the watchlist`() = runTest {
+        enqueue(
+            body = """{"source":"finnhub","status":"OK","items":[{"symbol":"F","ticker":"F","exchange":"NYSE","name":"Ford","logoUrl":"/logos/F"}]}""",
+        )
+
+        val item = client.search(profileId, "F").value().items.single()
+
+        assertEquals(false, item.inWatchlist)
+        assertNull(item.market)
     }
 
     @Test
@@ -513,8 +536,7 @@ class OkHttpApiClientTest {
         enqueue(
             body = """
                 {"source":"finnhub","status":"THROTTLED","items":[
-                  {"symbol":"X","ticker":"X","exchange":"HKEX","name":"X","market":"ASIA","logoUrl":"/logos/X",
-                   "quote":{"price":1.0,"currency":"HKD","fetchedAt":"2026-11-14T10:00:00Z","trend":"SIDEWAYS"}}
+                  {"symbol":"X","ticker":"X","exchange":"HKEX","name":"X","market":"ASIA","logoUrl":"/logos/X"}
                 ]}
             """.trimIndent(),
         )
@@ -526,14 +548,21 @@ class OkHttpApiClientTest {
             """.trimIndent(),
         )
         enqueue(body = """{"meta":{"source":"tiingo","status":"PARTIAL"},"periods":[{"periodEnd":"2026-06-30","fiscalYear":2026,"fiscalPeriod":"H1","items":[]}]}""")
+        enqueue(
+            body = """
+                {"items":[{"symbol":"X","status":"FRESH","indicators":[],
+                  "quote":{"price":1.0,"currency":"HKD","fetchedAt":"2026-11-14T10:00:00Z","trend":"SIDEWAYS"}}]}
+            """.trimIndent(),
+        )
 
         val search = client.search(profileId, "xxx").value()
         val source = client.getSources(profileId).value().single()
         val balanceSheet = client.getBalanceSheet(profileId, Symbol("X")).value()
+        val marketData = client.getWatchlistMarketData(profileId, listOf(Symbol("X"))).value().single()
 
         assertEquals(SearchStatus.UNKNOWN, search.status)
         assertNull(search.items.single().market)
-        assertEquals(Trend.UNCHANGED, search.items.single().quote!!.trend)
+        assertEquals(Trend.UNCHANGED, marketData.quote!!.trend)
         assertEquals(listOf(Capability.QUOTE, Capability.UNKNOWN), source.capabilities)
         assertEquals(LimitInterval.UNKNOWN, source.limits.single().interval)
         assertEquals(LimitUnit.UNKNOWN, source.limits.single().unit)

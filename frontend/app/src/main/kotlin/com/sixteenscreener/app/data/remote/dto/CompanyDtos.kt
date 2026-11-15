@@ -1,13 +1,18 @@
 package com.sixteenscreener.app.data.remote.dto
 
-import com.sixteenscreener.app.domain.model.CompanySummary
+import com.sixteenscreener.app.domain.model.DataStatus
+import com.sixteenscreener.app.domain.model.Indicator
+import com.sixteenscreener.app.domain.model.IndicatorLevel
 import com.sixteenscreener.app.domain.model.Market
+import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.Quote
+import com.sixteenscreener.app.domain.model.SearchItem
 import com.sixteenscreener.app.domain.model.SearchResults
 import com.sixteenscreener.app.domain.model.SearchStatus
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
 import com.sixteenscreener.app.domain.model.Trend
+import com.sixteenscreener.app.domain.model.WatchlistItem
 import kotlinx.serialization.Serializable
 import java.time.Instant
 
@@ -22,28 +27,58 @@ data class QuoteDto(
 )
 
 @Serializable
-data class CompanySummaryDto(
+data class WatchlistItemDto(
     val symbol: String,
     val ticker: String,
     val exchange: String,
     val name: String,
     val market: String? = null,
-    val sector: String? = null,
     val logoUrl: String,
-    val quote: QuoteDto? = null,
+    val sector: String? = null,
+    val tags: List<String> = emptyList(),
+)
+
+@Serializable
+data class SearchItemDto(
+    val symbol: String,
+    val ticker: String,
+    val exchange: String,
+    val name: String,
+    val market: String? = null,
+    val logoUrl: String,
     val inWatchlist: Boolean = false,
 )
 
 @Serializable
 data class WatchlistDto(
-    val items: List<CompanySummaryDto>,
+    val items: List<WatchlistItemDto>,
+)
+
+@Serializable
+data class IndicatorDto(
+    val ratioCode: String,
+    val name: String,
+    val level: String,
+)
+
+@Serializable
+data class MarketDataDto(
+    val symbol: String,
+    val status: String,
+    val quote: QuoteDto? = null,
+    val indicators: List<IndicatorDto> = emptyList(),
+)
+
+@Serializable
+data class WatchlistMarketDataDto(
+    val items: List<MarketDataDto>,
 )
 
 @Serializable
 data class SearchResultsDto(
     val source: String,
     val status: String,
-    val items: List<CompanySummaryDto>,
+    val items: List<SearchItemDto>,
 )
 
 fun String?.toMarket(): Market? = this?.let { value -> Market.entries.firstOrNull { it.name == value } }
@@ -59,19 +94,43 @@ fun QuoteDto.toDomain() = Quote(
     source = source?.let(::SourceId),
 )
 
-fun CompanySummaryDto.toDomain() = CompanySummary(
+fun WatchlistItemDto.toDomain() = WatchlistItem(
     symbol = Symbol(symbol),
     ticker = ticker,
     exchange = exchange,
     name = name,
     market = market.toMarket(),
-    sector = sector,
     logoUrl = logoUrl,
-    quote = quote?.toDomain(),
+    sector = sector,
+    tags = tags,
+)
+
+fun SearchItemDto.toDomain() = SearchItem(
+    symbol = Symbol(symbol),
+    ticker = ticker,
+    exchange = exchange,
+    name = name,
+    market = market.toMarket(),
+    logoUrl = logoUrl,
     inWatchlist = inWatchlist,
 )
 
-fun WatchlistDto.toDomain(): List<CompanySummary> = items.map { it.toDomain() }
+fun WatchlistDto.toDomain(): List<WatchlistItem> = items.map { it.toDomain() }
+
+fun IndicatorDto.toDomain() = Indicator(
+    ratioCode = ratioCode,
+    name = name,
+    level = level.toEnumOr(IndicatorLevel.UNKNOWN),
+)
+
+fun MarketDataDto.toDomain() = MarketData(
+    symbol = Symbol(symbol),
+    status = status.toEnumOr(DataStatus.UNKNOWN),
+    quote = quote?.toDomain(),
+    indicators = indicators.map { it.toDomain() },
+)
+
+fun WatchlistMarketDataDto.toDomain(): List<MarketData> = items.map { it.toDomain() }
 
 fun SearchResultsDto.toDomain() = SearchResults(
     source = SourceId(source),

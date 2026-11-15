@@ -3,7 +3,7 @@ package com.sixteenscreener.app.data.remote
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfileData
-import com.sixteenscreener.app.domain.model.CompanySummary
+import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.Profile
 import com.sixteenscreener.app.domain.model.ProfileId
@@ -11,6 +11,7 @@ import com.sixteenscreener.app.domain.model.SearchResults
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.WatchlistItem
 
 /**
  * Backend API client with one function per alpha operation of `docs/openapi.yaml`.
@@ -24,13 +25,16 @@ interface ApiClient {
     suspend fun getProfile(profileId: ProfileId): ApiResult<Profile>
 
     /** `GET /profiles/{profileId}/watchlist`. */
-    suspend fun getWatchlist(profileId: ProfileId): ApiResult<List<CompanySummary>>
+    suspend fun getWatchlist(profileId: ProfileId): ApiResult<List<WatchlistItem>>
 
-    /** `GET /profiles/{profileId}/watchlist/refresh?symbols=`: the given watchlist rows (1 to 50 [symbols]) in watchlist order. */
-    suspend fun refreshWatchlistRows(profileId: ProfileId, symbols: List<Symbol>): ApiResult<List<CompanySummary>>
+    /**
+     * `GET /profiles/{profileId}/watchlist/market-data?symbols=`: market data of the given watchlist rows (1 to 50 [symbols])
+     * in watchlist order; symbols not in the watchlist are skipped.
+     */
+    suspend fun getWatchlistMarketData(profileId: ProfileId, symbols: List<Symbol>): ApiResult<List<MarketData>>
 
-    /** `PUT /profiles/{profileId}/watchlist/{symbol}`; idempotent. */
-    suspend fun addToWatchlist(profileId: ProfileId, symbol: Symbol): ApiResult<Unit>
+    /** `PUT /profiles/{profileId}/watchlist/{symbol}`; idempotent, returns the stored watchlist item. */
+    suspend fun addToWatchlist(profileId: ProfileId, symbol: Symbol): ApiResult<WatchlistItem>
 
     /** `DELETE /profiles/{profileId}/watchlist/{symbol}`; idempotent. */
     suspend fun removeFromWatchlist(profileId: ProfileId, symbol: Symbol): ApiResult<Unit>

@@ -1,11 +1,16 @@
 package com.sixteenscreener.app.testing
 
-import com.sixteenscreener.app.domain.model.CompanySummary
+import com.sixteenscreener.app.domain.model.CompanyIdentity
+import com.sixteenscreener.app.domain.model.DataStatus
+import com.sixteenscreener.app.domain.model.Indicator
 import com.sixteenscreener.app.domain.model.Market
+import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.Quote
+import com.sixteenscreener.app.domain.model.SearchItem
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
 import com.sixteenscreener.app.domain.model.Trend
+import com.sixteenscreener.app.domain.model.WatchlistItem
 import java.time.Instant
 
 object Companies {
@@ -23,23 +28,58 @@ object Companies {
         source = SourceId.FINNHUB,
     )
 
-    fun summary(
+    fun item(
         symbol: String = "AAPL",
         name: String = "Apple Inc.",
         exchange: String = "NASDAQ",
         market: Market? = Market.US,
         sector: String? = "Technology",
-        quote: Quote? = quote(),
-        inWatchlist: Boolean = true,
-    ) = CompanySummary(
+        tags: List<String> = emptyList(),
+    ) = WatchlistItem(
         symbol = Symbol(symbol),
         ticker = symbol.substringBefore('.'),
         exchange = exchange,
         name = name,
         market = market,
-        sector = sector,
         logoUrl = "/logos/$symbol",
-        quote = quote,
+        sector = sector,
+        tags = tags,
+    )
+
+    fun searchItem(
+        symbol: String = "AAPL",
+        name: String = "Apple Inc.",
+        exchange: String = "NASDAQ",
+        market: Market? = Market.US,
+        inWatchlist: Boolean = false,
+    ) = SearchItem(
+        symbol = Symbol(symbol),
+        ticker = symbol.substringBefore('.'),
+        exchange = exchange,
+        name = name,
+        market = market,
+        logoUrl = "/logos/$symbol",
         inWatchlist = inWatchlist,
     )
+
+    fun identity(
+        symbol: String = "AAPL",
+        name: String = "Apple Inc.",
+        exchange: String = "NASDAQ",
+        market: Market? = Market.US,
+    ) = CompanyIdentity(
+        symbol = Symbol(symbol),
+        ticker = symbol.substringBefore('.'),
+        exchange = exchange,
+        name = name,
+        market = market,
+        logoUrl = "/logos/$symbol",
+    )
+
+    fun marketData(
+        symbol: String = "AAPL",
+        status: DataStatus = DataStatus.FRESH,
+        quote: Quote? = quote(),
+        indicators: List<Indicator> = emptyList(),
+    ) = MarketData(Symbol(symbol), status, quote, indicators)
 }

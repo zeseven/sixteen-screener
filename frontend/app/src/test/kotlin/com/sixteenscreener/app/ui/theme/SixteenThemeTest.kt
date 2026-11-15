@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -65,7 +66,7 @@ class SixteenThemeTest {
     fun `light theme price colors use light variants and black for unchanged`() {
         captureTheme(darkTheme = false, dynamicColor = false)
 
-        assertEquals(PriceColors(up = PriceUpLight, down = PriceDownLight, unchanged = LightColorScheme.onSurface), priceColors)
+        assertEquals(PriceColors(up = PriceUpLight, down = PriceDownLight, unchanged = LightColorScheme.onSurface, loadFailed = LoadFailedLight), priceColors)
         assertEquals(Color.Black, priceColors.unchanged)
     }
 
@@ -73,7 +74,24 @@ class SixteenThemeTest {
     fun `dark theme price colors use dark variants and white for unchanged`() {
         captureTheme(darkTheme = true, dynamicColor = false)
 
-        assertEquals(PriceColors(up = PriceUpDark, down = PriceDownDark, unchanged = DarkColorScheme.onSurface), priceColors)
+        assertEquals(PriceColors(up = PriceUpDark, down = PriceDownDark, unchanged = DarkColorScheme.onSurface, loadFailed = LoadFailedDark), priceColors)
         assertEquals(Color.White, priceColors.unchanged)
+    }
+
+    @Test
+    @Config(sdk = [31])
+    fun `dynamic colors do not change the price and load failure colors`() {
+        captureTheme(darkTheme = true, dynamicColor = true)
+
+        assertEquals(PriceUpDark, priceColors.up)
+        assertEquals(PriceDownDark, priceColors.down)
+        assertEquals(LoadFailedDark, priceColors.loadFailed)
+    }
+
+    @Test
+    fun `load failure color differs from the price colors in both themes`() {
+        listOf(LoadFailedLight to listOf(PriceUpLight, PriceDownLight), LoadFailedDark to listOf(PriceUpDark, PriceDownDark))
+            .forEach { (loadFailed, priceColors) -> assertTrue(loadFailed !in priceColors) }
+        assertNotEquals(LoadFailedLight, LoadFailedDark)
     }
 }

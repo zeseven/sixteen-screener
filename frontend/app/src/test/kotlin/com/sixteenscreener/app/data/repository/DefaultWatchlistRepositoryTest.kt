@@ -3,11 +3,16 @@ package com.sixteenscreener.app.data.repository
 import com.sixteenscreener.app.domain.model.ActiveProfile
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
-import com.sixteenscreener.app.domain.model.CompanySummary
+import com.sixteenscreener.app.domain.model.DataStatus
+import com.sixteenscreener.app.domain.model.MarketData
+import com.sixteenscreener.app.domain.model.MarketDataLoad
 import com.sixteenscreener.app.domain.model.ProfileId
+import com.sixteenscreener.app.domain.model.RowMarketData
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.WatchlistItem
+import com.sixteenscreener.app.testing.Companies.item
+import com.sixteenscreener.app.testing.Companies.marketData
 import com.sixteenscreener.app.testing.Companies.quote
-import com.sixteenscreener.app.testing.Companies.summary
 import com.sixteenscreener.app.testing.FakeApiClient
 import com.sixteenscreener.app.testing.FakeProfileRepository
 import kotlinx.coroutines.CompletableDeferred
@@ -29,17 +34,24 @@ class DefaultWatchlistRepositoryTest {
     private val apiClient = FakeApiClient()
     private val profileRepository = FakeProfileRepository(profile)
 
-    private val apple = summary("AAPL")
-    private val sap = summary("SAP.DE", name = "SAP SE")
-    private val microsoft = summary("MSFT", name = "Microsoft", inWatchlist = false)
+    private val apple = item("AAPL")
+    private val sap = item("SAP.DE", name = "SAP SE")
+    private val microsoft = item("MSFT", name = "Microsoft", sector = null)
+    private val storedMicrosoft = microsoft.copy(sector = "Technology")
 
     private fun TestScope.repository() = DefaultWatchlistRepository(apiClient, profileRepository, backgroundScope)
 
     private fun runRepositoryTest(block: suspend TestScope.() -> Unit) = runTest(UnconfinedTestDispatcher()) { block() }
 
-    private fun stubWatchlist(vararg companies: CompanySummary) {
+    private fun stubWatchlist(vararg companies: WatchlistItem) {
         apiClient.getWatchlist = { ApiResult.Success(companies.toList()) }
     }
+
+    private fun stubMarketData(vararg rows: MarketData) {
+        apiClient.getWatchlistMarketData = { _, _ -> ApiResult.Success(rows.toList()) }
+    }
+
+    private fun loaded(row: MarketData) = RowMarketData(row.quote, row.indicators, MarketDataLoad.Loaded(row.status))
 
     @Test
     fun `nothing is known before the first load`() = runRepositoryTest {
@@ -47,6 +59,7 @@ class DefaultWatchlistRepositoryTest {
 
         assertNull(repository.watchlist.value)
         assertEquals(emptySet<Symbol>(), repository.watchlistSymbols.value)
+        assertEquals(emptyMap<Symbol, RowMarketData>(), repository.marketData.value)
     }
 
     @Test
@@ -94,118 +107,288 @@ class DefaultWatchlistRepositoryTest {
     }
 
     @Test
-    fun `refreshRows replaces the rows by symbol and keeps the order`() = runRepositoryTest {
+    fun `loadMarketData stores the received rows and requests the symbols in the given order`() = runRepositoryTest {
         stubWatchlist(apple, sap, microsoft)
-        val freshApple = apple.copy(quote = quote(price = 200.0))
-        val freshMicrosoft = microsoft.copy(quote = quote(price = 400.0))
-        apiClient.refreshWatchlistRows = { _, _ -> ApiResult.Success(listOf(freshApple, freshMicrosoft)) }
+        val appleData = marketData("AAPL", quote = quote(price = 200.0))
+        val microsoftData = marketData("MSFT", status = DataStatus.CACHED, quote = quote(price = 400.0))
+        stubMarketData(appleData, microsoftData)
         val repository = repository()
         repository.refresh()
 
-        val result = repository.refreshRows(listOf(microsoft.symbol, apple.symbol))
+        val result = repository.loadMarketData(listOf(microsoft.symbol, apple.symbol))
 
-        assertEquals(ApiResult.Success(listOf(freshApple, freshMicrosoft)), result)
-        assertEquals(listOf(freshApple, sap, freshMicrosoft), repository.watchlist.value)
-        assertEquals("refreshWatchlistRows(p1, MSFT,AAPL)", apiClient.calls.last())
+        assertEquals(ApiResult.Success(listOf(appleData, microsoftData)), result)
+        assertEquals(mapOf(apple.symbol to loaded(appleData), microsoft.symbol to loaded(microsoftData)), repository.marketData.value)
+        assertEquals(listOf(apple, sap, microsoft), repository.watchlist.value)
+        assertEquals("getWatchlistMarketData(p1, MSFT,AAPL)", apiClient.calls.last())
     }
 
     @Test
-    fun `refreshRows does not bring back a row removed meanwhile`() = runRepositoryTest {
+    fun `loadMarketData marks the rows as loading until the response arrives`() = runRepositoryTest {
         stubWatchlist(apple, sap)
-        val response = CompletableDeferred<ApiResult<List<CompanySummary>>>()
-        apiClient.refreshWatchlistRows = { _, _ -> response.await() }
-        apiClient.removeFromWatchlist = { _, _ -> ApiResult.Success(Unit) }
+        val response = CompletableDeferred<ApiResult<List<MarketData>>>()
+        apiClient.getWatchlistMarketData = { _, _ -> response.await() }
         val repository = repository()
         repository.refresh()
 
-        val call = async { repository.refreshRows(listOf(apple.symbol, sap.symbol)) }
-        repository.remove(apple.symbol)
-        val freshSap = sap.copy(quote = quote(price = 250.0))
-        response.complete(ApiResult.Success(listOf(apple.copy(quote = quote(price = 1.0)), freshSap)))
-        call.await()
+        val call = async { repository.loadMarketData(listOf(apple.symbol)) }
 
-        assertEquals(listOf(freshSap), repository.watchlist.value)
-        assertEquals(setOf(sap.symbol), repository.watchlistSymbols.value)
+        assertEquals(mapOf(apple.symbol to RowMarketData()), repository.marketData.value)
+        val appleData = marketData("AAPL")
+        response.complete(ApiResult.Success(listOf(appleData)))
+        call.await()
+        assertEquals(mapOf(apple.symbol to loaded(appleData)), repository.marketData.value)
     }
 
     @Test
-    fun `refreshRows ignores rows not in the watchlist`() = runRepositoryTest {
+    fun `reloading market data keeps the previous values while loading`() = runRepositoryTest {
         stubWatchlist(apple)
-        apiClient.refreshWatchlistRows = { _, _ -> ApiResult.Success(listOf(microsoft)) }
+        val first = marketData("AAPL", quote = quote(price = 200.0))
+        stubMarketData(first)
+        val repository = repository()
+        repository.refresh()
+        repository.loadMarketData(listOf(apple.symbol))
+        val response = CompletableDeferred<ApiResult<List<MarketData>>>()
+        apiClient.getWatchlistMarketData = { _, _ -> response.await() }
+
+        val call = async { repository.loadMarketData(listOf(apple.symbol)) }
+
+        assertEquals(RowMarketData(first.quote, lastLoad = MarketDataLoad.Loading), repository.marketData.value[apple.symbol])
+        response.complete(ApiResult.Failure(ApiError.Network(isTimeout = true)))
+        call.await()
+    }
+
+    @Test
+    fun `failed loadMarketData marks the rows as failed and keeps the previous values`() = runRepositoryTest {
+        stubWatchlist(apple, sap)
+        val appleData = marketData("AAPL", quote = quote(price = 200.0))
+        stubMarketData(appleData)
+        val repository = repository()
+        repository.refresh()
+        repository.loadMarketData(listOf(apple.symbol))
+        apiClient.getWatchlistMarketData = { _, _ -> ApiResult.Failure(ApiError.Network(isTimeout = false)) }
+
+        val result = repository.loadMarketData(listOf(apple.symbol, sap.symbol))
+
+        assertEquals(ApiResult.Failure(ApiError.Network(isTimeout = false)), result)
+        assertEquals(
+            mapOf(
+                apple.symbol to RowMarketData(appleData.quote, lastLoad = MarketDataLoad.Failed),
+                sap.symbol to RowMarketData(lastLoad = MarketDataLoad.Failed),
+            ),
+            repository.marketData.value,
+        )
+    }
+
+    @Test
+    fun `error response of the backend marks the rows as failed`() = runRepositoryTest {
+        stubWatchlist(apple)
+        apiClient.getWatchlistMarketData = { _, _ -> ApiResult.Failure(ApiError.Http(500, null)) }
         val repository = repository()
         repository.refresh()
 
-        repository.refreshRows(listOf(microsoft.symbol))
+        repository.loadMarketData(listOf(apple.symbol))
 
+        assertEquals(RowMarketData(lastLoad = MarketDataLoad.Failed), repository.marketData.value[apple.symbol])
+    }
+
+    @Test
+    fun `limit reached keeps the previous quote when no cached quote is returned`() = runRepositoryTest {
+        stubWatchlist(apple)
+        val first = marketData("AAPL", quote = quote(price = 200.0))
+        stubMarketData(first)
+        val repository = repository()
+        repository.refresh()
+        repository.loadMarketData(listOf(apple.symbol))
+        stubMarketData(marketData("AAPL", status = DataStatus.LIMIT_REACHED, quote = null))
+
+        repository.loadMarketData(listOf(apple.symbol))
+
+        assertEquals(
+            RowMarketData(first.quote, lastLoad = MarketDataLoad.Loaded(DataStatus.LIMIT_REACHED)),
+            repository.marketData.value[apple.symbol],
+        )
+    }
+
+    @Test
+    fun `rows skipped by the backend are marked as failed`() = runRepositoryTest {
+        stubWatchlist(apple, sap)
+        val appleData = marketData("AAPL")
+        stubMarketData(appleData)
+        val repository = repository()
+        repository.refresh()
+
+        repository.loadMarketData(listOf(apple.symbol, sap.symbol))
+
+        assertEquals(
+            mapOf(apple.symbol to loaded(appleData), sap.symbol to RowMarketData(lastLoad = MarketDataLoad.Failed)),
+            repository.marketData.value,
+        )
+    }
+
+    @Test
+    fun `loadMarketData ignores rows not in the watchlist`() = runRepositoryTest {
+        stubWatchlist(apple)
+        stubMarketData(marketData("MSFT"))
+        val repository = repository()
+        repository.refresh()
+
+        repository.loadMarketData(listOf(microsoft.symbol))
+
+        assertEquals(emptyMap<Symbol, RowMarketData>(), repository.marketData.value)
         assertEquals(listOf(apple), repository.watchlist.value)
     }
 
     @Test
-    fun `failed refreshRows keeps the cached rows`() = runRepositoryTest {
+    fun `loadMarketData does not bring back a row removed meanwhile`() = runRepositoryTest {
         stubWatchlist(apple, sap)
-        apiClient.refreshWatchlistRows = { _, _ -> ApiResult.Failure(ApiError.Network(isTimeout = false)) }
+        val response = CompletableDeferred<ApiResult<List<MarketData>>>()
+        apiClient.getWatchlistMarketData = { _, _ -> response.await() }
+        apiClient.removeFromWatchlist = { _, _ -> ApiResult.Success(Unit) }
         val repository = repository()
         repository.refresh()
 
-        val result = repository.refreshRows(listOf(apple.symbol))
-
-        assertEquals(ApiResult.Failure(ApiError.Network(isTimeout = false)), result)
-        assertEquals(listOf(apple, sap), repository.watchlist.value)
-    }
-
-    @Test
-    fun `refreshRows of a previous profile is ignored`() = runRepositoryTest {
-        apiClient.getWatchlist = { profileId -> ApiResult.Success(if (profileId.value == "p1") listOf(apple) else listOf(apple, sap)) }
-        val response = CompletableDeferred<ApiResult<List<CompanySummary>>>()
-        apiClient.refreshWatchlistRows = { _, _ -> response.await() }
-        val repository = repository()
-        repository.refresh()
-
-        val call = async { repository.refreshRows(listOf(apple.symbol)) }
-        profileRepository.currentProfile.value = ActiveProfile(ProfileId("p2"), "Other")
-        repository.refresh()
-        response.complete(ApiResult.Success(listOf(apple.copy(quote = quote(price = 1.0)))))
+        val call = async { repository.loadMarketData(listOf(apple.symbol, sap.symbol)) }
+        repository.remove(apple.symbol)
+        val sapData = marketData("SAP.DE", quote = quote(price = 250.0))
+        response.complete(ApiResult.Success(listOf(marketData("AAPL"), sapData)))
         call.await()
 
-        assertEquals(listOf(apple, sap), repository.watchlist.value)
+        assertEquals(mapOf(sap.symbol to loaded(sapData)), repository.marketData.value)
+        assertEquals(listOf(sap), repository.watchlist.value)
     }
 
     @Test
-    fun `refreshRows not found clears the stored profile`() = runRepositoryTest {
+    fun `market data is kept across watchlist reloads`() = runRepositoryTest {
+        stubWatchlist(apple, sap)
+        val appleData = marketData("AAPL")
+        stubMarketData(appleData)
+        val repository = repository()
+        repository.refresh()
+        repository.loadMarketData(listOf(apple.symbol))
+
+        repository.refresh()
+
+        assertEquals(mapOf(apple.symbol to loaded(appleData)), repository.marketData.value)
+    }
+
+    @Test
+    fun `reload drops market data of rows no longer in the watchlist`() = runRepositoryTest {
+        stubWatchlist(apple, sap)
+        stubMarketData(marketData("AAPL"), marketData("SAP.DE"))
+        val repository = repository()
+        repository.refresh()
+        repository.loadMarketData(listOf(apple.symbol, sap.symbol))
+        stubWatchlist(sap)
+
+        repository.refresh()
+
+        assertEquals(setOf(sap.symbol), repository.marketData.value.keys)
+    }
+
+    @Test
+    fun `remove drops the market data of the row and a failed remove restores it`() = runRepositoryTest {
+        stubWatchlist(apple, sap)
+        val appleData = marketData("AAPL")
+        stubMarketData(appleData)
+        val response = CompletableDeferred<ApiResult<Unit>>()
+        apiClient.removeFromWatchlist = { _, _ -> response.await() }
+        val repository = repository()
+        repository.refresh()
+        repository.loadMarketData(listOf(apple.symbol))
+
+        val call = async { repository.remove(apple.symbol) }
+
+        assertEquals(emptyMap<Symbol, RowMarketData>(), repository.marketData.value)
+        response.complete(ApiResult.Failure(ApiError.Network(isTimeout = false)))
+        call.await()
+        assertEquals(mapOf(apple.symbol to loaded(appleData)), repository.marketData.value)
+    }
+
+    @Test
+    fun `profile change drops the market data`() = runRepositoryTest {
         stubWatchlist(apple)
-        apiClient.refreshWatchlistRows = { _, _ -> ApiResult.Failure(ApiError.NotFound(null)) }
+        stubMarketData(marketData("AAPL"))
+        val repository = repository()
+        repository.refresh()
+        repository.loadMarketData(listOf(apple.symbol))
+
+        profileRepository.currentProfile.value = ActiveProfile(ProfileId("p2"), "Other")
+
+        assertEquals(emptyMap<Symbol, RowMarketData>(), repository.marketData.value)
+    }
+
+    @Test
+    fun `market data of the previous profile is not kept when the new watchlist loads before the change is observed`() = runTest {
+        apiClient.getWatchlist = { ApiResult.Success(listOf(apple)) }
+        stubMarketData(marketData("AAPL"))
+        val repository = DefaultWatchlistRepository(apiClient, profileRepository, backgroundScope)
+        runCurrent()
+        repository.refresh()
+        repository.loadMarketData(listOf(apple.symbol))
+
+        profileRepository.currentProfile.value = ActiveProfile(ProfileId("p2"), "Other")
+        repository.refresh()
+        runCurrent()
+
+        assertEquals(listOf(apple), repository.watchlist.value)
+        assertEquals(emptyMap<Symbol, RowMarketData>(), repository.marketData.value)
+    }
+
+    @Test
+    fun `loadMarketData of a previous profile is ignored`() = runRepositoryTest {
+        apiClient.getWatchlist = { ApiResult.Success(listOf(apple)) }
+        val response = CompletableDeferred<ApiResult<List<MarketData>>>()
+        apiClient.getWatchlistMarketData = { _, _ -> response.await() }
         val repository = repository()
         repository.refresh()
 
-        repository.refreshRows(listOf(apple.symbol))
+        val call = async { repository.loadMarketData(listOf(apple.symbol)) }
+        profileRepository.currentProfile.value = ActiveProfile(ProfileId("p2"), "Other")
+        repository.refresh()
+        response.complete(ApiResult.Success(listOf(marketData("AAPL"))))
+        call.await()
+
+        assertEquals(emptyMap<Symbol, RowMarketData>(), repository.marketData.value)
+    }
+
+    @Test
+    fun `loadMarketData not found clears the stored profile`() = runRepositoryTest {
+        stubWatchlist(apple)
+        apiClient.getWatchlistMarketData = { _, _ -> ApiResult.Failure(ApiError.NotFound(null)) }
+        val repository = repository()
+        repository.refresh()
+
+        repository.loadMarketData(listOf(apple.symbol))
 
         assertNull(profileRepository.currentProfile.value)
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun `refreshRows rejects more than 50 symbols`() = runRepositoryTest {
-        repository().refreshRows((0..50).map { Symbol("S$it") })
+    fun `loadMarketData rejects more than 50 symbols`() = runRepositoryTest {
+        repository().loadMarketData((0..50).map { Symbol("S$it") })
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun `refreshRows rejects an empty symbol list`() = runRepositoryTest {
-        repository().refreshRows(emptyList())
+    fun `loadMarketData rejects an empty symbol list`() = runRepositoryTest {
+        repository().loadMarketData(emptyList())
     }
 
     @Test
-    fun `add shows the company at once and keeps it on success`() = runRepositoryTest {
+    fun `add shows the company at once and replaces it with the stored item on success`() = runRepositoryTest {
         stubWatchlist(apple)
-        val response = CompletableDeferred<ApiResult<Unit>>()
+        val response = CompletableDeferred<ApiResult<WatchlistItem>>()
         apiClient.addToWatchlist = { _, _ -> response.await() }
         val repository = repository()
         repository.refresh()
 
         val call = async { repository.add(microsoft) }
 
-        assertEquals(listOf(apple, microsoft.copy(inWatchlist = true)), repository.watchlist.value)
+        assertEquals(listOf(apple, microsoft), repository.watchlist.value)
         assertEquals(setOf(apple.symbol, microsoft.symbol), repository.watchlistSymbols.value)
-        response.complete(ApiResult.Success(Unit))
-        assertEquals(ApiResult.Success(Unit), call.await())
+        response.complete(ApiResult.Success(storedMicrosoft))
+        assertEquals(ApiResult.Success(storedMicrosoft), call.await())
+        assertEquals(listOf(apple, storedMicrosoft), repository.watchlist.value)
         assertEquals(setOf(apple.symbol, microsoft.symbol), repository.watchlistSymbols.value)
         assertEquals(listOf("getWatchlist(p1)", "addToWatchlist(p1, MSFT)"), apiClient.calls)
     }
@@ -213,7 +396,7 @@ class DefaultWatchlistRepositoryTest {
     @Test
     fun `add at an index restores the original position`() = runRepositoryTest {
         stubWatchlist(apple, microsoft)
-        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(Unit) }
+        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(sap) }
         val repository = repository()
         repository.refresh()
 
@@ -237,6 +420,35 @@ class DefaultWatchlistRepositoryTest {
     }
 
     @Test
+    fun `add of a company already in the watchlist updates it with the stored item`() = runRepositoryTest {
+        stubWatchlist(apple, microsoft)
+        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(storedMicrosoft) }
+        val repository = repository()
+        repository.refresh()
+
+        repository.add(microsoft)
+
+        assertEquals(listOf(apple, storedMicrosoft), repository.watchlist.value)
+    }
+
+    @Test
+    fun `stored item of a previous profile is not inserted`() = runRepositoryTest {
+        apiClient.getWatchlist = { profileId -> ApiResult.Success(if (profileId.value == "p1") listOf(apple) else listOf(sap)) }
+        val response = CompletableDeferred<ApiResult<WatchlistItem>>()
+        apiClient.addToWatchlist = { _, _ -> response.await() }
+        val repository = repository()
+        repository.refresh()
+
+        val call = async { repository.add(microsoft) }
+        profileRepository.currentProfile.value = ActiveProfile(ProfileId("p2"), "Other")
+        repository.refresh()
+        response.complete(ApiResult.Success(storedMicrosoft))
+        call.await()
+
+        assertEquals(listOf(sap), repository.watchlist.value)
+    }
+
+    @Test
     fun `failed add of a company already in the watchlist keeps it`() = runRepositoryTest {
         stubWatchlist(apple)
         apiClient.addToWatchlist = { _, _ -> ApiResult.Failure(ApiError.Network(isTimeout = false)) }
@@ -250,7 +462,7 @@ class DefaultWatchlistRepositoryTest {
 
     @Test
     fun `add before the first load is reflected in the symbols`() = runRepositoryTest {
-        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(Unit) }
+        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(storedMicrosoft) }
         val repository = repository()
 
         repository.add(microsoft)
@@ -294,7 +506,7 @@ class DefaultWatchlistRepositoryTest {
         stubWatchlist(apple)
         val removeResponse = CompletableDeferred<ApiResult<Unit>>()
         apiClient.removeFromWatchlist = { _, _ -> removeResponse.await() }
-        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(Unit) }
+        apiClient.addToWatchlist = { _, _ -> ApiResult.Success(apple) }
         val repository = repository()
         repository.refresh()
 
@@ -323,7 +535,7 @@ class DefaultWatchlistRepositoryTest {
 
     @Test
     fun `response for a previous profile is ignored`() = runRepositoryTest {
-        val response = CompletableDeferred<ApiResult<List<CompanySummary>>>()
+        val response = CompletableDeferred<ApiResult<List<WatchlistItem>>>()
         apiClient.getWatchlist = { response.await() }
         val repository = repository()
 

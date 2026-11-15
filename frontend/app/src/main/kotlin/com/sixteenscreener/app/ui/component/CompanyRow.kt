@@ -25,10 +25,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.sixteenscreener.app.R
 import com.sixteenscreener.app.domain.DisplaySymbols
-import com.sixteenscreener.app.domain.NumberFormats
-import com.sixteenscreener.app.domain.model.CompanySummary
+import com.sixteenscreener.app.domain.model.Company
+import com.sixteenscreener.app.domain.model.CompanyIdentity
+import com.sixteenscreener.app.domain.model.DataStatus
 import com.sixteenscreener.app.domain.model.Market
+import com.sixteenscreener.app.domain.model.MarketDataLoad
 import com.sixteenscreener.app.domain.model.Quote
+import com.sixteenscreener.app.domain.model.RowMarketData
 import com.sixteenscreener.app.domain.model.Symbol
 import com.sixteenscreener.app.domain.model.Trend
 import com.sixteenscreener.app.ui.theme.SixteenTheme
@@ -40,17 +43,20 @@ object CompanyRowTags {
     const val FLAG = "company_row_flag"
     const val PRICE = "company_row_price"
     const val CACHE_INDICATOR = "company_row_cache_indicator"
+    const val INDICATORS = "company_row_indicators"
 }
 
 /**
- * Company row: logo | ticker over exchange | name (at most half the row width) with the market flag | price over cache indicator | [action].
+ * Company row: logo | ticker over exchange | name (at most half the row width) with the market flag | [marketData] | [action].
+ * [marketData] shows the price and indicators, e.g. [WatchlistMarketData]; search rows have none.
  * The row opens the detailed screen with [onClick]; it is not clickable when [onClick] is `null`.
  */
 @Composable
 fun CompanyRow(
-    company: CompanySummary,
+    company: Company,
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    marketData: (@Composable RowScope.() -> Unit)? = null,
     action: @Composable RowScope.() -> Unit = {},
 ) {
     BoxWithConstraints(
@@ -82,7 +88,7 @@ fun CompanyRow(
                 nameMaxWidth = nameMaxWidth,
                 modifier = Modifier.weight(1f),
             )
-            PriceAndCacheIndicator(quote = company.quote)
+            marketData?.invoke(this)
             action()
         }
     }
@@ -139,44 +145,22 @@ private fun marketDescription(market: Market?): String = when (market) {
     null -> ""
 }
 
-@Composable
-private fun PriceAndCacheIndicator(quote: Quote?) {
-    Column(horizontalAlignment = Alignment.End) {
-        if (quote == null) {
-            val noPrice = stringResource(R.string.company_no_price)
-            Text(
-                text = NumberFormats.MISSING,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier
-                    .semantics { contentDescription = noPrice }
-                    .testTag(CompanyRowTags.PRICE),
-            )
-            SecondaryText(text = NumberFormats.MISSING, modifier = Modifier.testTag(CompanyRowTags.CACHE_INDICATOR))
-        } else {
-            QuotePrice(quote, modifier = Modifier.testTag(CompanyRowTags.PRICE))
-            QuoteCacheIndicator(quote, modifier = Modifier.testTag(CompanyRowTags.CACHE_INDICATOR))
-        }
-    }
-}
-
 @Preview(showBackground = true)
 @Composable
 private fun CompanyRowPreview() {
     SixteenTheme(dynamicColor = false) {
         Surface {
             CompanyRow(
-                company = CompanySummary(
-                    symbol = Symbol("AAPL"),
-                    ticker = "AAPL",
-                    exchange = "NASDAQ",
-                    name = "Apple Inc.",
-                    market = Market.US,
-                    sector = "Technology",
-                    logoUrl = "/logos/AAPL",
-                    quote = Quote(189.84, "USD", Instant.now().minusSeconds(90_000), 187.5, Trend.UP, null),
-                    inWatchlist = true,
-                ),
+                company = CompanyIdentity(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc.", Market.US, "/logos/AAPL"),
                 onClick = {},
+                marketData = {
+                    WatchlistMarketData(
+                        RowMarketData(
+                            quote = Quote(189.84, "USD", Instant.now().minusSeconds(90_000), 187.5, Trend.UP, null),
+                            lastLoad = MarketDataLoad.Loaded(DataStatus.CACHED),
+                        ),
+                    )
+                },
                 action = { CompanyDetailsButton(companyName = "Apple Inc.", onClick = {}) },
             )
         }

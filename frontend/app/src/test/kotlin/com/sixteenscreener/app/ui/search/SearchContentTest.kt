@@ -10,10 +10,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sixteenscreener.app.domain.model.ApiError
-import com.sixteenscreener.app.domain.model.CompanySummary
+import com.sixteenscreener.app.domain.model.SearchItem
 import com.sixteenscreener.app.domain.model.ProblemDetails
 import com.sixteenscreener.app.testing.AccessibilityMatchers
-import com.sixteenscreener.app.testing.Companies.summary
+import com.sixteenscreener.app.testing.Companies.searchItem
+import com.sixteenscreener.app.ui.component.CompanyRowTags
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -26,12 +27,12 @@ class SearchContentTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private val apple = summary("AAPL", name = "Apple Inc.", inWatchlist = false)
-    private val microsoft = summary("MSFT", name = "Microsoft", inWatchlist = true)
+    private val apple = searchItem("AAPL", name = "Apple Inc.", inWatchlist = false)
+    private val microsoft = searchItem("MSFT", name = "Microsoft", inWatchlist = true)
 
     private val typed = mutableListOf<String>()
-    private val added = mutableListOf<CompanySummary>()
-    private val opened = mutableListOf<CompanySummary>()
+    private val added = mutableListOf<SearchItem>()
+    private val opened = mutableListOf<SearchItem>()
     private val shown = mutableListOf<AddFailedMessage>()
 
     private fun setContent(uiState: SearchUiState) = composeRule.setContent {
@@ -97,6 +98,16 @@ class SearchContentTest {
 
         assertEquals(listOf(apple), added)
         assertEquals(listOf(apple), opened)
+    }
+
+    @Test
+    fun `search rows have no price, indicators or cache indicator`() {
+        setContent(SearchUiState(query = "app", results = listOf(apple, microsoft)))
+
+        composeRule.onNodeWithText("Apple Inc.", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(CompanyRowTags.PRICE, useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithTag(CompanyRowTags.INDICATORS, useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithTag(CompanyRowTags.CACHE_INDICATOR, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test

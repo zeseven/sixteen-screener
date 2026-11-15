@@ -1,0 +1,50 @@
+{
+  "items": [
+    {
+      "symbol": "AAPL",
+      "status": "FRESH",
+      "quote": {
+        "price": 229.1,
+        "currency": "USD",
+        "fetchedAt": "2026-11-15T10:05:00Z",
+        "previousCachedPrice": 228.52,
+        "trend": "UP",
+        "source": "finnhub"
+      },
+      "indicators": [
+        { "ratioCode": "PE", "name": "P/E", "level": "WARNING" }
+      ]
+    },
+    {
+      "symbol": "SAP.DE",
+      "status": "LIMIT_REACHED",
+      "quote": {
+        "price": 241.35,
+        "currency": "EUR",
+        "fetchedAt": "2026-11-12T09:15:00Z",
+        "trend": "DOWN"
+      },
+      "indicators": []
+    },
+    {
+      "symbol": "7203.T",
+      "status": "NO_DATA",
+      "quote": null,
+      "indicators": []
+    },
+    {
+      "symbol": "NESN.SW",
+      "status": "SOURCE_ERROR",
+      "quote": null,
+      "indicators": []
+    },
+    {
+      "symbol": "SHEL.L",
+      "status": "NOT_SUPPORTED",
+      "quote": null,
+      "indicators": [
+        { "ratioCode": "ROE", "name": "ROE", "level": "EXCELLENT" }
+      ]
+    }
+  ]
+}

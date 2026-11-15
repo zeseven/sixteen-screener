@@ -4,7 +4,7 @@ import com.sixteenscreener.app.data.remote.ApiClient
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfileData
-import com.sixteenscreener.app.domain.model.CompanySummary
+import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.Profile
 import com.sixteenscreener.app.domain.model.ProfileId
@@ -12,6 +12,7 @@ import com.sixteenscreener.app.domain.model.SearchResults
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.WatchlistItem
 
 class FakeApiClient : ApiClient {
 
@@ -19,9 +20,9 @@ class FakeApiClient : ApiClient {
 
     var getOrCreateProfile: suspend (String) -> ApiResult<Profile> = { notStubbed() }
     var getProfile: suspend (ProfileId) -> ApiResult<Profile> = { notStubbed() }
-    var getWatchlist: suspend (ProfileId) -> ApiResult<List<CompanySummary>> = { notStubbed() }
-    var refreshWatchlistRows: suspend (ProfileId, List<Symbol>) -> ApiResult<List<CompanySummary>> = { _, _ -> notStubbed() }
-    var addToWatchlist: suspend (ProfileId, Symbol) -> ApiResult<Unit> = { _, _ -> notStubbed() }
+    var getWatchlist: suspend (ProfileId) -> ApiResult<List<WatchlistItem>> = { notStubbed() }
+    var getWatchlistMarketData: suspend (ProfileId, List<Symbol>) -> ApiResult<List<MarketData>> = { _, _ -> notStubbed() }
+    var addToWatchlist: suspend (ProfileId, Symbol) -> ApiResult<WatchlistItem> = { _, _ -> notStubbed() }
     var removeFromWatchlist: suspend (ProfileId, Symbol) -> ApiResult<Unit> = { _, _ -> notStubbed() }
     var search: suspend (ProfileId, String) -> ApiResult<SearchResults> = { _, _ -> notStubbed() }
     var getPriceAndRatios: suspend (ProfileId, Symbol, SourceId?, Boolean) -> ApiResult<PriceAndRatios> =
@@ -39,9 +40,9 @@ class FakeApiClient : ApiClient {
     override suspend fun getWatchlist(profileId: ProfileId) =
         record("getWatchlist(${profileId.value})") { getWatchlist.invoke(profileId) }
 
-    override suspend fun refreshWatchlistRows(profileId: ProfileId, symbols: List<Symbol>) =
-        record("refreshWatchlistRows(${profileId.value}, ${symbols.joinToString(",") { it.value }})") {
-            refreshWatchlistRows.invoke(profileId, symbols)
+    override suspend fun getWatchlistMarketData(profileId: ProfileId, symbols: List<Symbol>) =
+        record("getWatchlistMarketData(${profileId.value}, ${symbols.joinToString(",") { it.value }})") {
+            getWatchlistMarketData.invoke(profileId, symbols)
         }
 
     override suspend fun addToWatchlist(profileId: ProfileId, symbol: Symbol) =

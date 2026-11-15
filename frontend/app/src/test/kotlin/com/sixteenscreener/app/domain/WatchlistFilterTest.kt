@@ -1,18 +1,18 @@
 package com.sixteenscreener.app.domain
 
 import com.sixteenscreener.app.domain.model.Market
-import com.sixteenscreener.app.testing.Companies.summary
+import com.sixteenscreener.app.testing.Companies.item
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class WatchlistFilterTest {
 
-    private val apple = summary("AAPL", market = Market.US, sector = "Technology")
-    private val jpm = summary("JPM", market = Market.US, sector = "Financial Services")
-    private val sap = summary("SAP.DE", market = Market.EU, sector = "Technology")
-    private val shell = summary("SHEL.L", market = Market.EU, sector = null)
-    private val toyota = summary("7203.T", market = null, sector = "Automobiles")
-    private val unknown = summary("XYZ.HK", market = null, sector = null)
+    private val apple = item("AAPL", market = Market.US, sector = "Technology")
+    private val jpm = item("JPM", market = Market.US, sector = "Financial Services")
+    private val sap = item("SAP.DE", market = Market.EU, sector = "Technology")
+    private val shell = item("SHEL.L", market = Market.EU, sector = null)
+    private val toyota = item("7203.T", market = null, sector = "Automobiles")
+    private val unknown = item("XYZ.HK", market = null, sector = null)
     private val companies = listOf(apple, jpm, sap, shell, toyota, unknown)
 
     private fun symbols(filter: WatchlistFilter) = filter.apply(companies).map { it.symbol.value }
@@ -55,8 +55,8 @@ class WatchlistFilterTest {
 
     @Test
     fun `sectors are distinct sorted and exclude null and blank`() {
-        val withDuplicates = companies + summary("MSFT", sector = "Technology") + summary("BLANK", sector = " ") +
-            summary("LOW", sector = "banks")
+        val withDuplicates = companies + item("MSFT", sector = "Technology") + item("BLANK", sector = " ") +
+            item("LOW", sector = "banks")
 
         assertEquals(listOf("Automobiles", "banks", "Financial Services", "Technology"), WatchlistFilter.sectorsOf(withDuplicates))
     }

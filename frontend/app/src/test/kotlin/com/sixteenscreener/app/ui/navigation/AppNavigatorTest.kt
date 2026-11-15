@@ -3,7 +3,9 @@ package com.sixteenscreener.app.ui.navigation
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.sixteenscreener.app.domain.model.Symbol
-import com.sixteenscreener.app.testing.Companies.summary
+import com.sixteenscreener.app.testing.Companies.identity
+import com.sixteenscreener.app.testing.Companies.item
+import com.sixteenscreener.app.testing.Companies.searchItem
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -19,22 +21,30 @@ class AppNavigatorTest {
     }
 
     @Test
-    fun `detail opened from a row carries the summary`() {
+    fun `detail opened from a watchlist row carries the company identity`() {
         val navigator = navigator(MainRoute)
-        val apple = summary("AAPL")
 
-        navigator.openDetail(apple)
+        navigator.openDetail(item("AAPL", sector = "Technology", tags = listOf("core")), inWatchlist = true)
 
-        assertEquals(listOf(MainRoute, DetailRoute(Symbol("AAPL"), apple)), navigator.backStack.toList())
+        assertEquals(listOf(MainRoute, DetailRoute(Symbol("AAPL"), identity("AAPL"), initiallyInWatchlist = true)), navigator.backStack.toList())
     }
 
     @Test
-    fun `detail opened by symbol has no summary`() {
+    fun `detail opened from a search row carries the company identity and the watchlist marker`() {
+        val navigator = navigator(MainRoute)
+
+        navigator.openDetail(searchItem("AAPL"), inWatchlist = false)
+
+        assertEquals(DetailRoute(Symbol("AAPL"), identity("AAPL"), initiallyInWatchlist = false), navigator.currentRoute)
+    }
+
+    @Test
+    fun `detail opened by symbol has no company`() {
         val navigator = navigator(MainRoute)
 
         navigator.openDetail(Symbol("MSFT"))
 
-        assertEquals(DetailRoute(Symbol("MSFT"), initialSummary = null), navigator.currentRoute)
+        assertEquals(DetailRoute(Symbol("MSFT"), initialCompany = null), navigator.currentRoute)
     }
 
     @Test
@@ -101,14 +111,14 @@ class AppNavigatorTest {
     }
 
     @Test
-    fun `detail route with summary survives serialization`() {
-        val route = DetailRoute(Symbol("SAP.DE"), summary("SAP.DE", market = null, sector = null, quote = null))
+    fun `detail route with company survives serialization`() {
+        val route = DetailRoute(Symbol("SAP.DE"), identity("SAP.DE", market = null), initiallyInWatchlist = true)
 
         assertEquals(route, Json.decodeFromString<DetailRoute>(Json.encodeToString(route)))
     }
 
     @Test
-    fun `detail route without summary survives serialization`() {
+    fun `detail route without company survives serialization`() {
         val route = DetailRoute(Symbol("AAPL"))
 
         assertEquals(route, Json.decodeFromString<DetailRoute>(Json.encodeToString(route)))

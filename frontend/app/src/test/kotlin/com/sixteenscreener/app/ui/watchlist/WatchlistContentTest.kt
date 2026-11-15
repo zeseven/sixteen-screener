@@ -1,6 +1,8 @@
 package com.sixteenscreener.app.ui.watchlist
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -10,8 +12,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sixteenscreener.app.domain.MarketFilter
 import com.sixteenscreener.app.domain.VisibleRows
 import com.sixteenscreener.app.domain.model.ApiError
-import com.sixteenscreener.app.domain.model.CompanySummary
-import com.sixteenscreener.app.testing.Companies.summary
+import com.sixteenscreener.app.domain.model.MarketDataLoad
+import com.sixteenscreener.app.domain.model.RowMarketData
+import com.sixteenscreener.app.domain.model.WatchlistItem
+import com.sixteenscreener.app.testing.Companies.item
+import com.sixteenscreener.app.testing.Companies.quote
+import com.sixteenscreener.app.ui.component.CompanyRowTags
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -25,10 +31,10 @@ class WatchlistContentTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private val apple = summary("AAPL", name = "Apple Inc.")
+    private val apple = item("AAPL", name = "Apple Inc.")
 
-    private val opened = mutableListOf<CompanySummary>()
-    private val removed = mutableListOf<CompanySummary>()
+    private val opened = mutableListOf<WatchlistItem>()
+    private val removed = mutableListOf<WatchlistItem>()
     private val undone = mutableListOf<WatchlistMessage.Removed>()
     private val shown = mutableListOf<WatchlistMessage>()
     private val markets = mutableListOf<MarketFilter>()
@@ -53,7 +59,7 @@ class WatchlistContentTest {
         }
     }
 
-    private fun loaded(vararg companies: CompanySummary) = WatchlistUiState(
+    private fun loaded(vararg companies: WatchlistItem) = WatchlistUiState(
         companies = companies.toList(),
         isLoaded = true,
         hasCompanies = companies.isNotEmpty(),
@@ -90,6 +96,17 @@ class WatchlistContentTest {
 
         assertEquals(listOf(apple), opened)
         assertEquals(listOf(apple), removed)
+    }
+
+    @Test
+    fun `rows show the market data of their symbol and dashes without one`() {
+        val sap = item("SAP.DE", name = "SAP SE")
+        val appleData = RowMarketData(quote(price = 200.0), lastLoad = MarketDataLoad.Loading)
+        setContent(loaded(apple, sap).copy(marketData = mapOf(apple.symbol to appleData)))
+
+        val prices = composeRule.onAllNodesWithTag(CompanyRowTags.PRICE, useUnmergedTree = true)
+        prices[0].assertTextEquals("200.00 USD")
+        prices[1].assertTextEquals("-")
     }
 
     @Test
@@ -135,7 +152,7 @@ class WatchlistContentTest {
 
     @Test
     fun `visible rows are reported when shown and after scrolling`() {
-        val companies = (0 until 40).map { summary("S$it", name = "Company $it") }
+        val companies = (0 until 40).map { item("S$it", name = "Company $it") }
         setContent(loaded(*companies.toTypedArray()))
         composeRule.waitForIdle()
 
