@@ -68,7 +68,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 
 ### Search screen
 - [x] Search by ticker or first letters of a company name using the default source
-- [ ] Search starts from the first letter, then on each typed letter, throttled to max 1 request per second; 1- and 2-letter queries match tickers only; at most 25 results
+- [x] Search starts from the first letter, then on each typed letter, throttled to max 1 request per second; 1- and 2-letter queries match tickers only; at most 25 results
 - [x] Results displayed as a company list; each result can be added to the watchlist
 - [x] Source limit reached or source failure: empty result list with the reason shown under the search box (search status returned by the backend)
 - [x] Open detailed screen for a found company
