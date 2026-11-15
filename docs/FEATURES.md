@@ -62,6 +62,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Add stock (via search) and remove stock
 - [x] Open detailed screen for a company
 - [x] Refresh of stale data when the screen is opened
+- [ ] Only displayed rows (plus a 5-row buffer) refreshed: on screen open, on scrolling new rows into view, on filter change
 - [x] Filter by market (USA / EU / all)
 - [x] Filter by sector (sector names as provided by the source)
 - [x] In-memory filtering (no database search indexes)

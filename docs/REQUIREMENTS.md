@@ -84,6 +84,6 @@ Profile name can be switched in settings at any time (so the user can get access
 
 ## Data freshness
 If company's data has been collected less than an hour ago, it's considered fresh data and doesn't require a refresh.
-If data collected more than an hour ago, it needs a refresh for a watchlist screen. If our source ran out of request limit, we don't refresh data and show latest cached data only.
+If data collected more than an hour ago, it needs a refresh for a watchlist screen. Only the displayed companies are refreshed, plus 5 more below them as a buffer for scrolling: rows scrolled into view are refreshed as they appear, and a filter change refreshes all displayed rows (plus the buffer). Companies that are not displayed show their latest cached data. If our source ran out of request limit, we don't refresh data and show latest cached data only.
 For the 'detailed' screen we don't make a separate request on the screen opening - just display the existing data. If there is no cached data at all, it is requested from the source automatically. At the same time, that screen has a refresh button to be triggered manually at any time user decides to refresh; it refreshes all tabs.
 If a source returns an error, times out or its request limit is reached, the latest cached data is shown. If there is no cached data, the data fields are shown as '-'.

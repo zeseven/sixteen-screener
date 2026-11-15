@@ -134,13 +134,55 @@ paths:
       summary: Get watchlist
       description: |
         Returns all companies of the profile's watchlist with data from the profile's default source.
-        Stale data (older than 1 hour) is refreshed if the source limits allow; otherwise, or when the source fails,
-        cached data is returned. A company without any cached quote has `quote = null`.
+        No quote requests are made: quotes are returned from the cache as is, and a company without any cached quote has
+        `quote = null`. Stale quotes are refreshed only for the rows the app displays, with `GET /watchlist/refresh`.
+        A company profile (name and sector) that is absent or expired is requested from the source if the source limits
+        allow, because the app filters by sector in memory.
         Filtering by market, sector and tags is done by the app in memory.
       x-milestone: alpha
       responses:
         '200':
           description: Watchlist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Watchlist'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{profileId}/watchlist/refresh:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+    get:
+      tags: [Watchlist]
+      operationId: refreshWatchlistRows
+      summary: Refresh watchlist rows
+      description: |
+        Returns the given companies of the profile's watchlist with data from the profile's default source, refreshing
+        stale quotes (older than 1 hour) if the source limits allow; otherwise, or when the source fails, cached data is
+        returned. Absent or expired company profiles are requested as in `GET /watchlist`.
+        The app calls it for the rows it displays plus a buffer of 5 rows below them: when the watchlist is shown, when
+        new rows are scrolled into view and when a filter changes.
+        Items follow the watchlist order. Symbols that are not in the watchlist are skipped; duplicates are ignored.
+      x-milestone: alpha
+      parameters:
+        - name: symbols
+          in: query
+          required: true
+          description: Comma-separated symbols, e.g. `AAPL,SAP.DE`.
+          style: form
+          explode: false
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 50
+            items:
+              $ref: '#/components/schemas/Symbol'
+      responses:
+        '200':
+          description: Refreshed watchlist rows
           content:
             application/json:
               schema:
@@ -158,7 +200,7 @@ paths:
       tags: [Watchlist]
       operationId: addToWatchlist
       summary: Add company to watchlist
-      description: Idempotent.
+      description: Idempotent. Returns `400` when the company is not in the watchlist yet and the watchlist is full.
       x-milestone: alpha
       responses:
         '204':

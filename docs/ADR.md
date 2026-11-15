@@ -542,3 +542,15 @@ External sources are distributed as follows:
 **Decision:** The app sends a search request from the first typed character, at most one request per second: the first request goes out immediately, then the latest query once the second has passed, and a newer query cancels the request in flight. An empty input (after trimming) clears the results without a request. The backend accepts queries of 1 to 50 characters after trimming. Queries of 1 or 2 characters match tickers only: the backend keeps the source's hits whose ticker starts with the query, exact ticker matches first; longer queries match tickers and company names as before. Every search response is limited to 25 results.
 
 **Consequences:** Typing spends up to one source request per second from the first letter. The 5-minute in-memory search cache and the 25-result limit keep responses small for short queries.
+
+## ADR-055: Watchlist quotes refreshed only for displayed rows
+
+**Date:** 2026-11-15
+**Status:** Accepted
+
+**Context:** `GET /watchlist` refreshed every stale quote of the watchlist at once. Most of those rows are never looked at, while each refresh spends source requests (Finnhub free plan: 60 per minute); a larger watchlist makes it worse.
+
+**Decision:** `GET /watchlist` returns cached quotes as is and makes no quote requests. A new endpoint `GET /watchlist/refresh?symbols=...` (1 to 50 symbols, only those in the watchlist) refreshes stale quotes of the given rows within the source limits and returns them. The app calls it for the displayed rows plus 5 rows below them: when the watchlist is shown, when rows that have not been refreshed since the watchlist was loaded scroll into view, and when a filter changes (all displayed rows plus the buffer). Absent or expired company profiles are still requested by `GET /watchlist`, because the sector filter needs the sector of every row; they are fetched once per 14 days per company (ADR-032).
+
+**Consequences:** Opening the watchlist spends quote requests for about one screen of rows instead of the whole list. Rows scrolled into view show cached data until their refresh arrives. Scrolling through the whole list still spends one request per stale row.
+
