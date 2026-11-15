@@ -2,6 +2,7 @@ package com.sixteenscreener.domain.service
 
 import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.ExchangeInfo
+import com.sixteenscreener.domain.model.KnownExchangeCodes
 import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.Market
 import java.time.ZoneId
@@ -9,18 +10,20 @@ import java.time.ZoneOffset
 
 class MarketResolver {
 
-    fun resolve(mic: String): ExchangeInfo =
-        find(mic) ?: ExchangeInfo(name = mic, timeZone = ZoneOffset.UTC, market = null)
-
     fun find(mic: String): ExchangeInfo? = EXCHANGES_BY_MIC[mic.uppercase()]
 
-    fun timeZoneOf(exchangeCode: ExchangeCode): ZoneId = exchangeCode.timeZone ?: ZoneOffset.UTC
+    fun exchangeOf(exchangeCode: ExchangeCode): ExchangeInfo? =
+        if (exchangeCode == ExchangeCode.US) US_EXCHANGES_COMBINED else KnownExchangeCodes.micOf(exchangeCode)?.let(::find)
+
+    fun timeZoneOf(exchangeCode: ExchangeCode): ZoneId = exchangeOf(exchangeCode)?.timeZone ?: ZoneOffset.UTC
 
     fun timeZoneOf(listing: ListedSymbol): ZoneId =
         listing.mic?.let(::find)?.timeZone ?: timeZoneOf(listing.symbol.exchangeCode)
 
     private companion object {
         private const val NEW_YORK = "America/New_York"
+
+        private val US_EXCHANGES_COMBINED = ExchangeInfo("US", ZoneId.of(NEW_YORK), Market.US, "USD")
 
         private val US_EXCHANGES = listOf(
             "XNYS" to "NYSE",
@@ -40,68 +43,91 @@ class MarketResolver {
             "OTCB" to "OTC",
             "OTCQ" to "OTC",
             "XOTC" to "OTC",
-        ).map { (mic, name) -> mic to ExchangeInfo(name, ZoneId.of(NEW_YORK), Market.US) }
+        ).map { (mic, name) -> mic to ExchangeInfo(name, ZoneId.of(NEW_YORK), Market.US, "USD") }
 
         private val EU_EXCHANGES = listOf(
-            Triple("XETR", "XETRA", "Europe/Berlin"),
-            Triple("XFRA", "Frankfurt", "Europe/Berlin"),
-            Triple("XBER", "Berlin", "Europe/Berlin"),
-            Triple("XMUN", "Munich", "Europe/Berlin"),
-            Triple("XSTU", "Stuttgart", "Europe/Berlin"),
-            Triple("XDUS", "Dusseldorf", "Europe/Berlin"),
-            Triple("XHAM", "Hamburg", "Europe/Berlin"),
-            Triple("XHAN", "Hannover", "Europe/Berlin"),
-            Triple("XPAR", "Euronext Paris", "Europe/Paris"),
-            Triple("XAMS", "Euronext Amsterdam", "Europe/Amsterdam"),
-            Triple("XBRU", "Euronext Brussels", "Europe/Brussels"),
-            Triple("XLIS", "Euronext Lisbon", "Europe/Lisbon"),
-            Triple("XMSM", "Euronext Dublin", "Europe/Dublin"),
-            Triple("XDUB", "Euronext Dublin", "Europe/Dublin"),
-            Triple("XOSL", "Oslo Bors", "Europe/Oslo"),
-            Triple("XMIL", "Borsa Italiana", "Europe/Rome"),
-            Triple("MTAA", "Borsa Italiana", "Europe/Rome"),
-            Triple("XMAD", "BME", "Europe/Madrid"),
-            Triple("XSTO", "Nasdaq Stockholm", "Europe/Stockholm"),
-            Triple("XHEL", "Nasdaq Helsinki", "Europe/Helsinki"),
-            Triple("XCSE", "Nasdaq Copenhagen", "Europe/Copenhagen"),
-            Triple("XICE", "Nasdaq Iceland", "Atlantic/Reykjavik"),
-            Triple("XRIS", "Nasdaq Riga", "Europe/Riga"),
-            Triple("XTAL", "Nasdaq Tallinn", "Europe/Tallinn"),
-            Triple("XLIT", "Nasdaq Vilnius", "Europe/Vilnius"),
-            Triple("XWBO", "Vienna", "Europe/Vienna"),
-            Triple("XWAR", "GPW", "Europe/Warsaw"),
-            Triple("XPRA", "Prague", "Europe/Prague"),
-            Triple("XBUD", "Budapest", "Europe/Budapest"),
-            Triple("XATH", "Athens", "Europe/Athens"),
-            Triple("XLON", "LSE", "Europe/London"),
-            Triple("XSWX", "SIX", "Europe/Zurich"),
-            Triple("XVTX", "SIX", "Europe/Zurich"),
-        ).map { (mic, name, zone) -> mic to ExchangeInfo(name, ZoneId.of(zone), Market.EU) }
+            Exchange("XETR", "XETRA", "Europe/Berlin", "EUR"),
+            Exchange("XFRA", "Frankfurt", "Europe/Berlin", "EUR"),
+            Exchange("XBER", "Berlin", "Europe/Berlin", "EUR"),
+            Exchange("XMUN", "Munich", "Europe/Berlin", "EUR"),
+            Exchange("XSTU", "Stuttgart", "Europe/Berlin", "EUR"),
+            Exchange("XDUS", "Dusseldorf", "Europe/Berlin", "EUR"),
+            Exchange("XHAM", "Hamburg", "Europe/Berlin", "EUR"),
+            Exchange("XHAN", "Hannover", "Europe/Berlin", "EUR"),
+            Exchange("XPAR", "Euronext Paris", "Europe/Paris", "EUR"),
+            Exchange("XAMS", "Euronext Amsterdam", "Europe/Amsterdam", "EUR"),
+            Exchange("XBRU", "Euronext Brussels", "Europe/Brussels", "EUR"),
+            Exchange("XLIS", "Euronext Lisbon", "Europe/Lisbon", "EUR"),
+            Exchange("XMSM", "Euronext Dublin", "Europe/Dublin", "EUR"),
+            Exchange("XDUB", "Euronext Dublin", "Europe/Dublin", "EUR"),
+            Exchange("XOSL", "Oslo Bors", "Europe/Oslo", "NOK"),
+            Exchange("XMIL", "Borsa Italiana", "Europe/Rome", "EUR"),
+            Exchange("MTAA", "Borsa Italiana", "Europe/Rome", "EUR"),
+            Exchange("XMAD", "BME", "Europe/Madrid", "EUR"),
+            Exchange("XSTO", "Nasdaq Stockholm", "Europe/Stockholm", "SEK"),
+            Exchange("XHEL", "Nasdaq Helsinki", "Europe/Helsinki", "EUR"),
+            Exchange("XCSE", "Nasdaq Copenhagen", "Europe/Copenhagen", "DKK"),
+            Exchange("XICE", "Nasdaq Iceland", "Atlantic/Reykjavik", "ISK"),
+            Exchange("XRIS", "Nasdaq Riga", "Europe/Riga", "EUR"),
+            Exchange("XTAL", "Nasdaq Tallinn", "Europe/Tallinn", "EUR"),
+            Exchange("XLIT", "Nasdaq Vilnius", "Europe/Vilnius", "EUR"),
+            Exchange("XWBO", "Vienna", "Europe/Vienna", "EUR"),
+            Exchange("XWAR", "GPW", "Europe/Warsaw", "PLN"),
+            Exchange("XPRA", "Prague", "Europe/Prague", "CZK"),
+            Exchange("XBUD", "Budapest", "Europe/Budapest", "HUF"),
+            Exchange("XATH", "Athens", "Europe/Athens", "EUR"),
+            Exchange("XLON", "LSE", "Europe/London", "GBP"),
+            Exchange("XSWX", "SIX", "Europe/Zurich", "CHF"),
+            Exchange("XVTX", "SIX", "Europe/Zurich", "CHF"),
+        ).map { it.mic to it.info(Market.EU) }
 
         private val OTHER_EXCHANGES = listOf(
-            Triple("XTKS", "TSE", "Asia/Tokyo"),
-            Triple("XTSE", "TSX", "America/Toronto"),
-            Triple("XTSX", "TSXV", "America/Toronto"),
-            Triple("XCNQ", "CSE", "America/Toronto"),
-            Triple("NEOE", "Cboe Canada", "America/Toronto"),
-            Triple("XHKG", "HKEX", "Asia/Hong_Kong"),
-            Triple("XASX", "ASX", "Australia/Sydney"),
-            Triple("XNZE", "NZX", "Pacific/Auckland"),
-            Triple("XSHG", "SSE", "Asia/Shanghai"),
-            Triple("XSHE", "SZSE", "Asia/Shanghai"),
-            Triple("XKRX", "KRX", "Asia/Seoul"),
-            Triple("XKOS", "KOSDAQ", "Asia/Seoul"),
-            Triple("XBOM", "BSE", "Asia/Kolkata"),
-            Triple("XNSE", "NSE", "Asia/Kolkata"),
-            Triple("XSES", "SGX", "Asia/Singapore"),
-            Triple("XTAI", "TWSE", "Asia/Taipei"),
-            Triple("XIST", "Borsa Istanbul", "Europe/Istanbul"),
-            Triple("XTAE", "TASE", "Asia/Jerusalem"),
-            Triple("XJSE", "JSE", "Africa/Johannesburg"),
-            Triple("BVMF", "B3", "America/Sao_Paulo"),
-            Triple("XMEX", "BMV", "America/Mexico_City"),
-        ).map { (mic, name, zone) -> mic to ExchangeInfo(name, ZoneId.of(zone), null) }
+            Exchange("XTKS", "TSE", "Asia/Tokyo", "JPY"),
+            Exchange("XTSE", "TSX", "America/Toronto", "CAD"),
+            Exchange("XTSX", "TSXV", "America/Toronto", "CAD"),
+            Exchange("XCNQ", "CSE", "America/Toronto", "CAD"),
+            Exchange("NEOE", "Cboe Canada", "America/Toronto", "CAD"),
+            Exchange("XHKG", "HKEX", "Asia/Hong_Kong", "HKD"),
+            Exchange("XASX", "ASX", "Australia/Sydney", "AUD"),
+            Exchange("XNZE", "NZX", "Pacific/Auckland", "NZD"),
+            Exchange("XSHG", "SSE", "Asia/Shanghai", "CNY"),
+            Exchange("XSHE", "SZSE", "Asia/Shanghai", "CNY"),
+            Exchange("XKRX", "KRX", "Asia/Seoul", "KRW"),
+            Exchange("XKOS", "KOSDAQ", "Asia/Seoul", "KRW"),
+            Exchange("XBOM", "BSE", "Asia/Kolkata", "INR"),
+            Exchange("XNSE", "NSE", "Asia/Kolkata", "INR"),
+            Exchange("XSES", "SGX", "Asia/Singapore", "SGD"),
+            Exchange("XTAI", "TWSE", "Asia/Taipei", "TWD"),
+            Exchange("ROCO", "TPEx", "Asia/Taipei", "TWD"),
+            Exchange("XBKK", "SET", "Asia/Bangkok", "THB"),
+            Exchange("XIDX", "IDX", "Asia/Jakarta", "IDR"),
+            Exchange("XKLS", "Bursa Malaysia", "Asia/Kuala_Lumpur", "MYR"),
+            Exchange("XPHS", "PSE", "Asia/Manila", "PHP"),
+            Exchange("XSTC", "HOSE", "Asia/Ho_Chi_Minh", "VND"),
+            Exchange("XIST", "Borsa Istanbul", "Europe/Istanbul", "TRY"),
+            Exchange("MISX", "MOEX", "Europe/Moscow", "RUB"),
+            Exchange("XTAE", "TASE", "Asia/Jerusalem", "ILS"),
+            Exchange("XSAU", "Tadawul", "Asia/Riyadh", "SAR"),
+            Exchange("DSMD", "QSE", "Asia/Qatar", "QAR"),
+            Exchange("XDFM", "DFM", "Asia/Dubai", "AED"),
+            Exchange("XKUW", "Boursa Kuwait", "Asia/Kuwait", "KWD"),
+            Exchange("XBAH", "Bahrain Bourse", "Asia/Bahrain", "BHD"),
+            Exchange("XJSE", "JSE", "Africa/Johannesburg", "ZAR"),
+            Exchange("XCAI", "EGX", "Africa/Cairo", "EGP"),
+            Exchange("XCAS", "Casablanca SE", "Africa/Casablanca", "MAD"),
+            Exchange("XNSA", "NGX", "Africa/Lagos", "NGN"),
+            Exchange("BVMF", "B3", "America/Sao_Paulo", "BRL"),
+            Exchange("XMEX", "BMV", "America/Mexico_City", "MXN"),
+            Exchange("XBUE", "BYMA", "America/Argentina/Buenos_Aires", "ARS"),
+            Exchange("XSGO", "Santiago SE", "America/Santiago", "CLP"),
+            Exchange("XBOG", "BVC", "America/Bogota", "COP"),
+            Exchange("XCAR", "Caracas SE", "America/Caracas", "VES"),
+        ).map { it.mic to it.info(market = null) }
 
         val EXCHANGES_BY_MIC: Map<String, ExchangeInfo> = (US_EXCHANGES + EU_EXCHANGES + OTHER_EXCHANGES).toMap()
+    }
+
+    private data class Exchange(val mic: String, val name: String, val zone: String, val currency: String) {
+        fun info(market: Market?) = ExchangeInfo(name, ZoneId.of(zone), market, currency)
     }
 }

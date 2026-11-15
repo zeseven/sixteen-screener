@@ -64,10 +64,4 @@ class SymbolTest : FunSpec({
             symbol.exchangeCode shouldBe ExchangeCode(exchangeCode)
         }
     }
-
-    test("exchange codes of suffixes have a time zone") {
-        Symbol.of("SAP.DE").exchangeCode.timeZone?.id shouldBe "Europe/Berlin"
-        Symbol.of("AAPL").exchangeCode.timeZone?.id shouldBe "America/New_York"
-        ExchangeCode("XX").timeZone.shouldBeNull()
-    }
 })

@@ -324,7 +324,7 @@ class WatchlistRoutesTest : FunSpec({
 
             item["exchange"] shouldBe JsonPrimitive("US")
             item["name"] shouldBe JsonPrimitive("GONE")
-            item["market"] shouldBe JsonNull
+            item["market"] shouldBe JsonPrimitive("US")
             item["sector"] shouldBe JsonNull
             ports.marketData.calls.shouldBeEmpty()
         }

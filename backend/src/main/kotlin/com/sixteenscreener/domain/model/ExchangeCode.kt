@@ -1,7 +1,5 @@
 package com.sixteenscreener.domain.model
 
-import java.time.ZoneId
-
 /**
  * Exchange code used as the canonical symbol suffix (`SAP.DE` is `DE`, `SHEL.L` is `L`); `US` for symbols without suffix.
  * Codes follow the Finnhub symbology (ADR-034).
@@ -12,9 +10,6 @@ value class ExchangeCode(val value: String) {
         require(value.isNotBlank()) { "Exchange code must not be blank" }
     }
 
-    /** Time zone of the exchange, or null for a code that is not in [KnownExchangeCodes]. */
-    val timeZone: ZoneId? get() = KnownExchangeCodes.timeZoneOf(this)
-
     override fun toString(): String = value
 
     companion object {
@@ -24,91 +19,90 @@ value class ExchangeCode(val value: String) {
 }
 
 /**
- * Exchange codes known to the backend, with the time zone of each exchange.
+ * Exchange codes known to the backend, each mapped to the MIC of its exchange in the static exchange table (ADR-062).
  * A symbol suffix is treated as an exchange code only when it is listed here, so US share classes such as `BRK.B` stay US symbols.
  */
 object KnownExchangeCodes {
-    private val zonesByCode: Map<String, ZoneId> = mapOf(
-        "US" to "America/New_York",
-        "DE" to "Europe/Berlin",
-        "F" to "Europe/Berlin",
-        "BE" to "Europe/Berlin",
-        "DU" to "Europe/Berlin",
-        "HM" to "Europe/Berlin",
-        "HA" to "Europe/Berlin",
-        "MU" to "Europe/Berlin",
-        "SG" to "Europe/Berlin",
-        "L" to "Europe/London",
-        "IL" to "Europe/London",
-        "SW" to "Europe/Zurich",
-        "PA" to "Europe/Paris",
-        "AS" to "Europe/Amsterdam",
-        "BR" to "Europe/Brussels",
-        "LS" to "Europe/Lisbon",
-        "IR" to "Europe/Dublin",
-        "OL" to "Europe/Oslo",
-        "MI" to "Europe/Rome",
-        "MC" to "Europe/Madrid",
-        "ST" to "Europe/Stockholm",
-        "HE" to "Europe/Helsinki",
-        "CO" to "Europe/Copenhagen",
-        "IC" to "Atlantic/Reykjavik",
-        "VI" to "Europe/Vienna",
-        "WA" to "Europe/Warsaw",
-        "PR" to "Europe/Prague",
-        "BD" to "Europe/Budapest",
-        "AT" to "Europe/Athens",
-        "RG" to "Europe/Riga",
-        "TL" to "Europe/Tallinn",
-        "VS" to "Europe/Vilnius",
-        "IS" to "Europe/Istanbul",
-        "ME" to "Europe/Moscow",
-        "T" to "Asia/Tokyo",
-        "TO" to "America/Toronto",
-        "V" to "America/Toronto",
-        "NE" to "America/Toronto",
-        "CN" to "America/Toronto",
-        "HK" to "Asia/Hong_Kong",
-        "AX" to "Australia/Sydney",
-        "NZ" to "Pacific/Auckland",
-        "SS" to "Asia/Shanghai",
-        "SZ" to "Asia/Shanghai",
-        "KS" to "Asia/Seoul",
-        "KQ" to "Asia/Seoul",
-        "BO" to "Asia/Kolkata",
-        "NS" to "Asia/Kolkata",
-        "SI" to "Asia/Singapore",
-        "TW" to "Asia/Taipei",
-        "TWO" to "Asia/Taipei",
-        "BK" to "Asia/Bangkok",
-        "JK" to "Asia/Jakarta",
-        "KL" to "Asia/Kuala_Lumpur",
-        "PM" to "Asia/Manila",
-        "VN" to "Asia/Ho_Chi_Minh",
-        "TA" to "Asia/Jerusalem",
-        "SR" to "Asia/Riyadh",
-        "QA" to "Asia/Qatar",
-        "DB" to "Asia/Dubai",
-        "KW" to "Asia/Kuwait",
-        "BH" to "Asia/Bahrain",
-        "JO" to "Africa/Johannesburg",
-        "CA" to "Africa/Cairo",
-        "CS" to "Africa/Casablanca",
-        "NL" to "Africa/Lagos",
-        "SA" to "America/Sao_Paulo",
-        "MX" to "America/Mexico_City",
-        "BA" to "America/Argentina/Buenos_Aires",
-        "SN" to "America/Santiago",
-        "BC" to "America/Bogota",
-        "CR" to "America/Caracas",
-    ).mapValues { (_, zone) -> ZoneId.of(zone) }
+    private val micsByCode: Map<String, String> = mapOf(
+        "DE" to "XETR",
+        "F" to "XFRA",
+        "BE" to "XBER",
+        "DU" to "XDUS",
+        "HM" to "XHAM",
+        "HA" to "XHAN",
+        "MU" to "XMUN",
+        "SG" to "XSTU",
+        "L" to "XLON",
+        "IL" to "XLON",
+        "SW" to "XSWX",
+        "PA" to "XPAR",
+        "AS" to "XAMS",
+        "BR" to "XBRU",
+        "LS" to "XLIS",
+        "IR" to "XDUB",
+        "OL" to "XOSL",
+        "MI" to "XMIL",
+        "MC" to "XMAD",
+        "ST" to "XSTO",
+        "HE" to "XHEL",
+        "CO" to "XCSE",
+        "IC" to "XICE",
+        "VI" to "XWBO",
+        "WA" to "XWAR",
+        "PR" to "XPRA",
+        "BD" to "XBUD",
+        "AT" to "XATH",
+        "RG" to "XRIS",
+        "TL" to "XTAL",
+        "VS" to "XLIT",
+        "IS" to "XIST",
+        "ME" to "MISX",
+        "T" to "XTKS",
+        "TO" to "XTSE",
+        "V" to "XTSX",
+        "NE" to "NEOE",
+        "CN" to "XCNQ",
+        "HK" to "XHKG",
+        "AX" to "XASX",
+        "NZ" to "XNZE",
+        "SS" to "XSHG",
+        "SZ" to "XSHE",
+        "KS" to "XKRX",
+        "KQ" to "XKOS",
+        "BO" to "XBOM",
+        "NS" to "XNSE",
+        "SI" to "XSES",
+        "TW" to "XTAI",
+        "TWO" to "ROCO",
+        "BK" to "XBKK",
+        "JK" to "XIDX",
+        "KL" to "XKLS",
+        "PM" to "XPHS",
+        "VN" to "XSTC",
+        "TA" to "XTAE",
+        "SR" to "XSAU",
+        "QA" to "DSMD",
+        "DB" to "XDFM",
+        "KW" to "XKUW",
+        "BH" to "XBAH",
+        "JO" to "XJSE",
+        "CA" to "XCAI",
+        "CS" to "XCAS",
+        "NL" to "XNSA",
+        "SA" to "BVMF",
+        "MX" to "XMEX",
+        "BA" to "XBUE",
+        "SN" to "XSGO",
+        "BC" to "XBOG",
+        "CR" to "XCAR",
+    )
 
     /** All known exchange codes. */
-    val codes: Set<ExchangeCode> = zonesByCode.keys.map(::ExchangeCode).toSet()
+    val codes: Set<ExchangeCode> = (micsByCode.keys + ExchangeCode.US.value).map(::ExchangeCode).toSet()
 
     /** Whether [value] is a known exchange code. */
-    fun isKnown(value: String): Boolean = value in zonesByCode
+    fun isKnown(value: String): Boolean = value == ExchangeCode.US.value || value in micsByCode
 
-    /** Time zone of the exchange identified by [code], or null when the code is unknown. */
-    fun timeZoneOf(code: ExchangeCode): ZoneId? = zonesByCode[code.value]
+    /** MIC of the exchange identified by [code]; null for [ExchangeCode.US], whose symbols trade on several exchanges, and for unknown codes. */
+    fun micOf(code: ExchangeCode): String? = micsByCode[code.value]
 }

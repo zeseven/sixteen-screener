@@ -5,6 +5,7 @@ import com.sixteenscreener.adapter.outbound.finnhub.FinnhubClient
 import com.sixteenscreener.adapter.outbound.http.SourceHttpCall
 import com.sixteenscreener.adapter.outbound.http.SourceHttpClient
 import com.sixteenscreener.domain.model.Capability
+import com.sixteenscreener.domain.model.CompanyIdentity
 import com.sixteenscreener.domain.model.InvalidInputException
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.Market
@@ -168,16 +169,24 @@ class SearchServiceTest : FunSpec({
             result.items[3].identity.name shouldBe "APPLE INC CDR"
         }
 
-        test("result missing from the directory is kept with best-effort identity") {
+        test("result missing from the directory gets exchange and market from the static exchange table") {
             val f = SearchFixture()
             f.hits("apple", "AAPL.NE" to "APPLE INC - CDR")
 
             val identity = f.search("apple").items.single().identity
 
             identity.symbol shouldBe Symbol.of("AAPL.NE")
-            identity.exchange shouldBe "NE"
+            identity.exchange shouldBe "Cboe Canada"
             identity.name shouldBe "APPLE INC - CDR"
             identity.market.shouldBeNull()
+        }
+
+        test("EU result missing from the directory gets the exchange name and the EU market from the static exchange table") {
+            val f = SearchFixture()
+            f.hits("ahold", "AD.AS" to "Koninklijke Ahold Delhaize NV")
+
+            f.search("ahold").items.single().identity shouldBe
+                CompanyIdentity(Symbol.of("AD.AS"), "Euronext Amsterdam", "Koninklijke Ahold Delhaize NV", Market.EU)
         }
 
         test("duplicate symbols from the source are returned once") {
@@ -535,7 +544,7 @@ class SearchServiceTest : FunSpec({
 
             result.status shouldBe SearchStatus.OK
             result.symbols() shouldContainExactly listOf("AAPL", "AAPL.SW", "APC.DE", "AAPL.NE")
-            result.items.map { it.identity.market } shouldContainExactly listOf(Market.US, null, Market.EU, null)
+            result.items.map { it.identity.market } shouldContainExactly listOf(Market.US, Market.EU, Market.EU, null)
             f.data.sourceCalls.writes.single().second.result shouldBe SourceCallResult.SUCCESS
         }
 

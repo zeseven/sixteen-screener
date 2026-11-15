@@ -13,9 +13,8 @@ interface WatchlistUseCase {
      * Watchlist items of every watchlist entry of profile [profileId], in watchlist order.
      *
      * Sector and tags come from the watchlist entries; ticker, exchange, name and market from the exchange directory.
-     * No cached company data is read and no source requests are made. A symbol no longer found in the exchange
-     * directory is still returned with best-effort data: the exchange code as exchange name, the ticker as name, and
-     * no market (ADR-057).
+     * No cached company data is read and no source requests are made. A symbol not found in the exchange directory is
+     * still returned with the ticker as name and exchange and market from the static exchange table (ADR-057, ADR-062).
      *
      * Throws [com.sixteenscreener.domain.model.ResourceNotFoundException] for an unknown profile.
      */

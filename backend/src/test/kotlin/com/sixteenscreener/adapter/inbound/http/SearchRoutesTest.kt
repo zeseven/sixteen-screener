@@ -69,7 +69,7 @@ class SearchRoutesTest : FunSpec({
             sap["logoUrl"] shouldBe JsonPrimitive("/logos/SAP.DE")
             sap["inWatchlist"] shouldBe JsonPrimitive(true)
             toyota["market"] shouldBe JsonNull
-            toyota["exchange"] shouldBe JsonPrimitive("T")
+            toyota["exchange"] shouldBe JsonPrimitive("TSE")
             toyota["name"] shouldBe JsonPrimitive("7203.T INC")
             toyota.keys shouldBe sap.keys
             ports.companyCache.getAllCalls shouldBe 0

@@ -88,14 +88,14 @@ class WatchlistServiceTest : FunSpec({
         f.data.countingCounters.tryAcquireCalls shouldBe 0
     }
 
-    test("symbol no longer in the directory is returned with the ticker as name, ignoring a cached profile") {
+    test("symbol no longer in the directory is returned with the ticker as name and the static exchange table, ignoring a cached profile") {
         val f = WatchlistFixture()
         f.data.profiles.save(f.data.profile.copy(watchlist = listOf(watchlistEntry("GONE.DE", "Industrials"))))
         f.data.cached(profileKey("GONE.DE"), sampleProfile(name = "Gone AG"), Duration.ofDays(2))
 
         val item = f.watchlist().single()
 
-        item.identity shouldBe CompanyIdentity(Symbol.of("GONE.DE"), "DE", "GONE", market = null)
+        item.identity shouldBe CompanyIdentity(Symbol.of("GONE.DE"), "XETRA", "GONE", Market.EU)
         item.sector shouldBe "Industrials"
     }
 

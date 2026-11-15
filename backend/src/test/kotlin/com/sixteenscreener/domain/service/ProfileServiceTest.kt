@@ -238,7 +238,7 @@ class ProfileServiceTest : FunSpec({
 
             val item = f.add("GONE")
 
-            item.identity shouldBe CompanyIdentity(Symbol.of("GONE"), "US", "GONE", market = null)
+            item.identity shouldBe CompanyIdentity(Symbol.of("GONE"), "US", "GONE", Market.US)
             f.watchlistOf(f.data.profile.id) shouldContainExactly watchlistEntries("GONE")
         }
 

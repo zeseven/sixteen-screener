@@ -33,14 +33,16 @@ data class SearchHit(
 )
 
 /**
- * Exchange attributes resolved from a MIC.
+ * Exchange attributes from the static exchange table, resolved from a MIC or an exchange code (ADR-062).
  *
  * @property name short exchange name shown under the ticker
  * @property timeZone time zone of the exchange, used for market days
  * @property market market of the exchange; null outside the US and EU markets (ADR-035)
+ * @property currency ISO 4217 trading currency of the exchange
  */
 data class ExchangeInfo(
     val name: String,
     val timeZone: ZoneId,
     val market: Market?,
+    val currency: String,
 )

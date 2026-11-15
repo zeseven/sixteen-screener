@@ -1,10 +1,16 @@
 package com.sixteenscreener.domain.service
 
 import com.sixteenscreener.domain.model.ExchangeCode
+import com.sixteenscreener.domain.model.ExchangeInfo
+import com.sixteenscreener.domain.model.KnownExchangeCodes
 import com.sixteenscreener.domain.model.Market
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import java.time.ZoneId
 import java.time.ZoneOffset
 
 class MarketResolverTest : FunSpec({
@@ -45,7 +51,7 @@ class MarketResolverTest : FunSpec({
             Case("XHKG", "HKEX", "Asia/Hong_Kong", null),
             Case("XASX", "ASX", "Australia/Sydney", null),
         ) { case ->
-            val info = resolver.resolve(case.mic)
+            val info = resolver.find(case.mic).shouldNotBeNull()
             info.name shouldBe case.name
             info.timeZone.id shouldBe case.zone
             info.market shouldBe case.market
@@ -53,14 +59,57 @@ class MarketResolverTest : FunSpec({
     }
 
     test("MIC lookup ignores case") {
-        resolver.resolve("xetr").market shouldBe Market.EU
+        resolver.find("xetr")?.market shouldBe Market.EU
     }
 
-    test("unknown MIC has no market, the MIC as name and UTC") {
-        val info = resolver.resolve("ZZZZ")
-        info.name shouldBe "ZZZZ"
-        info.timeZone shouldBe ZoneOffset.UTC
-        info.market shouldBe null
+    test("exchanges have their trading currency") {
+        resolver.find("XNAS")?.currency shouldBe "USD"
+        resolver.find("XAMS")?.currency shouldBe "EUR"
+        resolver.find("XLON")?.currency shouldBe "GBP"
+        resolver.find("XSWX")?.currency shouldBe "CHF"
+        resolver.find("XSTO")?.currency shouldBe "SEK"
+        resolver.find("XTKS")?.currency shouldBe "JPY"
+    }
+
+    data class CodeCase(val code: String, val name: String, val zone: String, val market: Market?, val currency: String)
+
+    context("maps exchange codes to the static exchange table") {
+        withData(
+            nameFn = { "${it.code} -> ${it.name} (${it.market})" },
+            CodeCase("US", "US", "America/New_York", Market.US, "USD"),
+            CodeCase("AS", "Euronext Amsterdam", "Europe/Amsterdam", Market.EU, "EUR"),
+            CodeCase("PA", "Euronext Paris", "Europe/Paris", Market.EU, "EUR"),
+            CodeCase("BR", "Euronext Brussels", "Europe/Brussels", Market.EU, "EUR"),
+            CodeCase("LS", "Euronext Lisbon", "Europe/Lisbon", Market.EU, "EUR"),
+            CodeCase("IR", "Euronext Dublin", "Europe/Dublin", Market.EU, "EUR"),
+            CodeCase("DE", "XETRA", "Europe/Berlin", Market.EU, "EUR"),
+            CodeCase("F", "Frankfurt", "Europe/Berlin", Market.EU, "EUR"),
+            CodeCase("MI", "Borsa Italiana", "Europe/Rome", Market.EU, "EUR"),
+            CodeCase("MC", "BME", "Europe/Madrid", Market.EU, "EUR"),
+            CodeCase("ST", "Nasdaq Stockholm", "Europe/Stockholm", Market.EU, "SEK"),
+            CodeCase("CO", "Nasdaq Copenhagen", "Europe/Copenhagen", Market.EU, "DKK"),
+            CodeCase("OL", "Oslo Bors", "Europe/Oslo", Market.EU, "NOK"),
+            CodeCase("WA", "GPW", "Europe/Warsaw", Market.EU, "PLN"),
+            CodeCase("L", "LSE", "Europe/London", Market.EU, "GBP"),
+            CodeCase("IL", "LSE", "Europe/London", Market.EU, "GBP"),
+            CodeCase("SW", "SIX", "Europe/Zurich", Market.EU, "CHF"),
+            CodeCase("T", "TSE", "Asia/Tokyo", null, "JPY"),
+            CodeCase("TO", "TSX", "America/Toronto", null, "CAD"),
+            CodeCase("HK", "HKEX", "Asia/Hong_Kong", null, "HKD"),
+            CodeCase("IS", "Borsa Istanbul", "Europe/Istanbul", null, "TRY"),
+            CodeCase("ME", "MOEX", "Europe/Moscow", null, "RUB"),
+        ) { case ->
+            resolver.exchangeOf(ExchangeCode(case.code)) shouldBe
+                ExchangeInfo(case.name, ZoneId.of(case.zone), case.market, case.currency)
+        }
+    }
+
+    test("every known exchange code is in the static exchange table") {
+        KnownExchangeCodes.codes.filter { resolver.exchangeOf(it) == null }.shouldBeEmpty()
+    }
+
+    test("unknown exchange code is not in the static exchange table") {
+        resolver.exchangeOf(ExchangeCode("XX")).shouldBeNull()
     }
 
     test("time zone of known and unknown exchange codes") {
