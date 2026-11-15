@@ -665,3 +665,14 @@ External sources are distributed as follows:
 
 **Decision:** For symbols of exchanges not covered by the source's symbol lists, the Finnhub balance sheet is returned as `NOT_SUPPORTED` without a request, as quotes, ratios and company profiles are. This follows from the free plan currently used; on a plan covering those exchanges, the symbol lists become available and the requests are made again without code changes.
 
+
+## ADR-066: Backend image built on an E2_HIGHCPU_32 Cloud Build machine
+
+**Date:** 2026-11-15
+**Status:** Accepted
+
+**Context:** On the `E2_HIGHCPU_8` machine (8 GB RAM, ADR-023) the native image builder gets a heap of about 6 GB. With the current dependencies (Ktor, Firestore and Cloud Storage clients with gRPC and Netty) the build needs most of it during method compilation; the garbage collector then runs almost continuously, the builder stops reporting progress and its watchdog aborts the build in stage `[6/8] Compiling methods`.
+
+**Decision:** Cloud Build runs the backend image build on an `E2_HIGHCPU_32` machine (32 vCPU, 32 GB RAM). The builder's heap is left at its default size, derived from the machine memory.
+
+**Consequences:** Builds have enough memory headroom and finish faster, but a build minute costs about four times as much as on `E2_HIGHCPU_8`. Local `docker build` needs a Docker VM with at least 12 GB of memory.

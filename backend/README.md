@@ -105,8 +105,8 @@ curl -s -H 'Content-Type: application/json' -d '{"name":"test"}' http://localhos
 docker build -t sixteen-screener-backend .
 ```
 
-The image is built for the host architecture. The native image build needs about 6 GB of RAM, so give the Docker VM
-enough memory (e.g. 8 GB or more). Cloud Run needs a `linux/amd64` image; on Apple Silicon build it with Cloud Build
+The image is built for the host architecture. The native image build needs more than 6 GB of heap, so give the
+Docker VM at least 12 GB of memory; with less the builder's watchdog aborts the build in `[6/8] Compiling methods`. Cloud Run needs a `linux/amd64` image; on Apple Silicon build it with Cloud Build
 (below) instead of emulating `amd64` locally.
 
 Run the image against the emulators started above:
@@ -135,7 +135,7 @@ gcloud builds submit backend \
   --substitutions=_REGION="$REGION",_AR_REPOSITORY="$AR_REPOSITORY",_SERVICE_NAME="$SERVICE_NAME",_TAG="$TAG"
 ```
 
-The build runs the `Dockerfile` on an 8-CPU machine and pushes the image to Artifact Registry. Files listed in
+The build runs the `Dockerfile` on a 32-CPU, 32 GB machine (`E2_HIGHCPU_32`) and pushes the image to Artifact Registry. Files listed in
 `.gcloudignore` (tests, build outputs) are not uploaded.
 
 ## Deploy to Cloud Run
