@@ -645,3 +645,23 @@ External sources are distributed as follows:
 
 **Consequences:** A new listing becomes visible at the first lookup after its list is 1 day old.
 
+## ADR-064: Source HTTP clients follow redirects
+
+**Date:** 2026-11-15
+**Status:** Accepted
+
+**Context:** Finnhub answers `/stock/symbol?exchange=US` with `302 Found` pointing to a pre-signed JSON file on its static file host. The source HTTP client didn't follow redirects, so the download counted as a failed call (outside 2XX), the US symbol list never loaded and every retry spent a request.
+
+**Decision:** The HTTP client shared by all sources follows redirects (Ktor `followRedirects = true`). A redirected request counts as one source call; its outcome is the final response. Redirects from `https` to `http` are not followed (Ktor default).
+
+**Consequences:** Request headers set by a client, such as `X-Finnhub-Token`, may be sent to the redirect target. This is accepted because the sources redirect to their own hosts. If a source redirects elsewhere, the client must handle that redirect explicitly.
+
+## ADR-065: No Finnhub balance sheet for exchanges the free plan doesn't cover
+
+**Date:** 2026-11-15
+**Status:** Accepted
+
+**Context:** On the Finnhub free plan, `/stock/financials-reported` answers `403` for symbols of exchanges it doesn't cover (e.g. European exchanges), like quotes and company profiles (ADR-062).
+
+**Decision:** For symbols of exchanges not covered by the source's symbol lists, the Finnhub balance sheet is returned as `NOT_SUPPORTED` without a request, as quotes, ratios and company profiles are. This follows from the free plan currently used; on a plan covering those exchanges, the symbol lists become available and the requests are made again without code changes.
+
