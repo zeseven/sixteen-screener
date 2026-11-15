@@ -13,16 +13,15 @@ import io.ktor.server.routing.route
 fun Route.watchlistRoutes(watchlist: WatchlistUseCase, profiles: ProfileUseCase) {
     route("/profiles/{profileId}/watchlist") {
         get {
-            val items = watchlist.watchlist(call.profileIdParameter()).map { it.toDto(inWatchlist = true) }
+            val items = watchlist.watchlist(call.profileIdParameter()).map { it.toDto() }
             call.respond(WatchlistDto(items))
         }
         get("/refresh") {
             val rows = watchlist.refreshWatchlistRows(call.profileIdParameter(), call.symbolsParameter())
-            call.respond(WatchlistDto(rows.map { it.toDto(inWatchlist = true) }))
+            call.respond(WatchlistRowsDto(rows.map { it.toDto(inWatchlist = true) }))
         }
         put("/{symbol}") {
-            profiles.addToWatchlist(call.profileIdParameter(), call.symbolParameter())
-            call.respond(HttpStatusCode.NoContent)
+            call.respond(profiles.addToWatchlist(call.profileIdParameter(), call.symbolParameter()).toDto())
         }
         delete("/{symbol}") {
             profiles.removeFromWatchlist(call.profileIdParameter(), call.symbolParameter())

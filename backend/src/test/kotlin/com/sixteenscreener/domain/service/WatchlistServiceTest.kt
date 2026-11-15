@@ -9,15 +9,17 @@ import com.sixteenscreener.domain.model.PriceTrend
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ResourceNotFoundException
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.WatchlistItem
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.profileKey
 import com.sixteenscreener.port.inbound.WatchlistUseCase.Companion.MAX_REFRESH_SYMBOLS
+import com.sixteenscreener.watchlistEntries
+import com.sixteenscreener.watchlistEntry
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.nulls.shouldBeNull
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import java.time.Duration
 
@@ -26,7 +28,7 @@ private class WatchlistFixture(vararg tickers: String) {
     val service = WatchlistService(data.profiles, data.catalog, data.directory, data.service, data.identities)
 
     init {
-        data.profiles.save(data.profile.copy(watchlist = tickers.map(Symbol::of)))
+        data.profiles.save(data.profile.copy(watchlist = watchlistEntries(tickers.toList())))
     }
 
     suspend fun watchlist() = service.watchlist(data.profile.id)
@@ -36,9 +38,12 @@ private class WatchlistFixture(vararg tickers: String) {
 
 private fun List<CompanySummary>.symbols() = map { it.identity.symbol.value }
 
+@JvmName("itemSymbols")
+private fun List<WatchlistItem>.symbols() = map { it.identity.symbol.value }
+
 class WatchlistServiceTest : FunSpec({
 
-    test("empty watchlist returns no rows without reading the cache") {
+    test("empty watchlist returns no rows without reading the directory or the cache") {
         val f = WatchlistFixture()
 
         f.watchlist().shouldBeEmpty()
@@ -47,6 +52,51 @@ class WatchlistServiceTest : FunSpec({
 
     test("unknown profile is not found") {
         shouldThrow<ResourceNotFoundException> { WatchlistFixture().service.watchlist(ProfileId.random()) }
+    }
+
+    test("watchlist items carry the directory identity and the stored sector and tags in watchlist order") {
+        val f = WatchlistFixture()
+        f.data.profiles.save(
+            f.data.profile.copy(
+                watchlist = listOf(watchlistEntry("SAP.DE", "Software", listOf("eu", "core")), watchlistEntry("AAPL")),
+            ),
+        )
+        f.data.listed(listing("AAPL", name = "APPLE INC"), listing("SAP.DE", mic = "XETR", currency = "EUR", name = "SAP SE"))
+
+        f.watchlist() shouldContainExactly listOf(
+            WatchlistItem(CompanyIdentity(Symbol.of("SAP.DE"), "XETRA", "SAP SE", Market.EU), "Software", listOf("eu", "core")),
+            WatchlistItem(CompanyIdentity(Symbol.of("AAPL"), "NASDAQ", "APPLE INC", Market.US), null, emptyList()),
+        )
+    }
+
+    test("watchlist reads no cached company data and makes no source requests") {
+        val f = WatchlistFixture("STALE", "MISSING")
+        f.data.listed(listing("STALE"), listing("MISSING"))
+        f.data.cachedQuote("STALE", 5.0, age = Duration.ofHours(6))
+        f.data.cached(profileKey("STALE"), sampleProfile(sector = "Cached"), age = Duration.ofDays(1))
+        f.data.quoteFromSource("STALE", 6.0)
+        f.data.quoteFromSource("MISSING", 7.0)
+        f.data.profileFromSource("MISSING", sampleProfile(sector = "Energy"))
+
+        val items = f.watchlist()
+
+        items.symbols() shouldContainExactly listOf("STALE", "MISSING")
+        items.map { it.sector } shouldContainExactly listOf(null, null)
+        f.data.cache.getCalls shouldBe 0
+        f.data.cache.getAllCalls shouldBe 0
+        f.data.source.calls.shouldBeEmpty()
+        f.data.countingCounters.tryAcquireCalls shouldBe 0
+    }
+
+    test("symbol no longer in the directory is returned with the ticker as name, ignoring a cached profile") {
+        val f = WatchlistFixture()
+        f.data.profiles.save(f.data.profile.copy(watchlist = listOf(watchlistEntry("GONE.DE", "Industrials"))))
+        f.data.cached(profileKey("GONE.DE"), sampleProfile(name = "Gone AG"), Duration.ofDays(2))
+
+        val item = f.watchlist().single()
+
+        item.identity shouldBe CompanyIdentity(Symbol.of("GONE.DE"), "DE", "GONE", market = null)
+        item.sector shouldBe "Industrials"
     }
 
     test("refreshed rows follow the watchlist order with identity, sector and quote") {
@@ -68,31 +118,6 @@ class WatchlistServiceTest : FunSpec({
         rows[0].quote?.data?.quote?.price shouldBe 200.0
     }
 
-    test("profile default source is used for the watchlist data") {
-        val f = WatchlistFixture("AAPL")
-        f.data.listed(listing("AAPL"))
-        f.data.profiles.save(f.data.profile.copy(defaultSource = SEC_EDGAR, watchlist = listOf(Symbol.of("AAPL"))))
-
-        val row = f.watchlist().single()
-
-        row.quote?.source shouldBe SEC_EDGAR
-        row.quote?.status shouldBe DataStatus.NOT_SUPPORTED
-        f.data.source.calls.shouldBeEmpty()
-    }
-
-    test("symbol no longer in the directory is returned with best-effort data") {
-        val f = WatchlistFixture("GONE.DE")
-        val cached = f.data.cachedQuote("GONE.DE", 12.0, age = Duration.ofHours(3))
-        f.data.cached(profileKey("GONE.DE"), sampleProfile(name = "Gone AG", sector = "Industrials"), Duration.ofDays(2))
-
-        val row = f.watchlist().single()
-
-        row.identity shouldBe CompanyIdentity(Symbol.of("GONE.DE"), "DE", "Gone AG", market = null)
-        row.sector shouldBe "Industrials"
-        row.quote.shouldNotBeNull().data shouldBe cached.data
-        f.data.quoteCalls().shouldBeEmpty()
-    }
-
     test("refreshed company without cached quote and without budget has no quote data") {
         val f = WatchlistFixture("AAPL")
         f.data.listed(listing("AAPL"))
@@ -103,24 +128,6 @@ class WatchlistServiceTest : FunSpec({
         row.quote?.status shouldBe DataStatus.LIMIT_REACHED
         row.quote?.data.shouldBeNull()
         row.sector.shouldBeNull()
-    }
-
-    test("watchlist rows carry cached quotes as is without quote requests") {
-        val f = WatchlistFixture("STALE", "MISSING")
-        f.data.listed(listing("STALE"), listing("MISSING"))
-        val stale = f.data.cachedQuote("STALE", 5.0, age = Duration.ofHours(6))
-        f.data.quoteFromSource("STALE", 6.0)
-        f.data.quoteFromSource("MISSING", 7.0)
-        f.data.profileFromSource("MISSING", sampleProfile(sector = "Energy"))
-
-        val rows = f.watchlist()
-
-        rows.symbols() shouldContainExactly listOf("STALE", "MISSING")
-        rows[0].quote?.status shouldBe DataStatus.CACHED
-        rows[0].quote?.data shouldBe stale.data
-        rows[1].quote.shouldBeNull()
-        rows[1].sector shouldBe "Energy"
-        f.data.quoteCalls().shouldBeEmpty()
     }
 
     test("refresh returns only requested watchlist symbols in watchlist order, ignoring duplicates") {

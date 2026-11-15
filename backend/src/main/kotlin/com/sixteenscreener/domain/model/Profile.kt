@@ -62,7 +62,7 @@ value class ProfileName private constructor(val value: String) {
  * @property id backend-generated ID
  * @property name name as first entered, trimmed
  * @property defaultSource default source chosen by the user; null means the configured default source
- * @property watchlist watchlist symbols in insertion order
+ * @property watchlist watchlist entries in insertion order
  * @property createdAt creation time
  * @property updatedAt last modification time
  */
@@ -70,12 +70,18 @@ data class Profile(
     val id: ProfileId,
     val name: ProfileName,
     val defaultSource: SourceId?,
-    val watchlist: List<Symbol>,
+    val watchlist: List<WatchlistEntry>,
     val createdAt: Instant,
     val updatedAt: Instant,
 ) {
+    /** Symbols of the watchlist in insertion order. */
+    val watchlistSymbols: List<Symbol> get() = watchlist.map { it.symbol }
+
+    /** Watchlist entry of [symbol], or null when [symbol] is not in the watchlist. */
+    fun watchlistEntry(symbol: Symbol): WatchlistEntry? = watchlist.firstOrNull { it.symbol == symbol }
+
     companion object {
-        /** Maximum number of watchlist symbols (spec `maxItems`). */
+        /** Maximum number of watchlist entries (spec `maxItems`). */
         const val MAX_WATCHLIST_SIZE = 250
     }
 }

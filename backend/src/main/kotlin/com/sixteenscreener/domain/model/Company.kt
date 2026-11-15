@@ -21,6 +21,19 @@ data class CompanyIdentity(
 }
 
 /**
+ * Watchlist row without market data (ADR-057).
+ *
+ * @property identity symbol, exchange, name and market resolved from the exchange directory
+ * @property sector sector stored with the watchlist entry; null when unknown
+ * @property tags profile tags stored with the watchlist entry
+ */
+data class WatchlistItem(
+    val identity: CompanyIdentity,
+    val sector: String?,
+    val tags: List<String>,
+)
+
+/**
  * Data of a company row on the watchlist and search screens.
  *
  * @property identity symbol, exchange, name and market

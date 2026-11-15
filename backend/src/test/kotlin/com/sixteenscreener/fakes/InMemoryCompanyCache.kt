@@ -21,12 +21,16 @@ class InMemoryCompanyCache : CompanyCache {
     private val entries = mutableMapOf<CacheKey<*>, CacheEntry<*>>()
     private val history = mutableMapOf<Triple<SourceId, Symbol, LocalDate>, QuoteHistoryEntry>()
 
+    var getCalls: Int = 0
+        private set
+
     var getAllCalls: Int = 0
         private set
 
     var failWrites: Boolean = false
 
     override suspend fun <T : Any> get(key: CacheKey<T>): CacheEntry<T>? = mutex.withLock {
+        getCalls++
         CacheEntries(entries)[key]
     }
 

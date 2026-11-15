@@ -3,28 +3,29 @@ package com.sixteenscreener.port.inbound
 import com.sixteenscreener.domain.model.CompanySummary
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.WatchlistItem
 
 /**
- * Watchlist rows with data from the profile's default source (ADR-031, ADR-032, ADR-055).
+ * Watchlist rows (ADR-057) and their market data from the profile's default source (ADR-031, ADR-055).
  */
 interface WatchlistUseCase {
     /**
-     * Company summaries of every watchlist symbol of profile [profileId], in watchlist order.
+     * Watchlist items of every watchlist entry of profile [profileId], in watchlist order.
      *
-     * No quote requests are made: quotes are returned from the cache as is, and a company without any cached quote has
-     * no quote. Company profiles (sector) are requested within the source request limits when absent or older than
-     * 14 days. A symbol no longer found in the exchange directory is still returned with best-effort data: the exchange
-     * code as exchange name, the cached profile name or the ticker as name, and no market.
+     * Sector and tags come from the watchlist entries; ticker, exchange, name and market from the exchange directory.
+     * No cached company data is read and no source requests are made. A symbol no longer found in the exchange
+     * directory is still returned with best-effort data: the exchange code as exchange name, the ticker as name, and
+     * no market (ADR-057).
      *
      * Throws [com.sixteenscreener.domain.model.ResourceNotFoundException] for an unknown profile.
      */
-    suspend fun watchlist(profileId: ProfileId): List<CompanySummary>
+    suspend fun watchlist(profileId: ProfileId): List<WatchlistItem>
 
     /**
      * Company summaries of the [symbols] that are in the watchlist of profile [profileId], in watchlist order.
      *
      * Symbols outside the watchlist are skipped and duplicates are ignored. Stale quotes (older than 1 hour) are
-     * refreshed oldest first within the source request limits; company profiles as in [watchlist]. Companies that
+     * refreshed oldest first within the source request limits; absent or expired company profiles are requested too. Companies that
      * couldn't be refreshed keep their cached data. A symbol no longer found in the exchange directory keeps its cached
      * quote without refresh.
      *

@@ -3,7 +3,6 @@ package com.sixteenscreener.adapter.inbound.http
 import com.sixteenscreener.TestPorts
 import com.sixteenscreener.domain.model.CacheEntry
 import com.sixteenscreener.domain.model.CacheKey
-import com.sixteenscreener.domain.model.Capability
 import com.sixteenscreener.domain.model.CompanyProfile
 import com.sixteenscreener.domain.model.DataType
 import com.sixteenscreener.domain.model.ListedSymbol
@@ -16,7 +15,7 @@ import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
-import com.sixteenscreener.testConfig
+import com.sixteenscreener.watchlistEntry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -27,6 +26,7 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.put
 import io.ktor.http.HttpStatusCode
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -55,10 +55,6 @@ private fun TestPorts.cachedQuote(symbol: String, price: Double, age: Duration, 
 
 private fun TestPorts.quoteFromSource(symbol: String, price: Double) {
     marketData.quotes[Symbol.of(symbol)] = SourceResult.Success(Quote(price, "USD"), SourceCallOutcome.success(clock.now()))
-}
-
-private fun profileCapableConfig() = testConfig().let { config ->
-    config.copy(sources = config.sources.map { it.copy(capabilities = it.capabilities + Capability.COMPANY_PROFILE) })
 }
 
 private fun refreshUrl(profile: Profile, symbols: List<String>) =
@@ -148,7 +144,7 @@ class WatchlistRoutesTest : FunSpec({
                 ports.listed("AAPL")
                 ports.cachedQuote("AAPL", 110.0, age = Duration.ofMinutes(5), previousPrice = case.previous)
 
-                val quote = client.get("/profiles/${profile.id}/watchlist").json().items().single().quote()!!
+                val quote = client.get(refreshUrl(profile, listOf("AAPL"))).json().items().single().quote()!!
 
                 quote["trend"] shouldBe JsonPrimitive(case.trend)
                 quote["previousCachedPrice"] shouldBe (case.previous?.let(::JsonPrimitive) ?: JsonNull)
@@ -185,7 +181,7 @@ class WatchlistRoutesTest : FunSpec({
             ports.marketData.quotes[Symbol.of("C005")] =
                 SourceResult.LimitReached(SourceCallOutcome.httpError(429, ports.clock.now()))
 
-            val response = client.get(refreshUrl(profile, profile.watchlist.map { it.value }))
+            val response = client.get(refreshUrl(profile, profile.watchlistSymbols.map { it.value }))
 
             response.status shouldBe HttpStatusCode.OK
             val prices = response.json().items().map { it.quote()!!["price"]!!.jsonPrimitive.content.toDouble() }
@@ -206,7 +202,7 @@ class WatchlistRoutesTest : FunSpec({
             ports.marketData.quotes[Symbol.of("EMPTY")] =
                 SourceResult.SourceError(SourceCallOutcome.timeout(ports.clock.now()))
 
-            val response = client.get(refreshUrl(profile, profile.watchlist.map { it.value }))
+            val response = client.get(refreshUrl(profile, profile.watchlistSymbols.map { it.value }))
 
             response.status shouldBe HttpStatusCode.OK
             val items = response.json().items()
@@ -224,29 +220,56 @@ class WatchlistRoutesTest : FunSpec({
             ports.quoteFromSource("AAPL", 7.0)
             ports.companyCache.failWrites = true
 
-            val response = client.get(refreshUrl(profile, profile.watchlist.map { it.value }))
+            val response = client.get(refreshUrl(profile, profile.watchlistSymbols.map { it.value }))
 
             response.status shouldBe HttpStatusCode.OK
             response.json().items().single().quote()!!["price"] shouldBe JsonPrimitive(7.0)
         }
     }
 
-    test("symbol missing from the directory is returned with best-effort data") {
+    test("watchlist item carries every alpha field of WatchlistItem") {
         routeTest { ports ->
+            val profile = ports.savedProfile().copy(
+                watchlist = listOf(watchlistEntry("SAP.DE", sector = "Software", tags = listOf("eu"))),
+            ).also(ports.profiles::save)
+            ports.listed("SAP.DE", mic = "XETR", currency = "EUR", name = "SAP SE")
+
+            val item = client.get("/profiles/${profile.id}/watchlist").json().items().single()
+
+            item shouldBe JsonObject(
+                mapOf(
+                    "symbol" to JsonPrimitive("SAP.DE"),
+                    "ticker" to JsonPrimitive("SAP"),
+                    "exchange" to JsonPrimitive("XETRA"),
+                    "name" to JsonPrimitive("SAP SE"),
+                    "market" to JsonPrimitive("EU"),
+                    "logoUrl" to JsonPrimitive("/logos/SAP.DE"),
+                    "sector" to JsonPrimitive("Software"),
+                    "tags" to JsonArray(listOf(JsonPrimitive("eu"))),
+                ),
+            )
+        }
+    }
+
+    test("symbol missing from the directory is returned with the ticker as name") {
+        routeTest(config = profileCapableConfig()) { ports ->
             val profile = ports.savedProfile(watchlist = listOf("GONE"))
-            ports.cachedQuote("GONE", 3.0, age = Duration.ofHours(2))
+            ports.companyCache.put(
+                CacheKey(finnhub, Symbol.of("GONE"), DataType.COMPANY_PROFILE),
+                CacheEntry(CompanyProfile("Gone Inc", "US", "USD", "Energy", null, null, null, null, null, null, null), ports.clock.now()),
+            )
 
             val item = client.get("/profiles/${profile.id}/watchlist").json().items().single()
 
             item["exchange"] shouldBe JsonPrimitive("US")
             item["name"] shouldBe JsonPrimitive("GONE")
             item["market"] shouldBe JsonNull
-            item.quote()!!["price"] shouldBe JsonPrimitive(3.0)
+            item["sector"] shouldBe JsonNull
             ports.marketData.calls.shouldBeEmpty()
         }
     }
 
-    test("watchlist makes no quote requests: stale quote is CACHED, missing quote is null, missing profile is fetched") {
+    test("watchlist reads no cached company data and makes no source requests") {
         routeTest(config = profileCapableConfig()) { ports ->
             val profile = ports.savedProfile(watchlist = listOf("STALE", "MISSING"))
             ports.listed("STALE")
@@ -262,11 +285,10 @@ class WatchlistRoutesTest : FunSpec({
             val items = client.get("/profiles/${profile.id}/watchlist").json().items()
 
             items.map { it.symbol() } shouldContainExactly listOf("STALE", "MISSING")
-            items[0].quote()!!["price"] shouldBe JsonPrimitive(4.0)
-            items[0].quote()!!["fetchedAt"] shouldBe JsonPrimitive("2026-11-14T07:00:00Z")
-            items[1]["quote"] shouldBe JsonNull
-            items[1]["sector"] shouldBe JsonPrimitive("Energy")
-            ports.marketData.calls.filter { it.startsWith("quote:") }.shouldBeEmpty()
+            items.forEach { it["sector"] shouldBe JsonNull }
+            ports.companyCache.getCalls shouldBe 0
+            ports.companyCache.getAllCalls shouldBe 0
+            ports.marketData.calls.shouldBeEmpty()
         }
     }
 
@@ -341,7 +363,7 @@ class WatchlistRoutesTest : FunSpec({
             val profile = ports.savedProfile()
             ports.listed("AAPL")
 
-            client.put("/profiles/${profile.id}/watchlist/AAPL").status shouldBe HttpStatusCode.NoContent
+            client.put("/profiles/${profile.id}/watchlist/AAPL").status shouldBe HttpStatusCode.OK
             client.get(refreshUrl(profile, listOf("AAPL"))).json().items().map { it.symbol() } shouldContainExactly
                 listOf("AAPL")
             client.delete("/profiles/${profile.id}/watchlist/AAPL").status shouldBe HttpStatusCode.NoContent

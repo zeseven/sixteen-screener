@@ -4,6 +4,7 @@ import com.sixteenscreener.domain.model.CompanySummary
 import com.sixteenscreener.domain.model.QuoteRecord
 import com.sixteenscreener.domain.model.SourceData
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.WatchlistItem
 import com.sixteenscreener.port.inbound.SearchResults
 import kotlinx.serialization.Serializable
 
@@ -31,7 +32,24 @@ data class CompanySummaryDto(
 )
 
 @Serializable
+data class WatchlistItemDto(
+    val symbol: String,
+    val ticker: String,
+    val exchange: String,
+    val name: String,
+    val market: String?,
+    val logoUrl: String,
+    val sector: String?,
+    val tags: List<String>,
+)
+
+@Serializable
 data class WatchlistDto(
+    val items: List<WatchlistItemDto>,
+)
+
+@Serializable
+data class WatchlistRowsDto(
     val items: List<CompanySummaryDto>,
 )
 
@@ -46,6 +64,17 @@ fun SearchResults.toDto() = SearchResultsDto(
     source = source.value,
     status = status.name,
     items = items.map { it.company.toDto(it.inWatchlist) },
+)
+
+fun WatchlistItem.toDto() = WatchlistItemDto(
+    symbol = identity.symbol.value,
+    ticker = identity.ticker,
+    exchange = identity.exchange,
+    name = identity.name,
+    market = identity.market?.name,
+    logoUrl = logoUrlOf(identity.symbol),
+    sector = sector,
+    tags = tags,
 )
 
 fun logoUrlOf(symbol: Symbol): String = "/logos/${symbol.value}"

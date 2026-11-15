@@ -4,6 +4,7 @@ import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ProfileName
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.WatchlistEntry
 import java.time.Instant
 
 /**
@@ -31,7 +32,7 @@ sealed interface WatchlistUpdate {
     /** No profile with the given ID exists. */
     data object ProfileNotFound : WatchlistUpdate
 
-    /** The symbol was not added because the watchlist already holds [Profile.MAX_WATCHLIST_SIZE] symbols. */
+    /** The entry was not added because the watchlist already holds [Profile.MAX_WATCHLIST_SIZE] entries. */
     data object WatchlistFull : WatchlistUpdate
 }
 
@@ -50,11 +51,21 @@ interface ProfileRepository {
     suspend fun getOrCreate(candidate: Profile): ProfileCreation
 
     /**
-     * Appends [symbol] to the watchlist of profile [id] unless already present (idempotent), setting `updatedAt` to [at].
+     * Appends [entry] to the watchlist of profile [id], setting `updatedAt` to [at]. When the watchlist already holds an
+     * entry with the same symbol, that entry is kept unchanged (idempotent).
      * Returns [WatchlistUpdate.WatchlistFull] when the symbol is absent and the watchlist is full.
      */
-    suspend fun addToWatchlist(id: ProfileId, symbol: Symbol, at: Instant): WatchlistUpdate
+    suspend fun addToWatchlist(id: ProfileId, entry: WatchlistEntry, at: Instant): WatchlistUpdate
 
-    /** Removes [symbol] from the watchlist of profile [id] if present (idempotent), setting `updatedAt` to [at]. */
+    /**
+     * Sets the sector of the watchlist entry of [symbol] in profile [id] to [sector], setting `updatedAt` to [at].
+     * Leaves the profile unchanged when [symbol] is not in the watchlist or its sector already equals [sector].
+     */
+    suspend fun updateWatchlistSector(id: ProfileId, symbol: Symbol, sector: String?, at: Instant): WatchlistUpdate
+
+    /**
+     * Removes the watchlist entry of [symbol], with its tags, from profile [id] if present (idempotent),
+     * setting `updatedAt` to [at].
+     */
     suspend fun removeFromWatchlist(id: ProfileId, symbol: Symbol, at: Instant): WatchlistUpdate
 }

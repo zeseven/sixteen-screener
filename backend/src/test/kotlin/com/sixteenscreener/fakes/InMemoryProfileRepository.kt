@@ -3,6 +3,7 @@ package com.sixteenscreener.fakes
 import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.WatchlistEntry
 import com.sixteenscreener.port.outbound.ProfileCreation
 import com.sixteenscreener.port.outbound.ProfileRepository
 import com.sixteenscreener.port.outbound.WatchlistUpdate
@@ -28,17 +29,36 @@ class InMemoryProfileRepository : ProfileRepository {
         }
     }
 
-    override suspend fun addToWatchlist(id: ProfileId, symbol: Symbol, at: Instant): WatchlistUpdate =
+    var sectorUpdates: Int = 0
+        private set
+
+    var failSectorUpdates: Boolean = false
+
+    override suspend fun addToWatchlist(id: ProfileId, entry: WatchlistEntry, at: Instant): WatchlistUpdate =
         update(id) { profile ->
             when {
-                symbol in profile.watchlist -> profile.copy(updatedAt = at)
+                profile.watchlistEntry(entry.symbol) != null -> profile.copy(updatedAt = at)
                 profile.watchlist.size >= Profile.MAX_WATCHLIST_SIZE -> null
-                else -> profile.copy(watchlist = profile.watchlist + symbol, updatedAt = at)
+                else -> profile.copy(watchlist = profile.watchlist + entry, updatedAt = at)
             }
         }
 
+    override suspend fun updateWatchlistSector(id: ProfileId, symbol: Symbol, sector: String?, at: Instant): WatchlistUpdate {
+        if (failSectorUpdates) throw IllegalStateException("Sector update failed")
+        return update(id) { profile ->
+            val entry = profile.watchlistEntry(symbol)
+            if (entry == null || entry.sector == sector) {
+                profile
+            } else {
+                sectorUpdates++
+                val watchlist = profile.watchlist.map { if (it.symbol == symbol) it.copy(sector = sector) else it }
+                profile.copy(watchlist = watchlist, updatedAt = at)
+            }
+        }
+    }
+
     override suspend fun removeFromWatchlist(id: ProfileId, symbol: Symbol, at: Instant): WatchlistUpdate =
-        update(id) { profile -> profile.copy(watchlist = profile.watchlist - symbol, updatedAt = at) }
+        update(id) { profile -> profile.copy(watchlist = profile.watchlist.filterNot { it.symbol == symbol }, updatedAt = at) }
 
     fun save(profile: Profile) {
         profiles[profile.id] = profile

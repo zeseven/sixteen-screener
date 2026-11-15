@@ -2,13 +2,14 @@ package com.sixteenscreener.adapter.inbound.http
 
 import com.sixteenscreener.TestPorts
 import com.sixteenscreener.config.AppConfig
+import com.sixteenscreener.domain.model.Capability
 import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ProfileName
-import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.module
 import com.sixteenscreener.testConfig
 import com.sixteenscreener.testServices
+import com.sixteenscreener.watchlistEntries
 import io.kotest.matchers.shouldBe
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
@@ -29,12 +30,16 @@ fun routeTest(
     block(ports)
 }
 
+fun profileCapableConfig(): AppConfig = testConfig().let { config ->
+    config.copy(sources = config.sources.map { it.copy(capabilities = it.capabilities + Capability.COMPANY_PROFILE) })
+}
+
 fun TestPorts.savedProfile(name: String = "Alice", watchlist: List<String> = emptyList()): Profile =
     Profile(
         id = ProfileId.random(),
         name = ProfileName.of(name),
         defaultSource = null,
-        watchlist = watchlist.map(Symbol::of),
+        watchlist = watchlistEntries(watchlist),
         createdAt = clock.now(),
         updatedAt = clock.now(),
     ).also(profiles::save)

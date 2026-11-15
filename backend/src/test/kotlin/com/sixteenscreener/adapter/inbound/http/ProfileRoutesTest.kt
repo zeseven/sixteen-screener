@@ -1,9 +1,13 @@
 package com.sixteenscreener.adapter.inbound.http
 
+import com.sixteenscreener.domain.model.CompanyProfile
 import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.Profile
+import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
+import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.watchlistEntry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -20,6 +24,9 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 import java.util.UUID
@@ -136,16 +143,66 @@ class ProfileRoutesTest : FunSpec({
     }
 
     context("watchlist changes") {
-        test("PUT adds a known symbol and is idempotent") {
-            routeTest { ports ->
+        test("PUT adds a known symbol with its sector and answers the stored WatchlistItem") {
+            routeTest(config = profileCapableConfig()) { ports ->
                 val profile = ports.savedProfile()
                 ports.symbolDirectory.add(ListedSymbol(Symbol.of("AAPL"), "APPLE INC", "XNAS", "USD", null))
+                ports.marketData.profiles[Symbol.of("AAPL")] = SourceResult.Success(
+                    CompanyProfile("Apple Inc", "US", "USD", "Technology", null, null, null, null, null, null, null),
+                    SourceCallOutcome.success(ports.clock.now()),
+                )
 
-                repeat(2) {
-                    client.put("/profiles/${profile.id}/watchlist/AAPL").status shouldBe HttpStatusCode.NoContent
-                }
+                val response = client.put("/profiles/${profile.id}/watchlist/AAPL")
 
-                ports.profiles.findById(profile.id)!!.watchlist shouldContainExactly listOf(Symbol.of("AAPL"))
+                response.status shouldBe HttpStatusCode.OK
+                response.json() shouldBe JsonObject(
+                    mapOf(
+                        "symbol" to JsonPrimitive("AAPL"),
+                        "ticker" to JsonPrimitive("AAPL"),
+                        "exchange" to JsonPrimitive("NASDAQ"),
+                        "name" to JsonPrimitive("APPLE INC"),
+                        "market" to JsonPrimitive("US"),
+                        "logoUrl" to JsonPrimitive("/logos/AAPL"),
+                        "sector" to JsonPrimitive("Technology"),
+                        "tags" to JsonArray(emptyList()),
+                    ),
+                )
+                ports.profiles.findById(profile.id)!!.watchlist shouldContainExactly
+                    listOf(watchlistEntry("AAPL", sector = "Technology"))
+            }
+        }
+
+        test("PUT is idempotent and makes no source request for a symbol already in the watchlist") {
+            routeTest(config = profileCapableConfig()) { ports ->
+                val profile = ports.savedProfile()
+                ports.symbolDirectory.add(ListedSymbol(Symbol.of("AAPL"), "APPLE INC", "XNAS", "USD", null))
+                ports.marketData.profiles[Symbol.of("AAPL")] = SourceResult.Success(
+                    CompanyProfile("Apple Inc", "US", "USD", "Technology", null, null, null, null, null, null, null),
+                    SourceCallOutcome.success(ports.clock.now()),
+                )
+
+                val first = client.put("/profiles/${profile.id}/watchlist/AAPL").json()
+                val second = client.put("/profiles/${profile.id}/watchlist/AAPL")
+
+                second.status shouldBe HttpStatusCode.OK
+                second.json() shouldBe first
+                ports.marketData.calls shouldContainExactly listOf("profile:AAPL")
+                ports.profiles.findById(profile.id)!!.watchlistSymbols shouldContainExactly listOf(Symbol.of("AAPL"))
+            }
+        }
+
+        test("PUT still answers 200 with a null sector when the source fails") {
+            routeTest(config = profileCapableConfig()) { ports ->
+                val profile = ports.savedProfile()
+                ports.symbolDirectory.add(ListedSymbol(Symbol.of("AAPL"), "APPLE INC", "XNAS", "USD", null))
+                ports.marketData.profiles[Symbol.of("AAPL")] =
+                    SourceResult.SourceError(SourceCallOutcome.httpError(500, ports.clock.now()))
+
+                val response = client.put("/profiles/${profile.id}/watchlist/AAPL")
+
+                response.status shouldBe HttpStatusCode.OK
+                response.json()["sector"] shouldBe JsonNull
+                ports.profiles.findById(profile.id)!!.watchlist shouldContainExactly listOf(watchlistEntry("AAPL"))
             }
         }
 
@@ -182,7 +239,7 @@ class ProfileRoutesTest : FunSpec({
                 client.delete("/profiles/${profile.id}/watchlist/AAPL").status shouldBe HttpStatusCode.NoContent
                 client.delete("/profiles/${profile.id}/watchlist/NOPE").status shouldBe HttpStatusCode.NoContent
 
-                ports.profiles.findById(profile.id)!!.watchlist shouldContainExactly listOf(Symbol.of("MSFT"))
+                ports.profiles.findById(profile.id)!!.watchlistSymbols shouldContainExactly listOf(Symbol.of("MSFT"))
             }
         }
 

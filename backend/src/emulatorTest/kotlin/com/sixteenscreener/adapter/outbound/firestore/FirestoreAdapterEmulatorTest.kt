@@ -21,6 +21,7 @@ import com.sixteenscreener.domain.model.RequestLimit
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.watchlistEntry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -51,6 +52,41 @@ class FirestoreProfileRepositoryEmulatorTest : FunSpec({
         document["watchlist"] shouldBe emptyList<String>()
         document["defaultSource"].shouldBeNull()
         document.keys shouldBe setOf("name", "defaultSource", "watchlist", "createdAt", "updatedAt")
+    }
+
+    test("stores watchlist entries as maps of symbol, sector and tags") {
+        val firestore = emulator.reset()
+        val repository = FirestoreProfileRepository(firestore)
+        val profile = repository.getOrCreate(profileCandidate("Ann")).profile
+
+        repository.addToWatchlist(profile.id, watchlistEntry("SAP.DE", sector = "Software", tags = listOf("eu")), Instant.now())
+        repository.addToWatchlist(profile.id, watchlistEntry("AAPL"), Instant.now())
+
+        firestore.document(FirestoreCollections.PROFILES, profile.id.toString())["watchlist"] shouldBe listOf(
+            mapOf("symbol" to "SAP.DE", "sector" to "Software", "tags" to listOf("eu")),
+            mapOf("symbol" to "AAPL", "sector" to null, "tags" to emptyList<String>()),
+        )
+    }
+
+    test("skips watchlist entries of an unexpected shape") {
+        val firestore = emulator.reset()
+        val repository = FirestoreProfileRepository(firestore)
+        val profile = repository.getOrCreate(profileCandidate("Ben")).profile
+        firestore.collection(FirestoreCollections.PROFILES).document(profile.id.toString()).update(
+            "watchlist",
+            listOf(
+                "AAPL",
+                mapOf("symbol" to "not a symbol"),
+                mapOf("sector" to "Technology"),
+                mapOf("symbol" to "MSFT", "sector" to 42L, "tags" to listOf("ok", 1L)),
+                mapOf("symbol" to "IBM", "tags" to "not a list"),
+            ),
+        ).await()
+
+        repository.findById(profile.id)?.watchlist shouldBe listOf(
+            watchlistEntry("MSFT", tags = listOf("ok")),
+            watchlistEntry("IBM"),
+        )
     }
 })
 

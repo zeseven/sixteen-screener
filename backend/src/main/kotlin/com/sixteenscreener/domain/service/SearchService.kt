@@ -38,7 +38,7 @@ class SearchService(
         val symbols = hits.map { it.symbol }
         val listings = if (symbols.isEmpty()) emptyMap() else symbolDirectory.findAll(symbols)
         val cached = companyData.cachedCompanies(source, symbols)
-        val watchlist = profile.watchlist.toSet()
+        val watchlist = profile.watchlistSymbols.toSet()
         val items = hits.map { hit ->
             val company = cached[hit.symbol]
             SearchResult(

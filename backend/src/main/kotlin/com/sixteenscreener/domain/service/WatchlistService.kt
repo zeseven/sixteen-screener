@@ -5,6 +5,7 @@ import com.sixteenscreener.domain.model.InvalidInputException
 import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.WatchlistItem
 import com.sixteenscreener.port.inbound.WatchlistUseCase
 import com.sixteenscreener.port.inbound.WatchlistUseCase.Companion.MAX_REFRESH_SYMBOLS
 import com.sixteenscreener.port.outbound.ProfileRepository
@@ -18,9 +19,11 @@ class WatchlistService(
     private val identities: CompanyIdentityResolver,
 ) : WatchlistUseCase {
 
-    override suspend fun watchlist(profileId: ProfileId): List<CompanySummary> {
-        val profile = profiles.existing(profileId)
-        return rows(profile, profile.watchlist, refreshStaleQuotes = false)
+    override suspend fun watchlist(profileId: ProfileId): List<WatchlistItem> {
+        val entries = profiles.existing(profileId).watchlist
+        if (entries.isEmpty()) return emptyList()
+        val listings = symbolDirectory.findAll(entries.map { it.symbol })
+        return entries.map { identities.watchlistItemOf(it, listings[it.symbol]) }
     }
 
     override suspend fun refreshWatchlistRows(profileId: ProfileId, symbols: List<Symbol>): List<CompanySummary> {
@@ -29,17 +32,16 @@ class WatchlistService(
         }
         val profile = profiles.existing(profileId)
         val requested = symbols.toSet()
-        return rows(profile, profile.watchlist.filter { it in requested }, refreshStaleQuotes = true)
+        return rows(profile, profile.watchlistSymbols.filter { it in requested })
     }
 
     private suspend fun rows(
         profile: Profile,
         symbols: List<Symbol>,
-        refreshStaleQuotes: Boolean,
     ): List<CompanySummary> {
         if (symbols.isEmpty()) return emptyList()
         val listings = symbolDirectory.findAll(symbols)
-        val data = companyData.watchlistData(catalog.defaultSourceOf(profile), symbols, listings, refreshStaleQuotes)
+        val data = companyData.watchlistData(catalog.defaultSourceOf(profile), symbols, listings, refreshStaleQuotes = true)
         return symbols.map { symbol ->
             val company = data.getValue(symbol)
             val cachedProfile = company.profile.data

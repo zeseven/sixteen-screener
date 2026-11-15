@@ -21,6 +21,7 @@ import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.profileKey
 import com.sixteenscreener.port.inbound.SearchResults
 import com.sixteenscreener.port.outbound.MarketDataSource
+import com.sixteenscreener.watchlistEntries
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
@@ -233,7 +234,7 @@ class SearchServiceTest : FunSpec({
 
         test("results already in the watchlist are marked") {
             val f = SearchFixture()
-            f.data.profiles.save(f.data.profile.copy(watchlist = listOf(Symbol.of("APC.DE"))))
+            f.data.profiles.save(f.data.profile.copy(watchlist = watchlistEntries("APC.DE")))
             f.hits("apple", "AAPL" to "APPLE INC", "APC.DE" to "APPLE INC")
 
             f.search("apple").items.map { it.inWatchlist } shouldContainExactly listOf(false, true)
@@ -485,7 +486,7 @@ class SearchServiceTest : FunSpec({
             f.data.listed(listing("AAPL"))
             f.hits("apple", "AAPL" to "APPLE INC")
             f.search("apple")
-            f.data.profiles.save(f.data.profile.copy(watchlist = listOf(Symbol.of("AAPL"))))
+            f.data.profiles.save(f.data.profile.copy(watchlist = watchlistEntries("AAPL")))
             f.data.cachedQuote("AAPL", 191.0, age = Duration.ofMinutes(1))
 
             val item = f.search("apple").items.single()

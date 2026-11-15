@@ -116,6 +116,7 @@ class CompanyDataFixture(
     val catalog = SourceCatalog(FINNHUB, mapOf(FINNHUB to capabilities, SEC_EDGAR to setOf(Capability.BALANCE_SHEET)))
     val marketResolver = MarketResolver()
     val identities = CompanyIdentityResolver(marketResolver)
+    val sectors = WatchlistSectorSync(profiles, catalog, clock)
     val profile = Profile(
         id = ProfileId.random(),
         name = ProfileName.of("Alice"),
@@ -138,6 +139,7 @@ class CompanyDataFixture(
         freshness = FreshnessPolicy(clock),
         marketResolver = marketResolver,
         identities = identities,
+        sectors = sectors,
         clock = clock,
     )
 

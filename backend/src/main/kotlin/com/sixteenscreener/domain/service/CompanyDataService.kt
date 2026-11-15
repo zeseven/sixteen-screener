@@ -9,6 +9,7 @@ import com.sixteenscreener.domain.model.DataStatus
 import com.sixteenscreener.domain.model.DataType
 import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.PriceAndRatios
+import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.Quote
 import com.sixteenscreener.domain.model.QuoteRecord
@@ -60,6 +61,7 @@ class CompanyDataService(
     private val freshness: FreshnessPolicy,
     private val marketResolver: MarketResolver,
     private val identities: CompanyIdentityResolver,
+    private val sectors: WatchlistSectorSync,
     private val clock: Clock,
     private val maxConcurrentCalls: Int = DEFAULT_MAX_CONCURRENT_CALLS,
 ) : CompanyDataUseCase {
@@ -103,9 +105,19 @@ class CompanyDataService(
     ): CompanyProfileData {
         val target = target(profileId, symbol, source)
         val key = CacheKey(target.source, symbol, DataType.COMPANY_PROFILE)
-        val profile = loadSingle(key, refresh) { profileFetch(key, it) }
+        val cached = if (supports(key)) cache.get(key) else null
+        val plan = detailedPlan(key, cached, refresh) { profileFetch(key, it) }
+        val profile = load(key.source, listOf(plan))[key]
+        val fetched = profile.data?.takeIf { plan is Fetch<*, *> && profile.status == DataStatus.FRESH }
+        if (fetched != null) sectors.profileFetched(target.profile, key.source, symbol, fetched)
         val identity = identities.identify(symbol, target.listing)
         return CompanyProfileData(profile.data?.name?.let { identity.copy(name = it) } ?: identity, profile)
+    }
+
+    suspend fun unexpiredCompanyProfile(source: SourceId, symbol: Symbol): SourceData<CompanyProfile> {
+        val key = CacheKey(source, symbol, DataType.COMPANY_PROFILE)
+        val cached = if (supports(key)) cache.get(key) else null
+        return load(source, listOf(unexpiredProfilePlan(key, cached)))[key]
     }
 
     suspend fun watchlistData(
@@ -124,7 +136,7 @@ class CompanyDataService(
         }
         val profilePlans = symbols.map { symbol ->
             val key = profileKeys.getValue(symbol)
-            watchlistProfilePlan(key, cached[key])
+            unexpiredProfilePlan(key, cached[key])
         }
         val loaded = load(source, oldestFirst(quotePlans) + oldestFirst(profilePlans))
         return symbols.associateWith { symbol ->
@@ -146,13 +158,13 @@ class CompanyDataService(
         }
     }
 
-    private data class Target(val source: SourceId, val listing: ListedSymbol)
+    private data class Target(val profile: Profile, val source: SourceId, val listing: ListedSymbol)
 
     private suspend fun target(profileId: ProfileId, symbol: Symbol, requested: SourceId?): Target {
         val profile = profiles.existing(profileId)
         val source = catalog.selectSource(profile, requested)
         val listing = symbolDirectory.find(symbol) ?: throw ResourceNotFoundException("Unknown symbol '$symbol'")
-        return Target(source, listing)
+        return Target(profile, source, listing)
     }
 
     private suspend fun <T : Any> loadSingle(
@@ -188,7 +200,7 @@ class CompanyDataService(
         else -> quoteFetch(key, cached, listing)
     }
 
-    private fun watchlistProfilePlan(
+    private fun unexpiredProfilePlan(
         key: CacheKey<CompanyProfile>,
         cached: CacheEntry<CompanyProfile>?,
     ): Plan<CompanyProfile> = when {
