@@ -325,7 +325,7 @@ class SearchServiceTest : FunSpec({
 
             f.search("F").items.single().identity.symbol shouldBe Symbol.of("F")
 
-            f.data.directory.findAllRequests shouldContainExactly listOf(listOf(Symbol.of("F")))
+            f.data.directory.lookupAllRequests shouldContainExactly listOf(listOf(Symbol.of("F")))
         }
 
         test("raw source hits are kept in memory and filtered on every answer") {
@@ -387,7 +387,7 @@ class SearchServiceTest : FunSpec({
 
             f.search("company")
 
-            f.data.directory.findAllRequests.single() shouldContainExactly (1..25).map { Symbol.of("T$it") }
+            f.data.directory.lookupAllRequests.single() shouldContainExactly (1..25).map { Symbol.of("T$it") }
         }
     }
 

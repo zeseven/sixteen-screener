@@ -42,7 +42,7 @@ import com.sixteenscreener.domain.service.SourceCallGuard
 import com.sixteenscreener.domain.service.SourceCallOutcomes
 import com.sixteenscreener.domain.service.SourceCatalog
 import com.sixteenscreener.domain.service.SourceService
-import com.sixteenscreener.domain.service.WatchlistSectorSync
+import com.sixteenscreener.domain.service.WatchlistCompanySync
 import com.sixteenscreener.domain.service.WatchlistService
 import com.sixteenscreener.port.inbound.CompanyDataUseCase
 import com.sixteenscreener.port.inbound.LogoUseCase
@@ -91,7 +91,7 @@ class AppServices(
 
     private val identities = CompanyIdentityResolver(marketResolver)
 
-    private val watchlistSectors = WatchlistSectorSync(profiles, sourceCatalog, clock)
+    private val watchlistCompanies = WatchlistCompanySync(profiles, sourceCatalog, clock)
 
     val companyData = CompanyDataService(
         catalog = sourceCatalog,
@@ -106,12 +106,12 @@ class AppServices(
         freshness = FreshnessPolicy(clock),
         marketResolver = marketResolver,
         identities = identities,
-        sectors = watchlistSectors,
+        watchlistCompanies = watchlistCompanies,
         clock = clock,
     )
 
     val profileUseCase: ProfileUseCase =
-        ProfileService(profiles, symbolDirectory, sourceCatalog, companyData, identities, clock)
+        ProfileService(profiles, symbolDirectory, sourceCatalog, companyData, identities, marketResolver, clock)
 
     val watchlistUseCase: WatchlistUseCase =
         WatchlistService(profiles, sourceCatalog, symbolDirectory, companyData, identities)

@@ -104,20 +104,26 @@ fun profileRepositoryContract(newRepository: suspend () -> ProfileRepository) = 
         val id = repository.getOrCreate(profileCandidate("Carol")).profile.id
         val at = CREATED_AT.plusSeconds(60)
 
-        repository.addToWatchlist(id, watchlistEntry("MSFT", sector = "Technology"), at)
+        repository.addToWatchlist(id, watchlistEntry("MSFT", sector = "Technology", name = "MICROSOFT CORP"), at)
         repository.addToWatchlist(id, watchlistEntry("SAP.DE"), at)
-        val update = repository.addToWatchlist(id, watchlistEntry("MSFT", sector = "Other"), at.plusSeconds(1))
+        val update = repository.addToWatchlist(id, watchlistEntry("MSFT", sector = "Other", name = "Other"), at.plusSeconds(1))
 
         val profile = update.shouldBeInstanceOf<WatchlistUpdate.Updated>().profile
-        profile.watchlist shouldContainExactly listOf(watchlistEntry("MSFT", sector = "Technology"), watchlistEntry("SAP.DE"))
+        profile.watchlist shouldContainExactly listOf(
+            watchlistEntry("MSFT", sector = "Technology", name = "MICROSOFT CORP"),
+            watchlistEntry("SAP.DE"),
+        )
         profile.updatedAt shouldBe at.plusSeconds(1)
         repository.findById(id) shouldBe profile
     }
 
-    test("watchlist entries keep sector and tags") {
+    test("watchlist entries keep name, sector and tags") {
         val repository = newRepository()
         val profile = profileCandidate("Grace").copy(
-            watchlist = listOf(watchlistEntry("AAPL", sector = "Technology", tags = listOf("dividend", "core"))),
+            watchlist = listOf(
+                watchlistEntry("AAPL", sector = "Technology", tags = listOf("dividend", "core"), name = "APPLE INC"),
+                watchlistEntry("AD.AS", name = "Koninklijke Ahold Delhaize NV"),
+            ),
         )
         repository.getOrCreate(profile)
 
@@ -169,44 +175,61 @@ fun profileRepositoryContract(newRepository: suspend () -> ProfileRepository) = 
         repository.findById(id)?.watchlistEntry(Symbol.of("AAPL")) shouldBe watchlistEntry("AAPL")
     }
 
-    test("sector update changes only the sector of the given entry and sets updatedAt") {
+    test("company update changes only the name and the sector of the given entry and sets updatedAt") {
         val repository = newRepository()
         val profile = profileCandidate("Heidi").copy(
-            watchlist = listOf(watchlistEntry("AAPL", sector = "Old", tags = listOf("t")), watchlistEntry("MSFT", "Software")),
+            watchlist = listOf(
+                watchlistEntry("AAPL", sector = "Old", tags = listOf("t"), name = "AAPL"),
+                watchlistEntry("MSFT", "Software", name = "Microsoft Corp"),
+            ),
         )
         val id = repository.getOrCreate(profile).profile.id
         val at = CREATED_AT.plusSeconds(30)
 
-        val update = repository.updateWatchlistSector(id, Symbol.of("AAPL"), "Technology", at)
+        val update = repository.updateWatchlistCompany(id, Symbol.of("AAPL"), "Apple Inc", "Technology", at)
 
         val updated = update.shouldBeInstanceOf<WatchlistUpdate.Updated>().profile
         updated.watchlist shouldContainExactly listOf(
-            watchlistEntry("AAPL", sector = "Technology", tags = listOf("t")),
-            watchlistEntry("MSFT", "Software"),
+            watchlistEntry("AAPL", sector = "Technology", tags = listOf("t"), name = "Apple Inc"),
+            watchlistEntry("MSFT", "Software", name = "Microsoft Corp"),
         )
         updated.updatedAt shouldBe at
         repository.findById(id) shouldBe updated
     }
 
-    test("sector update can clear the sector") {
+    test("company update with only a changed name or only a changed sector is written") {
+        val repository = newRepository()
+        val profile = profileCandidate("Mallory").copy(watchlist = listOf(watchlistEntry("AAPL", sector = "Technology")))
+        val id = repository.getOrCreate(profile).profile.id
+
+        repository.updateWatchlistCompany(id, Symbol.of("AAPL"), "Apple Inc", "Technology", CREATED_AT.plusSeconds(1))
+        repository.findById(id)?.watchlist shouldContainExactly listOf(watchlistEntry("AAPL", "Technology", name = "Apple Inc"))
+
+        repository.updateWatchlistCompany(id, Symbol.of("AAPL"), "Apple Inc", "Hardware", CREATED_AT.plusSeconds(2))
+        repository.findById(id)?.watchlist shouldContainExactly listOf(watchlistEntry("AAPL", "Hardware", name = "Apple Inc"))
+    }
+
+    test("company update can clear the sector") {
         val repository = newRepository()
         val profile = profileCandidate("Ivan").copy(watchlist = listOf(watchlistEntry("AAPL", sector = "Old")))
         val id = repository.getOrCreate(profile).profile.id
 
-        repository.updateWatchlistSector(id, Symbol.of("AAPL"), null, CREATED_AT)
+        repository.updateWatchlistCompany(id, Symbol.of("AAPL"), "AAPL", null, CREATED_AT)
 
         repository.findById(id)?.watchlist shouldContainExactly listOf(watchlistEntry("AAPL"))
     }
 
-    test("sector update of a symbol outside the watchlist or with an equal sector leaves the profile unchanged") {
+    test("company update of a symbol outside the watchlist or with equal name and sector leaves the profile unchanged") {
         val repository = newRepository()
-        val profile = profileCandidate("Judy").copy(watchlist = listOf(watchlistEntry("AAPL", sector = "Technology")))
+        val profile = profileCandidate("Judy").copy(
+            watchlist = listOf(watchlistEntry("AAPL", sector = "Technology", name = "Apple Inc")),
+        )
         val id = repository.getOrCreate(profile).profile.id
         val later = CREATED_AT.plusSeconds(60)
 
-        repository.updateWatchlistSector(id, Symbol.of("MSFT"), "Software", later)
+        repository.updateWatchlistCompany(id, Symbol.of("MSFT"), "Microsoft Corp", "Software", later)
             .shouldBeInstanceOf<WatchlistUpdate.Updated>().profile shouldBe profile
-        repository.updateWatchlistSector(id, Symbol.of("AAPL"), "Technology", later)
+        repository.updateWatchlistCompany(id, Symbol.of("AAPL"), "Apple Inc", "Technology", later)
             .shouldBeInstanceOf<WatchlistUpdate.Updated>().profile shouldBe profile
         repository.findById(id) shouldBe profile
     }
@@ -214,7 +237,7 @@ fun profileRepositoryContract(newRepository: suspend () -> ProfileRepository) = 
     test("watchlist changes of an unknown profile report ProfileNotFound") {
         val repository = newRepository()
         repository.addToWatchlist(ProfileId.random(), watchlistEntry("AAPL"), CREATED_AT) shouldBe WatchlistUpdate.ProfileNotFound
-        repository.updateWatchlistSector(ProfileId.random(), Symbol.of("AAPL"), "Technology", CREATED_AT) shouldBe
+        repository.updateWatchlistCompany(ProfileId.random(), Symbol.of("AAPL"), "Apple Inc", "Technology", CREATED_AT) shouldBe
             WatchlistUpdate.ProfileNotFound
         repository.removeFromWatchlist(ProfileId.random(), Symbol.of("AAPL"), CREATED_AT) shouldBe WatchlistUpdate.ProfileNotFound
     }

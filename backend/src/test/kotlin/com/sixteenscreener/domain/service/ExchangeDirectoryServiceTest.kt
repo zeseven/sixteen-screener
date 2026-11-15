@@ -7,6 +7,7 @@ import com.sixteenscreener.domain.model.RequestLimit
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.SymbolLookup
 import com.sixteenscreener.fakes.FakeMarketDataSource
 import com.sixteenscreener.fakes.InMemoryExchangeDirectoryStore
 import com.sixteenscreener.fakes.InMemoryRequestCounterRepository
@@ -14,6 +15,7 @@ import com.sixteenscreener.fakes.InMemorySourceCallOutcomeRepository
 import com.sixteenscreener.fakes.MutableClock
 import com.sixteenscreener.port.outbound.ExchangeDirectory
 import com.sixteenscreener.port.outbound.MarketDataSource
+import com.sixteenscreener.port.outbound.SymbolDirectory
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -33,6 +35,10 @@ private val apple = ListedSymbol(Symbol.of("AAPL"), "APPLE INC", "XNAS", "USD", 
 private val berkshire = ListedSymbol(Symbol.of("BRK.B"), "BERKSHIRE HATHAWAY INC-CL B", "XNYS", "USD", "Common Stock")
 private val sap = ListedSymbol(Symbol.of("SAP.DE"), "SAP SE", "XETR", "EUR", "Common Stock")
 private val siemens = ListedSymbol(Symbol.of("SIE.DE"), "SIEMENS AG-REG", "XETR", "EUR", "Common Stock")
+
+private suspend fun SymbolDirectory.find(symbol: Symbol): ListedSymbol? = lookup(symbol).listing
+
+private suspend fun SymbolDirectory.findAll(symbols: Collection<Symbol>): Map<Symbol, ListedSymbol> = listingsOf(symbols)
 
 private class GatedSource(private val delegate: FakeMarketDataSource) : MarketDataSource by delegate {
     val gate = CompletableDeferred<Unit>()
@@ -249,6 +255,83 @@ class ExchangeDirectoryServiceTest : FunSpec({
 
         fixture.exchangeCalls shouldBe listOf("exchange:DE")
         fixture.outcomeRepository.writes shouldBe listOf(fixture.source.id to SourceCallOutcome.httpError(403, fixture.clock.now() - Duration.ofHours(12)))
+    }
+
+    context("coverage") {
+        test("listed symbol is Listed and a missing symbol of a covered exchange is NotListed") {
+            val fixture = Fixture()
+            fixture.listed(de, sap)
+            val directory = fixture.directory()
+
+            directory.lookup(sap.symbol) shouldBe SymbolLookup.Listed(sap)
+            directory.lookup(siemens.symbol) shouldBe SymbolLookup.NotListed
+        }
+
+        test("exchange the source answers NOT_SUPPORTED for is not covered by that source") {
+            val fixture = Fixture()
+            fixture.source.exchanges[ExchangeCode("AS")] =
+                SourceResult.NotSupported(SourceCallOutcome.httpError(403, fixture.clock.now()))
+
+            fixture.directory().lookup(Symbol.of("AD.AS")) shouldBe SymbolLookup.NotCovered(fixture.source.id)
+        }
+
+        test("exchange the source answers NO_DATA for is not covered") {
+            val fixture = Fixture()
+            fixture.source.exchanges[de] = SourceResult.NoData(SourceCallOutcome.success(fixture.clock.now()))
+
+            fixture.directory().lookup(sap.symbol) shouldBe SymbolLookup.NotCovered(fixture.source.id)
+        }
+
+        test("failed download without a stored list is unavailable") {
+            val fixture = Fixture()
+            fixture.source.exchanges[de] = SourceResult.SourceError(SourceCallOutcome.timeout(fixture.clock.now()))
+
+            fixture.directory().lookup(sap.symbol) shouldBe SymbolLookup.Unavailable
+        }
+
+        test("own limit reached without a stored list is unavailable") {
+            val fixture = Fixture(limit = 0)
+            fixture.listed(de, sap)
+
+            fixture.directory().lookup(sap.symbol) shouldBe SymbolLookup.Unavailable
+        }
+
+        test("failed refresh of a stored list keeps the exchange covered") {
+            val fixture = Fixture()
+            fixture.stored(de, Duration.ofDays(30), sap)
+            fixture.source.exchanges[de] = SourceResult.SourceError(SourceCallOutcome.timeout(fixture.clock.now()))
+            val directory = fixture.directory()
+
+            directory.lookup(sap.symbol) shouldBe SymbolLookup.Listed(sap)
+            directory.lookup(siemens.symbol) shouldBe SymbolLookup.NotListed
+        }
+
+        test("exchange no longer covered keeps the symbols of its stored list and reports others as not covered") {
+            val fixture = Fixture()
+            fixture.stored(de, Duration.ofDays(30), sap)
+            fixture.source.exchanges[de] = SourceResult.NotSupported(SourceCallOutcome.httpError(403, fixture.clock.now()))
+            val directory = fixture.directory()
+
+            directory.lookup(sap.symbol) shouldBe SymbolLookup.Listed(sap)
+            directory.lookup(siemens.symbol) shouldBe SymbolLookup.NotCovered(fixture.source.id)
+        }
+
+        test("lookupAll reports each symbol with the coverage of its exchange") {
+            val fixture = Fixture()
+            fixture.listed(us, apple)
+            fixture.source.exchanges[ExchangeCode("AS")] =
+                SourceResult.NotSupported(SourceCallOutcome.httpError(403, fixture.clock.now()))
+            fixture.source.exchanges[de] = SourceResult.SourceError(SourceCallOutcome.timeout(fixture.clock.now()))
+
+            fixture.directory().lookupAll(
+                listOf(apple.symbol, Symbol.of("ZZZZ"), Symbol.of("AD.AS"), sap.symbol, apple.symbol),
+            ) shouldBe mapOf(
+                apple.symbol to SymbolLookup.Listed(apple),
+                Symbol.of("ZZZZ") to SymbolLookup.NotListed,
+                Symbol.of("AD.AS") to SymbolLookup.NotCovered(fixture.source.id),
+                sap.symbol to SymbolLookup.Unavailable,
+            )
+        }
     }
 
     test("store read failure falls back to a download") {

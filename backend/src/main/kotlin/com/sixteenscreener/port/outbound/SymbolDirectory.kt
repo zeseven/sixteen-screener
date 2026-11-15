@@ -1,16 +1,17 @@
 package com.sixteenscreener.port.outbound
 
-import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.SymbolLookup
 
 /**
  * Directory of listed symbols per exchange (ADR-034), used to validate symbols and to resolve name, MIC and currency
- * of search results and watchlist rows without source requests per company.
+ * of search results and watchlist rows without source requests per company. It also tells whether the source covers
+ * the exchange of a symbol (ADR-062).
  */
 interface SymbolDirectory {
-    /** Listing of [symbol], or null when the symbol is unknown or its exchange directory is unavailable. */
-    suspend fun find(symbol: Symbol): ListedSymbol?
+    /** Looks up [symbol] in the symbol list of its exchange. */
+    suspend fun lookup(symbol: Symbol): SymbolLookup
 
-    /** Listings of [symbols]; unknown symbols are absent from the result. Each exchange directory is loaded at most once. */
-    suspend fun findAll(symbols: Collection<Symbol>): Map<Symbol, ListedSymbol>
+    /** Looks up every distinct symbol of [symbols]. Each exchange directory is loaded at most once. */
+    suspend fun lookupAll(symbols: Collection<Symbol>): Map<Symbol, SymbolLookup>
 }

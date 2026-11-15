@@ -21,8 +21,8 @@ class WatchlistService(
     override suspend fun watchlist(profileId: ProfileId): List<WatchlistItem> {
         val entries = profiles.existing(profileId).watchlist
         if (entries.isEmpty()) return emptyList()
-        val listings = symbolDirectory.findAll(entries.map { it.symbol })
-        return entries.map { identities.watchlistItemOf(it, listings[it.symbol]) }
+        val lookups = symbolDirectory.lookupAll(entries.map { it.symbol })
+        return entries.map { identities.watchlistItemOf(it, lookups[it.symbol]?.listing) }
     }
 
     override suspend fun marketData(profileId: ProfileId, symbols: List<Symbol>): List<WatchlistMarketData> {
@@ -33,7 +33,8 @@ class WatchlistService(
         val requested = symbols.toSet()
         val rows = profile.watchlistSymbols.filter { it in requested }
         if (rows.isEmpty()) return emptyList()
-        val quotes = companyData.watchlistQuotes(catalog.defaultSourceOf(profile), rows, symbolDirectory.findAll(rows))
+        val listings = symbolDirectory.lookupAll(rows).mapNotNull { (symbol, lookup) -> lookup.listing?.let { symbol to it } }.toMap()
+        val quotes = companyData.watchlistQuotes(catalog.defaultSourceOf(profile), rows, listings)
         return rows.map { WatchlistMarketData(it, quotes.getValue(it)) }
     }
 }

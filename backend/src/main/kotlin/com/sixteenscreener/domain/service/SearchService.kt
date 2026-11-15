@@ -34,11 +34,11 @@ class SearchService(
         val answer = answer(source, query)
         val hits = answer.hits.distinctBy { it.symbol }.matching(query).take(MAX_RESULTS)
         val symbols = hits.map { it.symbol }
-        val listings = if (symbols.isEmpty()) emptyMap() else symbolDirectory.findAll(symbols)
+        val lookups = if (symbols.isEmpty()) emptyMap() else symbolDirectory.lookupAll(symbols)
         val watchlist = profile.watchlistSymbols.toSet()
         val items = hits.map { hit ->
             SearchResult(
-                identity = identities.identify(hit.symbol, listings[hit.symbol], hit.name),
+                identity = identities.identify(hit.symbol, lookups[hit.symbol]?.listing, hit.name),
                 inWatchlist = hit.symbol in watchlist,
             )
         }

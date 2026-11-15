@@ -4,6 +4,7 @@ import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.SymbolLookup
 import com.sixteenscreener.port.outbound.Clock
 import com.sixteenscreener.port.outbound.ExchangeDirectory
 import com.sixteenscreener.port.outbound.ExchangeDirectoryStore
@@ -35,24 +36,27 @@ class ExchangeDirectoryService(
     private val policy: ExchangeDirectoryPolicy = ExchangeDirectoryPolicy(),
 ) : SymbolDirectory {
 
+    private enum class Coverage { COVERED, NOT_COVERED, UNAVAILABLE }
+
     private class LoadedDirectory(
         val listings: Map<Symbol, ListedSymbol>,
         val downloadedAt: Instant?,
         val nextRefreshAt: Instant,
+        val coverage: Coverage,
     )
 
     private val directories = ConcurrentHashMap<ExchangeCode, LoadedDirectory>()
     private val locks = ConcurrentHashMap<ExchangeCode, Mutex>()
 
-    override suspend fun find(symbol: Symbol): ListedSymbol? = listingsOf(symbol.exchangeCode)[symbol]
+    override suspend fun lookup(symbol: Symbol): SymbolLookup = directoryOf(symbol.exchangeCode).lookup(symbol)
 
-    override suspend fun findAll(symbols: Collection<Symbol>): Map<Symbol, ListedSymbol> = coroutineScope {
+    override suspend fun lookupAll(symbols: Collection<Symbol>): Map<Symbol, SymbolLookup> = coroutineScope {
         symbols.distinct()
             .groupBy { it.exchangeCode }
             .map { (exchangeCode, group) ->
                 async {
-                    val listings = listingsOf(exchangeCode)
-                    group.mapNotNull { symbol -> listings[symbol]?.let { symbol to it } }
+                    val directory = directoryOf(exchangeCode)
+                    group.map { symbol -> symbol to directory.lookup(symbol) }
                 }
             }
             .awaitAll()
@@ -60,14 +64,21 @@ class ExchangeDirectoryService(
             .toMap()
     }
 
-    private suspend fun listingsOf(exchangeCode: ExchangeCode): Map<Symbol, ListedSymbol> =
+    private fun LoadedDirectory.lookup(symbol: Symbol): SymbolLookup =
+        listings[symbol]?.let(SymbolLookup::Listed) ?: when (coverage) {
+            Coverage.COVERED -> SymbolLookup.NotListed
+            Coverage.NOT_COVERED -> SymbolLookup.NotCovered(source.id)
+            Coverage.UNAVAILABLE -> SymbolLookup.Unavailable
+        }
+
+    private suspend fun directoryOf(exchangeCode: ExchangeCode): LoadedDirectory =
         current(exchangeCode)
             ?: locks.computeIfAbsent(exchangeCode) { Mutex() }.withLock {
-                current(exchangeCode) ?: refresh(exchangeCode).also { directories[exchangeCode] = it }.listings
+                current(exchangeCode) ?: refresh(exchangeCode).also { directories[exchangeCode] = it }
             }
 
-    private fun current(exchangeCode: ExchangeCode): Map<Symbol, ListedSymbol>? =
-        directories[exchangeCode]?.takeIf { clock.now() < it.nextRefreshAt }?.listings
+    private fun current(exchangeCode: ExchangeCode): LoadedDirectory? =
+        directories[exchangeCode]?.takeIf { clock.now() < it.nextRefreshAt }
 
     private suspend fun refresh(exchangeCode: ExchangeCode): LoadedDirectory {
         val known = newest(directories[exchangeCode], loadStored(exchangeCode))
@@ -87,11 +98,11 @@ class ExchangeDirectoryService(
             }
             is SourceResult.NoData, is SourceResult.NotSupported -> {
                 logger.warn("Source '{}' has no symbol list for exchange '{}'", source.id, exchangeCode)
-                retained(stale, now + policy.retryAfterUnavailable)
+                retained(stale, now + policy.retryAfterUnavailable, Coverage.NOT_COVERED)
             }
             is SourceResult.LimitReached, is SourceResult.SourceError -> {
                 logger.warn("Symbol list of exchange '{}' not refreshed: {}", exchangeCode, result.dataStatus)
-                retained(stale, now + policy.retryAfterFailure)
+                retained(stale, now + policy.retryAfterFailure, if (stale == null) Coverage.UNAVAILABLE else Coverage.COVERED)
             }
         }
     }
@@ -104,10 +115,11 @@ class ExchangeDirectoryService(
         listings = directory.symbols.associateBy { it.symbol },
         downloadedAt = directory.downloadedAt,
         nextRefreshAt = directory.downloadedAt + policy.maxAge,
+        coverage = Coverage.COVERED,
     )
 
-    private fun retained(stale: LoadedDirectory?, nextRefreshAt: Instant) =
-        LoadedDirectory(stale?.listings.orEmpty(), stale?.downloadedAt, nextRefreshAt)
+    private fun retained(stale: LoadedDirectory?, nextRefreshAt: Instant, coverage: Coverage) =
+        LoadedDirectory(stale?.listings.orEmpty(), stale?.downloadedAt, nextRefreshAt, coverage)
 
     private suspend fun loadStored(exchangeCode: ExchangeCode): LoadedDirectory? =
         guarded("load the stored symbol list of exchange '$exchangeCode'") { store.load(source.id, exchangeCode) }

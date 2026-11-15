@@ -9,7 +9,7 @@ import com.sixteenscreener.port.outbound.ProfileRepository
 import kotlinx.coroutines.CancellationException
 import org.slf4j.LoggerFactory
 
-class WatchlistSectorSync(
+class WatchlistCompanySync(
     private val profiles: ProfileRepository,
     private val catalog: SourceCatalog,
     private val clock: Clock,
@@ -18,17 +18,18 @@ class WatchlistSectorSync(
     suspend fun profileFetched(profile: Profile, source: SourceId, symbol: Symbol, companyProfile: CompanyProfile) {
         if (source != catalog.defaultSourceOf(profile)) return
         val entry = profile.watchlistEntry(symbol) ?: return
-        if (entry.sector == companyProfile.sector) return
+        val name = companyProfile.name?.takeIf { it.isNotBlank() } ?: entry.name
+        if (entry.name == name && entry.sector == companyProfile.sector) return
         try {
-            profiles.updateWatchlistSector(profile.id, symbol, companyProfile.sector, clock.now())
+            profiles.updateWatchlistCompany(profile.id, symbol, name, companyProfile.sector, clock.now())
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.warn("Failed to update the watchlist sector of '{}' in profile '{}'", symbol, profile.id, e)
+            logger.warn("Failed to update the watchlist company of '{}' in profile '{}'", symbol, profile.id, e)
         }
     }
 
     private companion object {
-        private val logger = LoggerFactory.getLogger(WatchlistSectorSync::class.java)
+        private val logger = LoggerFactory.getLogger(WatchlistCompanySync::class.java)
     }
 }

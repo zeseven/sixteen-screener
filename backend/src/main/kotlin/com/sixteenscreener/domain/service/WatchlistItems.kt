@@ -5,4 +5,4 @@ import com.sixteenscreener.domain.model.WatchlistEntry
 import com.sixteenscreener.domain.model.WatchlistItem
 
 internal fun CompanyIdentityResolver.watchlistItemOf(entry: WatchlistEntry, listing: ListedSymbol?): WatchlistItem =
-    WatchlistItem(identify(entry.symbol, listing), entry.sector, entry.tags)
+    WatchlistItem(identify(entry.symbol, listing).copy(name = entry.name), entry.sector, entry.tags)

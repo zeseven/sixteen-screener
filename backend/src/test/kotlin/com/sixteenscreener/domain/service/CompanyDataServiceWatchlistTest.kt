@@ -43,7 +43,7 @@ private class ConcurrencyProbe(private val delegate: FakeMarketDataSource) : Mar
 private suspend fun CompanyDataFixture.watchlist(vararg tickers: String) = watchlist(tickers.toList())
 
 private suspend fun CompanyDataFixture.watchlist(tickers: List<String>) =
-    tickers.map(Symbol::of).let { symbols -> service.watchlistQuotes(FINNHUB, symbols, directory.findAll(symbols)) }
+    tickers.map(Symbol::of).let { symbols -> service.watchlistQuotes(FINNHUB, symbols, directory.listingsOf(symbols)) }
 
 private suspend fun CompanyDataFixture.unexpiredProfile(ticker: String) =
     service.unexpiredCompanyProfile(FINNHUB, Symbol.of(ticker))

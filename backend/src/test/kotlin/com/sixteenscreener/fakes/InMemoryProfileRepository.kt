@@ -29,10 +29,10 @@ class InMemoryProfileRepository : ProfileRepository {
         }
     }
 
-    var sectorUpdates: Int = 0
+    var companyUpdates: Int = 0
         private set
 
-    var failSectorUpdates: Boolean = false
+    var failCompanyUpdates: Boolean = false
 
     override suspend fun addToWatchlist(id: ProfileId, entry: WatchlistEntry, at: Instant): WatchlistUpdate =
         update(id) { profile ->
@@ -43,15 +43,21 @@ class InMemoryProfileRepository : ProfileRepository {
             }
         }
 
-    override suspend fun updateWatchlistSector(id: ProfileId, symbol: Symbol, sector: String?, at: Instant): WatchlistUpdate {
-        if (failSectorUpdates) throw IllegalStateException("Sector update failed")
+    override suspend fun updateWatchlistCompany(
+        id: ProfileId,
+        symbol: Symbol,
+        name: String,
+        sector: String?,
+        at: Instant,
+    ): WatchlistUpdate {
+        if (failCompanyUpdates) throw IllegalStateException("Company update failed")
         return update(id) { profile ->
             val entry = profile.watchlistEntry(symbol)
-            if (entry == null || entry.sector == sector) {
+            if (entry == null || (entry.name == name && entry.sector == sector)) {
                 profile
             } else {
-                sectorUpdates++
-                val watchlist = profile.watchlist.map { if (it.symbol == symbol) it.copy(sector = sector) else it }
+                companyUpdates++
+                val watchlist = profile.watchlist.map { if (it.symbol == symbol) it.copy(name = name, sector = sector) else it }
                 profile.copy(watchlist = watchlist, updatedAt = at)
             }
         }

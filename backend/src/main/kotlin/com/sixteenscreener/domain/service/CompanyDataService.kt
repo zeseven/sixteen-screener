@@ -51,7 +51,7 @@ class CompanyDataService(
     private val freshness: FreshnessPolicy,
     private val marketResolver: MarketResolver,
     private val identities: CompanyIdentityResolver,
-    private val sectors: WatchlistSectorSync,
+    private val watchlistCompanies: WatchlistCompanySync,
     private val clock: Clock,
     private val maxConcurrentCalls: Int = DEFAULT_MAX_CONCURRENT_CALLS,
 ) : CompanyDataUseCase {
@@ -99,7 +99,7 @@ class CompanyDataService(
         val plan = detailedPlan(key, cached, refresh) { profileFetch(key, it) }
         val profile = load(key.source, listOf(plan))[key]
         val fetched = profile.data?.takeIf { plan is Fetch<*, *> && profile.status == DataStatus.FRESH }
-        if (fetched != null) sectors.profileFetched(target.profile, key.source, symbol, fetched)
+        if (fetched != null) watchlistCompanies.profileFetched(target.profile, key.source, symbol, fetched)
         val identity = identities.identify(symbol, target.listing)
         return CompanyProfileData(profile.data?.name?.let { identity.copy(name = it) } ?: identity, profile)
     }
@@ -131,7 +131,7 @@ class CompanyDataService(
     private suspend fun target(profileId: ProfileId, symbol: Symbol, requested: SourceId?): Target {
         val profile = profiles.existing(profileId)
         val source = catalog.selectSource(profile, requested)
-        val listing = symbolDirectory.find(symbol) ?: throw ResourceNotFoundException("Unknown symbol '$symbol'")
+        val listing = symbolDirectory.lookup(symbol).listing ?: throw ResourceNotFoundException("Unknown symbol '$symbol'")
         return Target(profile, source, listing)
     }
 

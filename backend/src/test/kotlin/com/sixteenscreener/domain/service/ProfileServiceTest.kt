@@ -1,6 +1,7 @@
 package com.sixteenscreener.domain.service
 
 import com.sixteenscreener.domain.model.CompanyIdentity
+import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.InvalidInputException
 import com.sixteenscreener.domain.model.Market
 import com.sixteenscreener.domain.model.Profile
@@ -27,11 +28,19 @@ private class ProfileFixture {
     val data = CompanyDataFixture().apply {
         listed(listing("AAPL", name = "APPLE INC"), listing("MSFT"), listing("SAP.DE", mic = "XETR", name = "SAP SE"))
     }
-    val service = ProfileService(data.profiles, data.directory, data.catalog, data.service, data.identities, data.clock)
+    val service = ProfileService(
+        data.profiles,
+        data.directory,
+        data.catalog,
+        data.service,
+        data.identities,
+        data.marketResolver,
+        data.clock,
+    )
 
     suspend fun watchlistOf(id: ProfileId) = data.profiles.findById(id)!!.watchlist
 
-    suspend fun add(ticker: String) = service.addToWatchlist(data.profile.id, Symbol.of(ticker))
+    suspend fun add(ticker: String, name: String? = null) = service.addToWatchlist(data.profile.id, Symbol.of(ticker), name)
 }
 
 class ProfileServiceTest : FunSpec({
@@ -120,7 +129,7 @@ class ProfileServiceTest : FunSpec({
                 sector = "Software",
                 tags = emptyList(),
             )
-            f.watchlistOf(f.data.profile.id) shouldContainExactly listOf(watchlistEntry("SAP.DE", sector = "Software"))
+            f.watchlistOf(f.data.profile.id) shouldContainExactly listOf(watchlistEntry("SAP.DE", sector = "Software", name = "SAP SE"))
         }
 
         test("add takes the sector of a cached profile that is not expired, without a source request") {
@@ -170,7 +179,7 @@ class ProfileServiceTest : FunSpec({
                 val item = f.add("AAPL")
 
                 item.sector shouldBe "Old"
-                f.watchlistOf(f.data.profile.id) shouldContainExactly listOf(watchlistEntry("AAPL", sector = "Old"))
+                f.watchlistOf(f.data.profile.id) shouldContainExactly listOf(watchlistEntry("AAPL", sector = "Old", name = "APPLE INC"))
             }
         }
 
@@ -206,7 +215,7 @@ class ProfileServiceTest : FunSpec({
 
                 item.sector.shouldBeNull()
                 item.identity.name shouldBe "APPLE INC"
-                f.watchlistOf(f.data.profile.id) shouldContainExactly listOf(watchlistEntry("AAPL"))
+                f.watchlistOf(f.data.profile.id) shouldContainExactly listOf(watchlistEntry("AAPL", name = "APPLE INC"))
             }
         }
 
@@ -220,13 +229,13 @@ class ProfileServiceTest : FunSpec({
 
         test("add of a symbol already in the watchlist returns it unchanged without source requests") {
             val f = ProfileFixture()
-            val entry = watchlistEntry("AAPL", sector = "Stored", tags = listOf("core"))
+            val entry = watchlistEntry("AAPL", sector = "Stored", tags = listOf("core"), name = "Apple Stored")
             f.data.profiles.save(f.data.profile.copy(watchlist = listOf(entry)))
             f.data.profileFromSource("AAPL", sampleProfile(sector = "Fetched"))
 
-            val item = f.add("AAPL")
+            val item = f.add("AAPL", name = "Other name")
 
-            item shouldBe WatchlistItem(CompanyIdentity(Symbol.of("AAPL"), "NASDAQ", "APPLE INC", Market.US), "Stored", listOf("core"))
+            item shouldBe WatchlistItem(CompanyIdentity(Symbol.of("AAPL"), "NASDAQ", "Apple Stored", Market.US), "Stored", listOf("core"))
             f.watchlistOf(f.data.profile.id) shouldContainExactly listOf(entry)
             f.data.source.calls.shouldBeEmpty()
             f.data.cache.getAllCalls shouldBe 0
@@ -254,7 +263,91 @@ class ProfileServiceTest : FunSpec({
         test("add to an unknown profile is not found") {
             val f = ProfileFixture()
 
-            shouldThrow<ResourceNotFoundException> { f.service.addToWatchlist(ProfileId.random(), Symbol.of("AAPL")) }
+            shouldThrow<ResourceNotFoundException> { f.service.addToWatchlist(ProfileId.random(), Symbol.of("AAPL"), null) }
+        }
+
+        test("add of a listed symbol stores the directory name, ignoring the name of the search result") {
+            val f = ProfileFixture()
+
+            f.add("AAPL", name = "Apple Inc from search").identity.name shouldBe "APPLE INC"
+            f.watchlistOf(f.data.profile.id).single().name shouldBe "APPLE INC"
+        }
+
+        context("add of a symbol of a not covered exchange") {
+            fun notCoveredFixture() = ProfileFixture().apply { data.directory.notCovered(ExchangeCode("AS")) }
+
+            test("is accepted with the name of the search result and the static exchange table identity") {
+                val f = notCoveredFixture()
+
+                val item = f.add("AD.AS", name = "Koninklijke Ahold Delhaize NV")
+
+                item shouldBe WatchlistItem(
+                    identity = CompanyIdentity(Symbol.of("AD.AS"), "Euronext Amsterdam", "Koninklijke Ahold Delhaize NV", Market.EU),
+                    sector = null,
+                    tags = emptyList(),
+                )
+                f.watchlistOf(f.data.profile.id) shouldContainExactly
+                    listOf(watchlistEntry("AD.AS", name = "Koninklijke Ahold Delhaize NV"))
+            }
+
+            test("stores the trimmed name of the search result") {
+                val f = notCoveredFixture()
+
+                f.add("AD.AS", name = "  Ahold Delhaize  ").identity.name shouldBe "Ahold Delhaize"
+            }
+
+            context("stores the ticker as name when the search result name is absent or blank") {
+                withData(nameFn = { "name = '$it'" }, null, "", "   ") { name ->
+                    val f = notCoveredFixture()
+
+                    f.add("AD.AS", name = name).identity.name shouldBe "AD"
+                    f.watchlistOf(f.data.profile.id) shouldContainExactly listOf(watchlistEntry("AD.AS", name = "AD"))
+                }
+            }
+
+            test("already in the watchlist is returned unchanged") {
+                val f = notCoveredFixture()
+                val entry = watchlistEntry("AD.AS", sector = "Retail", name = "Ahold Delhaize")
+                f.data.profiles.save(f.data.profile.copy(watchlist = listOf(entry)))
+
+                f.add("AD.AS", name = "Other").identity.name shouldBe "Ahold Delhaize"
+                f.watchlistOf(f.data.profile.id) shouldContainExactly listOf(entry)
+                f.data.source.calls.shouldBeEmpty()
+            }
+        }
+
+        test("unknown symbol of a covered exchange is not found even with a search result name") {
+            val f = ProfileFixture()
+
+            shouldThrow<ResourceNotFoundException> { f.add("NOPE", name = "Nope Inc") }
+            f.watchlistOf(f.data.profile.id).shouldBeEmpty()
+        }
+
+        test("symbol of an exchange whose directory is temporarily unavailable is not found") {
+            val f = ProfileFixture()
+            f.data.directory.unavailable(ExchangeCode("AS"))
+
+            shouldThrow<ResourceNotFoundException> { f.add("AD.AS", name = "Ahold Delhaize") }
+            f.watchlistOf(f.data.profile.id).shouldBeEmpty()
+            f.data.source.calls.shouldBeEmpty()
+        }
+
+        test("search result name of 200 characters is accepted and 201 rejected") {
+            val f = ProfileFixture()
+            f.data.directory.notCovered(ExchangeCode("AS"))
+
+            f.add("AD.AS", name = "N".repeat(200)).identity.name shouldBe "N".repeat(200)
+            shouldThrow<InvalidInputException> { f.add("ASML.AS", name = "N".repeat(201)) }
+            f.watchlistOf(f.data.profile.id).map { it.symbol } shouldContainExactly listOf(Symbol.of("AD.AS"))
+        }
+
+        test("too long search result name is rejected for a listed symbol and a symbol already in the watchlist") {
+            val f = ProfileFixture()
+            f.data.profiles.save(f.data.profile.copy(watchlist = watchlistEntries("MSFT")))
+
+            shouldThrow<InvalidInputException> { f.add("AAPL", name = "N".repeat(201)) }
+            shouldThrow<InvalidInputException> { f.add("MSFT", name = "N".repeat(201)) }
+            f.data.source.calls.shouldBeEmpty()
         }
 
         test("add to a full watchlist is rejected without a source request") {

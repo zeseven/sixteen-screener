@@ -21,9 +21,10 @@ data class CompanyIdentity(
 }
 
 /**
- * Watchlist row without market data (ADR-057).
+ * Watchlist row without market data (ADR-057, ADR-062).
  *
- * @property identity symbol, exchange, name and market resolved from the exchange directory
+ * @property identity symbol, exchange and market resolved from the exchange directory or the static exchange table, and
+ * the name stored with the watchlist entry
  * @property sector sector stored with the watchlist entry; null when unknown
  * @property tags profile tags stored with the watchlist entry
  */

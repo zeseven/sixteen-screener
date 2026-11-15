@@ -58,10 +58,11 @@ interface ProfileRepository {
     suspend fun addToWatchlist(id: ProfileId, entry: WatchlistEntry, at: Instant): WatchlistUpdate
 
     /**
-     * Sets the sector of the watchlist entry of [symbol] in profile [id] to [sector], setting `updatedAt` to [at].
-     * Leaves the profile unchanged when [symbol] is not in the watchlist or its sector already equals [sector].
+     * Sets the name and the sector of the watchlist entry of [symbol] in profile [id] to [name] and [sector], setting
+     * `updatedAt` to [at]. Leaves the profile unchanged when [symbol] is not in the watchlist or its name and sector
+     * already equal [name] and [sector].
      */
-    suspend fun updateWatchlistSector(id: ProfileId, symbol: Symbol, sector: String?, at: Instant): WatchlistUpdate
+    suspend fun updateWatchlistCompany(id: ProfileId, symbol: Symbol, name: String, sector: String?, at: Instant): WatchlistUpdate
 
     /**
      * Removes the watchlist entry of [symbol], with its tags, from profile [id] if present (idempotent),

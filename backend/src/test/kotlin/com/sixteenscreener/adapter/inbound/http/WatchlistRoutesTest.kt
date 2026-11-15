@@ -291,7 +291,7 @@ class WatchlistRoutesTest : FunSpec({
     test("watchlist item carries every alpha field of WatchlistItem") {
         routeTest { ports ->
             val profile = ports.savedProfile().copy(
-                watchlist = listOf(watchlistEntry("SAP.DE", sector = "Software", tags = listOf("eu"))),
+                watchlist = listOf(watchlistEntry("SAP.DE", sector = "Software", tags = listOf("eu"), name = "SAP SE")),
             ).also(ports.profiles::save)
             ports.listed("SAP.DE", mic = "XETR", currency = "EUR", name = "SAP SE")
 

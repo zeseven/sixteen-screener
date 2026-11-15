@@ -43,6 +43,11 @@ data class WatchlistItemDto(
 )
 
 @Serializable
+data class WatchlistAddDto(
+    val name: String? = null,
+)
+
+@Serializable
 data class WatchlistDto(
     val items: List<WatchlistItemDto>,
 )

@@ -2,6 +2,7 @@ package com.sixteenscreener.domain.service
 
 import com.sixteenscreener.domain.model.CompanyIdentity
 import com.sixteenscreener.domain.model.DataStatus
+import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.InvalidInputException
 import com.sixteenscreener.domain.model.Market
 import com.sixteenscreener.domain.model.PriceTrend
@@ -54,19 +55,39 @@ class WatchlistServiceTest : FunSpec({
         shouldThrow<ResourceNotFoundException> { WatchlistFixture().service.watchlist(ProfileId.random()) }
     }
 
-    test("watchlist items carry the directory identity and the stored sector and tags in watchlist order") {
+    test("watchlist items carry the directory exchange and market and the stored name, sector and tags in watchlist order") {
         val f = WatchlistFixture()
         f.data.profiles.save(
             f.data.profile.copy(
-                watchlist = listOf(watchlistEntry("SAP.DE", "Software", listOf("eu", "core")), watchlistEntry("AAPL")),
+                watchlist = listOf(
+                    watchlistEntry("SAP.DE", "Software", listOf("eu", "core"), name = "SAP SE"),
+                    watchlistEntry("AAPL", name = "Apple Inc"),
+                ),
             ),
         )
         f.data.listed(listing("AAPL", name = "APPLE INC"), listing("SAP.DE", mic = "XETR", currency = "EUR", name = "SAP SE"))
 
         f.watchlist() shouldContainExactly listOf(
             WatchlistItem(CompanyIdentity(Symbol.of("SAP.DE"), "XETRA", "SAP SE", Market.EU), "Software", listOf("eu", "core")),
-            WatchlistItem(CompanyIdentity(Symbol.of("AAPL"), "NASDAQ", "APPLE INC", Market.US), null, emptyList()),
+            WatchlistItem(CompanyIdentity(Symbol.of("AAPL"), "NASDAQ", "Apple Inc", Market.US), null, emptyList()),
         )
+    }
+
+    test("watchlist item of a not covered exchange has the stored name and the static exchange table identity") {
+        val f = WatchlistFixture()
+        f.data.directory.notCovered(ExchangeCode("AS"))
+        f.data.profiles.save(
+            f.data.profile.copy(watchlist = listOf(watchlistEntry("AD.AS", name = "Koninklijke Ahold Delhaize NV"))),
+        )
+
+        f.watchlist() shouldContainExactly listOf(
+            WatchlistItem(
+                CompanyIdentity(Symbol.of("AD.AS"), "Euronext Amsterdam", "Koninklijke Ahold Delhaize NV", Market.EU),
+                null,
+                emptyList(),
+            ),
+        )
+        f.data.source.calls.shouldBeEmpty()
     }
 
     test("watchlist reads no cached company data and makes no source requests") {

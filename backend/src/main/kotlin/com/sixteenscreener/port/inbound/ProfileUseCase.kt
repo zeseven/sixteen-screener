@@ -46,17 +46,23 @@ interface ProfileUseCase {
     suspend fun profile(id: ProfileId): ProfileSettings
 
     /**
-     * Adds [symbol] to the watchlist of profile [id] and returns the stored watchlist item; idempotent (ADR-057).
+     * Adds [symbol] to the watchlist of profile [id] and returns the stored watchlist item; idempotent (ADR-057, ADR-062).
      *
      * A symbol already in the watchlist is returned unchanged without source requests and without the directory check
-     * (ADR-041). A new symbol is stored with the sector of the company profile from the profile's default source: the
-     * cached profile if not expired, otherwise the profile is requested within the source request limits; the sector
-     * is null when the profile can't be loaded.
+     * (ADR-041). A new symbol listed in the exchange directory is stored with the name from the directory. A new symbol
+     * of an exchange the source has no symbol list for (not covered) and that is in the static exchange table is stored
+     * with [searchResultName] (trimmed; blank counts as absent), otherwise with the ticker as name. A new symbol is
+     * stored with the sector of the company profile from the profile's default source: the cached profile if not
+     * expired, otherwise the profile is requested within the source request limits; the sector is null when the
+     * profile can't be loaded.
      *
      * Throws [com.sixteenscreener.domain.model.ResourceNotFoundException] for an unknown profile or a new symbol that is
-     * not in the exchange directory, and [com.sixteenscreener.domain.model.InvalidInputException] when the watchlist is full.
+     * neither in the exchange directory nor on a not covered exchange of the static exchange table (including while
+     * the exchange directory is temporarily unavailable), and [com.sixteenscreener.domain.model.InvalidInputException]
+     * when the watchlist is full or [searchResultName] is longer than
+     * [com.sixteenscreener.domain.model.WatchlistEntry.MAX_NAME_LENGTH] characters.
      */
-    suspend fun addToWatchlist(id: ProfileId, symbol: Symbol): WatchlistItem
+    suspend fun addToWatchlist(id: ProfileId, symbol: Symbol, searchResultName: String?): WatchlistItem
 
     /**
      * Removes [symbol] with its tags from the watchlist of profile [id]; idempotent.

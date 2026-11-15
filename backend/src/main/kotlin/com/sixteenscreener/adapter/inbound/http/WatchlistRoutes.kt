@@ -2,7 +2,12 @@ package com.sixteenscreener.adapter.inbound.http
 
 import com.sixteenscreener.port.inbound.ProfileUseCase
 import com.sixteenscreener.port.inbound.WatchlistUseCase
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.ApplicationCall
+import io.ktor.server.request.ApplicationRequest
+import io.ktor.server.request.contentLength
+import io.ktor.server.request.receiveNullable
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
@@ -21,7 +26,8 @@ fun Route.watchlistRoutes(watchlist: WatchlistUseCase, profiles: ProfileUseCase)
             call.respond(WatchlistMarketDataDto(rows.map { it.toDto() }))
         }
         put("/{symbol}") {
-            call.respond(profiles.addToWatchlist(call.profileIdParameter(), call.symbolParameter()).toDto())
+            val request = call.receiveOptional<WatchlistAddDto>()
+            call.respond(profiles.addToWatchlist(call.profileIdParameter(), call.symbolParameter(), request?.name).toDto())
         }
         delete("/{symbol}") {
             profiles.removeFromWatchlist(call.profileIdParameter(), call.symbolParameter())
@@ -29,3 +35,9 @@ fun Route.watchlistRoutes(watchlist: WatchlistUseCase, profiles: ProfileUseCase)
         }
     }
 }
+
+private suspend inline fun <reified T : Any> ApplicationCall.receiveOptional(): T? =
+    if (request.hasBody()) receiveNullable<T>() else null
+
+private fun ApplicationRequest.hasBody(): Boolean =
+    contentLength()?.let { it > 0 } ?: (headers[HttpHeaders.TransferEncoding] != null)

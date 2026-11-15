@@ -7,6 +7,7 @@ import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ProfileName
 import com.sixteenscreener.domain.model.ResourceNotFoundException
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.SymbolLookup
 import com.sixteenscreener.domain.model.WatchlistEntry
 import com.sixteenscreener.domain.model.WatchlistItem
 import com.sixteenscreener.port.inbound.ProfileRegistration
@@ -23,6 +24,7 @@ class ProfileService(
     private val catalog: SourceCatalog,
     private val companyData: CompanyDataService,
     private val identities: CompanyIdentityResolver,
+    private val marketResolver: MarketResolver,
     private val clock: Clock,
 ) : ProfileUseCase {
 
@@ -36,14 +38,16 @@ class ProfileService(
 
     override suspend fun profile(id: ProfileId): ProfileSettings = settingsOf(profiles.existing(id))
 
-    override suspend fun addToWatchlist(id: ProfileId, symbol: Symbol): WatchlistItem {
+    override suspend fun addToWatchlist(id: ProfileId, symbol: Symbol, searchResultName: String?): WatchlistItem {
+        val requestedName = requestedNameOf(searchResultName)
         val profile = profiles.existing(id)
-        profile.watchlistEntry(symbol)?.let { return identities.watchlistItemOf(it, symbolDirectory.find(symbol)) }
-        val listing = symbolDirectory.find(symbol) ?: throw ResourceNotFoundException("Unknown symbol '$symbol'")
+        val lookup = symbolDirectory.lookup(symbol)
+        profile.watchlistEntry(symbol)?.let { return identities.watchlistItemOf(it, lookup.listing) }
+        val name = nameOf(symbol, lookup, requestedName)
         if (profile.watchlist.size >= Profile.MAX_WATCHLIST_SIZE) throw watchlistFull()
-        val entry = WatchlistEntry(symbol, sectorOf(profile, symbol), tags = emptyList())
+        val entry = WatchlistEntry(symbol, name, sectorOf(profile, symbol), tags = emptyList())
         return when (val update = profiles.addToWatchlist(id, entry, clock.now())) {
-            is WatchlistUpdate.Updated -> identities.watchlistItemOf(update.profile.watchlistEntry(symbol) ?: entry, listing)
+            is WatchlistUpdate.Updated -> identities.watchlistItemOf(update.profile.watchlistEntry(symbol) ?: entry, lookup.listing)
             WatchlistUpdate.ProfileNotFound -> throw profileNotFound(id)
             WatchlistUpdate.WatchlistFull -> throw watchlistFull()
         }
@@ -53,6 +57,21 @@ class ProfileService(
         if (profiles.removeFromWatchlist(id, symbol, clock.now()) == WatchlistUpdate.ProfileNotFound) {
             throw profileNotFound(id)
         }
+    }
+
+    private fun requestedNameOf(raw: String?): String? {
+        val trimmed = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        if (trimmed.codePointCount(0, trimmed.length) > WatchlistEntry.MAX_NAME_LENGTH) {
+            throw InvalidInputException("Company name must not be longer than ${WatchlistEntry.MAX_NAME_LENGTH} characters")
+        }
+        return trimmed
+    }
+
+    private fun nameOf(symbol: Symbol, lookup: SymbolLookup, requestedName: String?): String = when {
+        lookup is SymbolLookup.Listed -> lookup.listing.name
+        lookup is SymbolLookup.NotCovered && marketResolver.exchangeOf(symbol.exchangeCode) != null ->
+            requestedName ?: symbol.ticker
+        else -> throw ResourceNotFoundException("Unknown symbol '$symbol'")
     }
 
     private suspend fun sectorOf(profile: Profile, symbol: Symbol): String? =

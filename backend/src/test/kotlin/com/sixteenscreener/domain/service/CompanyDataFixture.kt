@@ -35,6 +35,7 @@ import com.sixteenscreener.fakes.InMemorySymbolDirectory
 import com.sixteenscreener.fakes.MutableClock
 import com.sixteenscreener.port.outbound.MarketDataSource
 import com.sixteenscreener.port.outbound.RequestCounterRepository
+import com.sixteenscreener.port.outbound.SymbolDirectory
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -116,7 +117,7 @@ class CompanyDataFixture(
     val catalog = SourceCatalog(FINNHUB, mapOf(FINNHUB to capabilities, SEC_EDGAR to setOf(Capability.BALANCE_SHEET)))
     val marketResolver = MarketResolver()
     val identities = CompanyIdentityResolver(marketResolver)
-    val sectors = WatchlistSectorSync(profiles, catalog, clock)
+    val watchlistCompanies = WatchlistCompanySync(profiles, catalog, clock)
     val profile = Profile(
         id = ProfileId.random(),
         name = ProfileName.of("Alice"),
@@ -139,7 +140,7 @@ class CompanyDataFixture(
         freshness = FreshnessPolicy(clock),
         marketResolver = marketResolver,
         identities = identities,
-        sectors = sectors,
+        watchlistCompanies = watchlistCompanies,
         clock = clock,
     )
 
@@ -210,3 +211,6 @@ class CompanyDataFixture(
             CacheKey(source, Symbol.of(symbol), DataType.BALANCE_SHEET)
     }
 }
+
+suspend fun SymbolDirectory.listingsOf(symbols: Collection<Symbol>): Map<Symbol, ListedSymbol> =
+    lookupAll(symbols).mapNotNull { (symbol, lookup) -> lookup.listing?.let { symbol to it } }.toMap()

@@ -55,17 +55,39 @@ class FirestoreProfileRepositoryEmulatorTest : FunSpec({
         document.keys shouldBe setOf("name", "defaultSource", "watchlist", "createdAt", "updatedAt")
     }
 
-    test("stores watchlist entries as maps of symbol, sector and tags") {
+    test("stores watchlist entries as maps of symbol, name, sector and tags") {
         val firestore = emulator.reset()
         val repository = FirestoreProfileRepository(firestore)
         val profile = repository.getOrCreate(profileCandidate("Ann")).profile
 
-        repository.addToWatchlist(profile.id, watchlistEntry("SAP.DE", sector = "Software", tags = listOf("eu")), Instant.now())
+        repository.addToWatchlist(
+            profile.id,
+            watchlistEntry("SAP.DE", sector = "Software", tags = listOf("eu"), name = "SAP SE"),
+            Instant.now(),
+        )
         repository.addToWatchlist(profile.id, watchlistEntry("AAPL"), Instant.now())
 
         firestore.document(FirestoreCollections.PROFILES, profile.id.toString())["watchlist"] shouldBe listOf(
-            mapOf("symbol" to "SAP.DE", "sector" to "Software", "tags" to listOf("eu")),
-            mapOf("symbol" to "AAPL", "sector" to null, "tags" to emptyList<String>()),
+            mapOf("symbol" to "SAP.DE", "name" to "SAP SE", "sector" to "Software", "tags" to listOf("eu")),
+            mapOf("symbol" to "AAPL", "name" to "AAPL", "sector" to null, "tags" to emptyList<String>()),
+        )
+    }
+
+    test("watchlist entry stored without a name is read with the ticker as name") {
+        val firestore = emulator.reset()
+        val repository = FirestoreProfileRepository(firestore)
+        val profile = repository.getOrCreate(profileCandidate("Cid")).profile
+        firestore.collection(FirestoreCollections.PROFILES).document(profile.id.toString()).update(
+            "watchlist",
+            listOf(
+                mapOf("symbol" to "SAP.DE", "sector" to "Software", "tags" to emptyList<String>()),
+                mapOf("symbol" to "AAPL", "name" to 42L, "sector" to null, "tags" to emptyList<String>()),
+            ),
+        ).await()
+
+        repository.findById(profile.id)?.watchlist shouldBe listOf(
+            watchlistEntry("SAP.DE", sector = "Software", name = "SAP"),
+            watchlistEntry("AAPL", name = "AAPL"),
         )
     }
 

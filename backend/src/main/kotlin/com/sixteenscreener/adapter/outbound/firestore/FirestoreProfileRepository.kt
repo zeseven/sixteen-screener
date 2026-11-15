@@ -43,13 +43,21 @@ class FirestoreProfileRepository(private val firestore: Firestore) : ProfileRepo
             }
         }
 
-    override suspend fun updateWatchlistSector(id: ProfileId, symbol: Symbol, sector: String?, at: Instant): WatchlistUpdate =
+    override suspend fun updateWatchlistCompany(
+        id: ProfileId,
+        symbol: Symbol,
+        name: String,
+        sector: String?,
+        at: Instant,
+    ): WatchlistUpdate =
         firestore.transaction { tx ->
             val ref = profiles.document(id.toString())
             val profile = tx.get(ref).get().toProfileOrNull() ?: return@transaction WatchlistUpdate.ProfileNotFound
             val entry = profile.watchlistEntry(symbol)
-            if (entry == null || entry.sector == sector) return@transaction WatchlistUpdate.Updated(profile)
-            val watchlist = profile.watchlist.map { if (it.symbol == symbol) it.copy(sector = sector) else it }
+            if (entry == null || (entry.name == name && entry.sector == sector)) {
+                return@transaction WatchlistUpdate.Updated(profile)
+            }
+            val watchlist = profile.watchlist.map { if (it.symbol == symbol) it.copy(name = name, sector = sector) else it }
             tx.update(ref, mapOf(WATCHLIST to watchlist.map { it.toMap() }, UPDATED_AT to at.toTimestamp()))
             WatchlistUpdate.Updated(profile.copy(watchlist = watchlist, updatedAt = at))
         }
@@ -79,6 +87,7 @@ class FirestoreProfileRepository(private val firestore: Firestore) : ProfileRepo
 
     private fun WatchlistEntry.toMap(): FirestoreMap = mapOf(
         SYMBOL to symbol.value,
+        NAME to name,
         SECTOR to sector,
         TAGS to tags,
     )
@@ -101,6 +110,7 @@ class FirestoreProfileRepository(private val firestore: Firestore) : ProfileRepo
         val symbol = (map[SYMBOL] as? String)?.let(Symbol::parseOrNull) ?: return null
         return WatchlistEntry(
             symbol = symbol,
+            name = map[NAME] as? String ?: symbol.ticker,
             sector = map[SECTOR] as? String,
             tags = (map[TAGS] as? List<*>).orEmpty().filterIsInstance<String>(),
         )

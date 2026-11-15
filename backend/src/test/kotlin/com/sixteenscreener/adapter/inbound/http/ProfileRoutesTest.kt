@@ -1,6 +1,8 @@
 package com.sixteenscreener.adapter.inbound.http
 
+import com.sixteenscreener.TestPorts
 import com.sixteenscreener.domain.model.CompanyProfile
+import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.SourceCallOutcome
@@ -14,6 +16,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldContain
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -168,7 +171,7 @@ class ProfileRoutesTest : FunSpec({
                     ),
                 )
                 ports.profiles.findById(profile.id)!!.watchlist shouldContainExactly
-                    listOf(watchlistEntry("AAPL", sector = "Technology"))
+                    listOf(watchlistEntry("AAPL", sector = "Technology", name = "APPLE INC"))
             }
         }
 
@@ -202,7 +205,115 @@ class ProfileRoutesTest : FunSpec({
 
                 response.status shouldBe HttpStatusCode.OK
                 response.json()["sector"] shouldBe JsonNull
-                ports.profiles.findById(profile.id)!!.watchlist shouldContainExactly listOf(watchlistEntry("AAPL"))
+                ports.profiles.findById(profile.id)!!.watchlist shouldContainExactly listOf(watchlistEntry("AAPL", name = "APPLE INC"))
+            }
+        }
+
+        context("PUT of a symbol of a not covered exchange") {
+            fun TestPorts.amsterdamNotCovered() = symbolDirectory.notCovered(ExchangeCode("AS"))
+
+            test("stores the name of the request body and answers the static exchange table identity") {
+                routeTest { ports ->
+                    val profile = ports.savedProfile()
+                    ports.amsterdamNotCovered()
+
+                    val response = client.put("/profiles/${profile.id}/watchlist/AD.AS") {
+                        contentType(ContentType.Application.Json)
+                        setBody("""{"name":"Koninklijke Ahold Delhaize NV"}""")
+                    }
+
+                    response.status shouldBe HttpStatusCode.OK
+                    response.json() shouldBe JsonObject(
+                        mapOf(
+                            "symbol" to JsonPrimitive("AD.AS"),
+                            "ticker" to JsonPrimitive("AD"),
+                            "exchange" to JsonPrimitive("Euronext Amsterdam"),
+                            "name" to JsonPrimitive("Koninklijke Ahold Delhaize NV"),
+                            "market" to JsonPrimitive("EU"),
+                            "logoUrl" to JsonPrimitive("/logos/AD.AS"),
+                            "sector" to JsonNull,
+                            "tags" to JsonArray(emptyList()),
+                        ),
+                    )
+                    val watchlist = client.get("/profiles/${profile.id}/watchlist").json()["items"].toString()
+                    watchlist shouldContain "Koninklijke Ahold Delhaize NV"
+                    ports.profiles.findById(profile.id)!!.watchlist shouldContainExactly
+                        listOf(watchlistEntry("AD.AS", name = "Koninklijke Ahold Delhaize NV"))
+                }
+            }
+
+            data class BodyCase(val name: String, val contentType: ContentType?, val body: String?)
+
+            context("stores the ticker as name without a usable name in the request") {
+                withData(
+                    nameFn = { it.name },
+                    BodyCase("no body", contentType = null, body = null),
+                    BodyCase("empty JSON body", ContentType.Application.Json, ""),
+                    BodyCase("empty object", ContentType.Application.Json, "{}"),
+                    BodyCase("null name", ContentType.Application.Json, """{"name":null}"""),
+                    BodyCase("blank name", ContentType.Application.Json, """{"name":"   "}"""),
+                ) { case ->
+                    routeTest { ports ->
+                        val profile = ports.savedProfile()
+                        ports.amsterdamNotCovered()
+
+                        val response = client.put("/profiles/${profile.id}/watchlist/AD.AS") {
+                            case.contentType?.let { contentType(it) }
+                            case.body?.let { setBody(it) }
+                        }
+
+                        response.status shouldBe HttpStatusCode.OK
+                        response.json()["name"] shouldBe JsonPrimitive("AD")
+                    }
+                }
+            }
+
+            test("name longer than 200 characters answers 400 and adds nothing") {
+                routeTest { ports ->
+                    val profile = ports.savedProfile()
+                    ports.amsterdamNotCovered()
+
+                    client.put("/profiles/${profile.id}/watchlist/AD.AS") {
+                        contentType(ContentType.Application.Json)
+                        setBody("""{"name":"${"N".repeat(201)}"}""")
+                    }.shouldBeProblem(400)
+                    ports.profiles.findById(profile.id)!!.watchlist.shouldBeEmpty()
+                }
+            }
+
+            test("body without a JSON content type answers 415") {
+                routeTest { ports ->
+                    val profile = ports.savedProfile()
+                    ports.amsterdamNotCovered()
+
+                    client.put("/profiles/${profile.id}/watchlist/AD.AS") {
+                        contentType(ContentType.Text.Plain)
+                        setBody("""{"name":"Ahold"}""")
+                    }.shouldBeProblem(415)
+                }
+            }
+
+            test("malformed JSON body answers 400") {
+                routeTest { ports ->
+                    val profile = ports.savedProfile()
+                    ports.amsterdamNotCovered()
+
+                    client.put("/profiles/${profile.id}/watchlist/AD.AS") {
+                        contentType(ContentType.Application.Json)
+                        setBody("""{"name":""")
+                    }.shouldBeProblem(400)
+                }
+            }
+        }
+
+        test("PUT of an unknown symbol of a covered exchange answers 404 even with a name") {
+            routeTest { ports ->
+                val profile = ports.savedProfile()
+
+                client.put("/profiles/${profile.id}/watchlist/NOPE") {
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"name":"Nope Inc"}""")
+                }.shouldBeProblem(404)
             }
         }
 
