@@ -131,12 +131,13 @@ TAG="$(git rev-parse --short HEAD)"
 
 gcloud builds submit backend \
   --config=backend/cloudbuild.yaml \
-  --region="$REGION" \
   --service-account="projects/${PROJECT_ID}/serviceAccounts/${BUILD_SA}@${PROJECT_ID}.iam.gserviceaccount.com" \
   --substitutions=_REGION="$REGION",_AR_REPOSITORY="$AR_REPOSITORY",_SERVICE_NAME="$SERVICE_NAME",_TAG="$TAG"
 ```
 
-The build runs the `Dockerfile` on a 32-CPU, 32 GB machine (`E2_HIGHCPU_32`) and pushes the image to Artifact Registry. Files listed in
+The build runs the `Dockerfile` on a 32-CPU, 32 GB machine (`E2_HIGHCPU_32`) and pushes the image to Artifact
+Registry. It runs in the global Cloud Build pool, without `--region`: regional builds may be refused for this machine
+type because of quota restrictions. `_REGION` still selects the Artifact Registry location. Files listed in
 `.gcloudignore` (tests, build outputs) are not uploaded.
 
 ## Deploy to Cloud Run
