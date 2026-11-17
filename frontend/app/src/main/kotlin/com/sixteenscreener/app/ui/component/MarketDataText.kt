@@ -1,6 +1,8 @@
 package com.sixteenscreener.app.ui.component
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -13,7 +15,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
 import com.sixteenscreener.app.R
+import com.sixteenscreener.app.domain.IndicatorsDisplay
 import com.sixteenscreener.app.domain.MarketDataDisplay
 import com.sixteenscreener.app.domain.MarketValueColor
 import com.sixteenscreener.app.domain.NumberFormats
@@ -22,14 +30,19 @@ import com.sixteenscreener.app.domain.model.Quote
 import com.sixteenscreener.app.domain.model.RowMarketData
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 
-/** Indicators and price over cache indicator of a watchlist row, drawn by the [MarketDataDisplay] rules. */
+/**
+ * Price over cache indicator, then the indicators column to the right of the price, of a watchlist row, drawn by the
+ * [MarketDataDisplay] rules.
+ */
 @Composable
 fun RowScope.WatchlistMarketData(data: RowMarketData?) {
     val display = remember(data) { MarketDataDisplay.of(data) }
-    IndicatorsText(display)
-    Column(horizontalAlignment = Alignment.End) {
-        MarketPriceText(display)
-        display.quote?.let { QuoteCacheIndicator(it, modifier = Modifier.testTag(CompanyRowTags.CACHE_INDICATOR)) }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(horizontalAlignment = Alignment.End) {
+            MarketPriceText(display)
+            display.quote?.let { QuoteCacheIndicator(it, modifier = Modifier.testTag(CompanyRowTags.CACHE_INDICATOR)) }
+        }
+        IndicatorsText(display.indicators)
     }
 }
 
@@ -75,22 +88,44 @@ private fun MarketPriceText(display: RowMarketDisplay) {
 }
 
 @Composable
-private fun IndicatorsText(display: RowMarketDisplay) {
-    val indicators = display.indicators
-    val description = if (indicators.text == NumberFormats.MISSING) {
-        stringResource(R.string.company_no_indicators)
-    } else {
-        stringResource(R.string.company_indicators_description, indicators.text)
-    }.withLoadFailure(display.isLastLoadFailed)
+private fun IndicatorsText(indicators: IndicatorsDisplay) {
+    val description = indicatorsDescription(indicators).withLoadFailure(indicators.isLoadFailed)
+    val text = indicatorLines(indicators)
     Text(
-        text = indicators.text,
-        style = MaterialTheme.typography.bodySmall,
-        color = marketValueColor(indicators.color),
-        maxLines = 1,
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = if (indicators.isLoadFailed) SixteenTheme.priceColors.loadFailed else SixteenTheme.priceColors.unchanged,
+        maxLines = MarketDataDisplay.MAX_SHOWN_INDICATORS,
+        softWrap = false,
         modifier = Modifier
             .semantics { contentDescription = description }
             .testTag(CompanyRowTags.INDICATORS),
     )
+}
+
+@Composable
+private fun indicatorLines(indicators: IndicatorsDisplay): AnnotatedString {
+    if (indicators.shown.isEmpty()) return AnnotatedString(NumberFormats.MISSING)
+    val levelColors = indicators.shown.map { indicatorTextColor(it.level) }
+    val lastLine = indicators.shown.last().name
+        .let { if (indicators.hasMore) stringResource(R.string.company_indicators_more, it) else it }
+    val lines = indicators.shown.dropLast(1).map { it.name } + lastLine
+    return buildAnnotatedString {
+        lines.forEachIndexed { index, line ->
+            if (index > 0) append('\n')
+            if (indicators.isLoadFailed) append(line) else withStyle(SpanStyle(color = levelColors[index])) { append(line) }
+        }
+    }
+}
+
+@Composable
+private fun indicatorsDescription(indicators: IndicatorsDisplay): String {
+    if (indicators.shown.isEmpty()) return stringResource(R.string.company_no_indicators)
+    val named = indicators.shown.map { indicator ->
+        stringResource(R.string.company_indicator_description, indicator.name, stringResource(indicatorLevelLabel(indicator.level)))
+    }
+    val listed = stringResource(R.string.company_indicators_description, named.joinToString(", "))
+    return if (indicators.hasMore) stringResource(R.string.company_indicators_more_description, listed) else listed
 }
 
 @Composable

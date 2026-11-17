@@ -17,6 +17,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sixteenscreener.app.domain.model.Company
@@ -32,6 +33,7 @@ import com.sixteenscreener.app.testing.Companies.item
 import com.sixteenscreener.app.testing.Companies.quote
 import com.sixteenscreener.app.testing.Companies.searchItem
 import com.sixteenscreener.app.testing.MutableClock
+import com.sixteenscreener.app.ui.theme.IndicatorColors
 import com.sixteenscreener.app.ui.theme.PriceColors
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 import org.junit.Assert.assertEquals
@@ -40,6 +42,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.time.Duration
 import java.time.Instant
@@ -54,6 +57,12 @@ class CompanyRowTest {
 
     private val now = Instant.parse("2026-11-14T12:00:00Z")
     private lateinit var priceColors: PriceColors
+    private lateinit var indicatorColors: IndicatorColors
+
+    private val roe = Indicator("ROE", "ROE", IndicatorLevel.GOOD)
+    private val pe = Indicator("PE", "P/E", IndicatorLevel.WARNING)
+    private val roa = Indicator("ROA", "ROA", IndicatorLevel.BAD)
+    private val pb = Indicator("PB", "P/B", IndicatorLevel.BAD)
 
     private fun loaded(quote: Quote?, status: DataStatus = DataStatus.CACHED) =
         RowMarketData(quote, lastLoad = MarketDataLoad.Loaded(status))
@@ -63,12 +72,14 @@ class CompanyRowTest {
         marketData: (@Composable RowScope.() -> Unit)? = { WatchlistMarketData(loaded(quote())) },
         darkTheme: Boolean = false,
         onClick: () -> Unit = {},
+        rowWidth: Dp = 400.dp,
         action: @Composable RowScope.() -> Unit = {},
     ) = composeRule.setContent {
         SixteenTheme(darkTheme = darkTheme, dynamicColor = false) {
             priceColors = SixteenTheme.priceColors
+            indicatorColors = SixteenTheme.indicatorColors
             CompositionLocalProvider(LocalClock provides MutableClock(now)) {
-                CompanyRow(company = company, onClick = onClick, modifier = Modifier.width(400.dp), marketData = marketData, action = action)
+                CompanyRow(company = company, onClick = onClick, modifier = Modifier.width(rowWidth), marketData = marketData, action = action)
             }
         }
     }
@@ -85,6 +96,19 @@ class CompanyRowTest {
     }
 
     private fun SemanticsNodeInteraction.textColor(): Color = textLayout().layoutInput.style.color
+
+    private fun SemanticsNodeInteraction.lineColors(): List<Color> {
+        val input = textLayout().layoutInput
+        var lineStart = 0
+        return input.text.text.split('\n').map { line ->
+            val span = input.text.spanStyles.firstOrNull { it.start <= lineStart && lineStart < it.end }
+            lineStart += line.length + 1
+            span?.item?.color ?: input.style.color
+        }
+    }
+
+    private fun indicatorRow(indicators: List<Indicator>, status: DataStatus = DataStatus.FRESH, indicatorsStatus: DataStatus = status) =
+        RowMarketData(quote(trend = Trend.UP), indicators, MarketDataLoad.Loaded(status, indicatorsStatus))
 
     @Test
     fun `long name is truncated with ellipsis at half of the row width`() {
@@ -221,10 +245,92 @@ class CompanyRowTest {
     }
 
     @Test
-    fun `received indicators are shown by name`() {
-        setWatchlistRow(RowMarketData(quote(), listOf(Indicator("PE", "P/E", IndicatorLevel.BAD)), MarketDataLoad.Loaded(DataStatus.FRESH)))
+    fun `one indicator is shown by its short name in its level color`() {
+        setWatchlistRow(indicatorRow(listOf(Indicator("PE", "P/E", IndicatorLevel.BAD))))
 
-        node(CompanyRowTags.INDICATORS).assertTextEquals("P/E").assertContentDescriptionEquals("Indicators P/E")
+        node(CompanyRowTags.INDICATORS).assertTextEquals("P/E").assertContentDescriptionEquals("Indicators P/E bad")
+        assertEquals(listOf(indicatorColors.bad), node(CompanyRowTags.INDICATORS).lineColors())
+    }
+
+    @Test
+    fun `three indicators are shown one under another in their level colors`() {
+        setWatchlistRow(indicatorRow(listOf(roe, pe, roa)))
+
+        node(CompanyRowTags.INDICATORS).assertTextEquals("ROE\nP/E\nROA")
+            .assertContentDescriptionEquals("Indicators ROE good, P/E warning, ROA bad")
+        assertEquals(listOf(indicatorColors.good, indicatorColors.warning, indicatorColors.bad), node(CompanyRowTags.INDICATORS).lineColors())
+    }
+
+    @Test
+    fun `more than three indicators show the first three and dots after the third`() {
+        setWatchlistRow(indicatorRow(listOf(roe, pe, roa, pb)))
+
+        node(CompanyRowTags.INDICATORS).assertTextEquals("ROE\nP/E\nROA ...")
+            .assertContentDescriptionEquals("Indicators ROE good, P/E warning, ROA bad, and more")
+        assertEquals(listOf(indicatorColors.good, indicatorColors.warning, indicatorColors.bad), node(CompanyRowTags.INDICATORS).lineColors())
+    }
+
+    @Test
+    fun `no indicators show a dash in the default color`() {
+        setWatchlistRow(indicatorRow(emptyList()))
+
+        node(CompanyRowTags.INDICATORS).assertTextEquals("-").assertContentDescriptionEquals("No indicators")
+        assertEquals(Color.Black, node(CompanyRowTags.INDICATORS).textColor())
+    }
+
+    @Test
+    fun `failed ratios draw the indicators in orange while the price keeps its trend color`() {
+        setWatchlistRow(indicatorRow(listOf(roe, pe, roa, pb), indicatorsStatus = DataStatus.LIMIT_REACHED))
+
+        node(CompanyRowTags.INDICATORS).assertTextEquals("ROE\nP/E\nROA ...")
+            .assertContentDescriptionEquals("Indicators ROE good, P/E warning, ROA bad, and more, last update failed")
+        assertEquals(List(3) { priceColors.loadFailed }, node(CompanyRowTags.INDICATORS).lineColors())
+        assertEquals(priceColors.up, node(CompanyRowTags.PRICE).textColor())
+    }
+
+    @Test
+    fun `source error of the ratios without indicators shows an orange dash`() {
+        setWatchlistRow(indicatorRow(emptyList(), indicatorsStatus = DataStatus.SOURCE_ERROR))
+
+        node(CompanyRowTags.INDICATORS).assertTextEquals("-").assertContentDescriptionEquals("No indicators, last update failed")
+        assertEquals(priceColors.loadFailed, node(CompanyRowTags.INDICATORS).textColor())
+    }
+
+    @Test
+    fun `failed quote keeps the indicator level colors`() {
+        setWatchlistRow(indicatorRow(listOf(roe), status = DataStatus.LIMIT_REACHED, indicatorsStatus = DataStatus.CACHED))
+
+        assertEquals(priceColors.loadFailed, node(CompanyRowTags.PRICE).textColor())
+        assertEquals(listOf(indicatorColors.good), node(CompanyRowTags.INDICATORS).lineColors())
+    }
+
+    @Test
+    fun `indicators are to the right of the price`() {
+        setWatchlistRow(indicatorRow(listOf(roe, pe)))
+
+        val priceRight = node(CompanyRowTags.PRICE).getUnclippedBoundsInRoot().right
+        val indicatorsLeft = node(CompanyRowTags.INDICATORS).getUnclippedBoundsInRoot().left
+        assertTrue("indicators at $indicatorsLeft, price ends at $priceRight", indicatorsLeft >= priceRight)
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun `row with a long name, price and indicators fits a phone width`() {
+        setRow(
+            company = item(name = "International Business Machines Corporation"),
+            marketData = { WatchlistMarketData(indicatorRow(listOf(roe, pe, roa, pb))) },
+            rowWidth = 360.dp,
+        ) {
+            RemoveFromWatchlistButton(companyName = "IBM", onClick = {})
+        }
+
+        val rowRight = node(CompanyRowTags.ROW).getUnclippedBoundsInRoot().right
+        val indicators = node(CompanyRowTags.INDICATORS)
+        assertTrue(indicators.getUnclippedBoundsInRoot().right <= rowRight)
+        assertFalse(indicators.textLayout().hasVisualOverflow)
+        assertTrue(node(CompanyRowTags.PRICE).getUnclippedBoundsInRoot().right <= indicators.getUnclippedBoundsInRoot().left)
+        node(CompanyRowTags.NAME).getUnclippedBoundsInRoot().let { assertTrue(it.right > it.left) }
+        assertTrue(node(CompanyRowTags.NAME).textLayout().isLineEllipsized(0))
     }
 
     @Test

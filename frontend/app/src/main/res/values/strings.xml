@@ -27,6 +27,14 @@
     <string name="market_data_load_failed">last update failed</string>
     <string name="company_no_indicators">No indicators</string>
     <string name="company_indicators_description">Indicators %1$s</string>
+    <string name="company_indicator_description">%1$s %2$s</string>
+    <string name="company_indicators_more">%1$s ...</string>
+    <string name="company_indicators_more_description">%1$s, and more</string>
+    <string name="indicator_level_good">good</string>
+    <string name="indicator_level_warning">warning</string>
+    <string name="indicator_level_neutral">neutral</string>
+    <string name="indicator_level_bad">bad</string>
+    <string name="ratio_name_percent">%1$s, %%</string>
     <string name="company_value_load_failed_description">%1$s, %2$s</string>
     <string name="market_us">US market</string>
     <string name="market_eu">EU market</string>

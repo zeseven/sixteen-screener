@@ -28,6 +28,8 @@ import com.sixteenscreener.app.domain.DisplaySymbols
 import com.sixteenscreener.app.domain.model.Company
 import com.sixteenscreener.app.domain.model.CompanyIdentity
 import com.sixteenscreener.app.domain.model.DataStatus
+import com.sixteenscreener.app.domain.model.Indicator
+import com.sixteenscreener.app.domain.model.IndicatorLevel
 import com.sixteenscreener.app.domain.model.Market
 import com.sixteenscreener.app.domain.model.MarketDataLoad
 import com.sixteenscreener.app.domain.model.Quote
@@ -48,7 +50,7 @@ object CompanyRowTags {
 
 /**
  * Company row: logo | ticker over exchange | name (at most half the row width) with the market flag | [marketData] | [action].
- * [marketData] shows the price and indicators, e.g. [WatchlistMarketData]; search rows have none.
+ * [marketData] shows the price and the indicators to its right, e.g. [WatchlistMarketData]; search rows have none.
  * The row opens the detailed screen with [onClick]; it is not clickable when [onClick] is `null`.
  */
 @Composable
@@ -158,6 +160,12 @@ private fun CompanyRowPreview() {
                     WatchlistMarketData(
                         RowMarketData(
                             quote = Quote(189.84, "USD", Instant.now().minusSeconds(90_000), 187.5, Trend.UP, null),
+                            indicators = listOf(
+                                Indicator("ROA", "ROA", IndicatorLevel.GOOD),
+                                Indicator("PE", "P/E", IndicatorLevel.WARNING),
+                                Indicator("ROE", "ROE", IndicatorLevel.BAD),
+                                Indicator("PB", "P/B", IndicatorLevel.BAD),
+                            ),
                             lastLoad = MarketDataLoad.Loaded(DataStatus.CACHED),
                         ),
                     )
