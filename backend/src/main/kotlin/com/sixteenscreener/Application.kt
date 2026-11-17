@@ -33,6 +33,7 @@ import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.service.CompanyDataService
 import com.sixteenscreener.domain.service.CompanyIdentityResolver
 import com.sixteenscreener.domain.service.ExchangeDirectoryService
+import com.sixteenscreener.domain.service.ExchangeService
 import com.sixteenscreener.domain.service.FreshnessPolicy
 import com.sixteenscreener.domain.service.LogoService
 import com.sixteenscreener.domain.service.LogoTier
@@ -49,6 +50,7 @@ import com.sixteenscreener.domain.service.SourceService
 import com.sixteenscreener.domain.service.WatchlistCompanySync
 import com.sixteenscreener.domain.service.WatchlistService
 import com.sixteenscreener.port.inbound.CompanyDataUseCase
+import com.sixteenscreener.port.inbound.ExchangesUseCase
 import com.sixteenscreener.port.inbound.LogoUseCase
 import com.sixteenscreener.port.inbound.ProfileUseCase
 import com.sixteenscreener.port.inbound.SearchUseCase
@@ -138,6 +140,8 @@ class AppServices(
         outcomes = sourceCallOutcomes,
         clock = clock,
     )
+
+    val exchangesUseCase: ExchangesUseCase = ExchangeService(marketResolver)
 
     val logoUseCase: LogoUseCase = LogoService(
         tiers = logoTiers,

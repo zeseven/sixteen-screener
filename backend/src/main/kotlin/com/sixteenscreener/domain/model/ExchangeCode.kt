@@ -100,6 +100,9 @@ object KnownExchangeCodes {
     /** All known exchange codes. */
     val codes: Set<ExchangeCode> = (micsByCode.keys + ExchangeCode.US.value).map(::ExchangeCode).toSet()
 
+    /** MICs of the known exchange codes except [ExchangeCode.US], keyed by exchange code. */
+    val mics: Map<ExchangeCode, String> = micsByCode.mapKeys { (code, _) -> ExchangeCode(code) }
+
     /** Whether [value] is a known exchange code. */
     fun isKnown(value: String): Boolean = value == ExchangeCode.US.value || value in micsByCode
 

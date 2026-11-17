@@ -7,6 +7,7 @@ import com.sixteenscreener.domain.model.Market
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -128,5 +129,43 @@ class MarketResolverTest : FunSpec({
         resolver.timeZoneOf(listing("SHEL.L", mic = null)).id shouldBe "Europe/London"
         resolver.timeZoneOf(listing("SHEL.L", mic = "ZZZZ")).id shouldBe "Europe/London"
         resolver.timeZoneOf(listing("AAPL", mic = "XNAS")).id shouldBe "America/New_York"
+    }
+
+    context("maps MICs to the official exchange name") {
+        withData(
+            nameFn = { "${it.first} -> ${it.second}" },
+            "XNYS" to "New York Stock Exchange",
+            "XNGS" to "Nasdaq Global Select Market",
+            "XNMS" to "Nasdaq Global Market",
+            "XNCM" to "Nasdaq Capital Market",
+            "OTCQ" to "OTCQX Best Market",
+            "OTCB" to "OTCQB Venture Market",
+            "PINX" to "OTC Pink Open Market",
+            "XETR" to "Xetra",
+            "XLON" to "London Stock Exchange",
+            "XSWX" to "SIX Swiss Exchange",
+            "XTSX" to "TSX Venture Exchange",
+        ) { (mic, fullName) ->
+            resolver.fullNameOf(mic) shouldBe fullName
+        }
+    }
+
+    test("full name lookup ignores case; unknown MIC has no full name") {
+        resolver.fullNameOf("xtsx") shouldBe "TSX Venture Exchange"
+        resolver.fullNameOf("ZZZZ").shouldBeNull()
+    }
+
+    test("every MIC of the static exchange table has a full name") {
+        val mics = resolver.usMics + KnownExchangeCodes.mics.values + listOf("XMSM", "MTAA", "XVTX")
+
+        mics.filter { resolver.find(it) == null || resolver.fullNameOf(it).isNullOrBlank() }.shouldBeEmpty()
+    }
+
+    test("US MICs are the US exchanges of the static exchange table") {
+        resolver.usMics shouldContainExactly listOf(
+            "XNYS", "XNAS", "XNGS", "XNMS", "XNCM", "XASE", "ARCX", "BATS", "IEXG",
+            "OTCM", "OOTC", "PINX", "PSGM", "EXPM", "OTCB", "OTCQ", "XOTC",
+        )
+        resolver.usMics.map { resolver.find(it)?.market }.toSet() shouldBe setOf(Market.US)
     }
 })

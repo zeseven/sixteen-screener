@@ -26,114 +26,134 @@ class MarketResolver {
     fun timeZoneOf(listing: ListedSymbol): ZoneId =
         listing.mic?.let(::find)?.timeZone ?: timeZoneOf(listing.symbol.exchangeCode)
 
+    fun fullNameOf(mic: String): String? = FULL_NAMES_BY_MIC[mic.uppercase()]
+
+    val usMics: List<String> get() = US_MICS
+
     private companion object {
         private const val NEW_YORK = "America/New_York"
+        private const val USD = "USD"
 
-        private val US_EXCHANGES_COMBINED = ExchangeInfo("US", ZoneId.of(NEW_YORK), Market.US, "USD")
+        private val US_EXCHANGES_COMBINED = ExchangeInfo("US", ZoneId.of(NEW_YORK), Market.US, USD)
 
         private val US_EXCHANGES = listOf(
-            "XNYS" to "NYSE",
-            "XNAS" to "NASDAQ",
-            "XNGS" to "NASDAQ",
-            "XNMS" to "NASDAQ",
-            "XNCM" to "NASDAQ",
-            "XASE" to "NYSE American",
-            "ARCX" to "NYSE Arca",
-            "BATS" to "Cboe BZX",
-            "IEXG" to "IEX",
-            "OTCM" to "OTC",
-            "OOTC" to "OTC",
-            "PINX" to "OTC",
-            "PSGM" to "OTC",
-            "EXPM" to "OTC",
-            "OTCB" to "OTC",
-            "OTCQ" to "OTC",
-            "XOTC" to "OTC",
-        ).map { (mic, name) -> mic to ExchangeInfo(name, ZoneId.of(NEW_YORK), Market.US, "USD") }
+            Exchange("XNYS", "NYSE", "New York Stock Exchange", NEW_YORK, USD),
+            Exchange("XNAS", "NASDAQ", "Nasdaq Stock Market", NEW_YORK, USD),
+            Exchange("XNGS", "NASDAQ", "Nasdaq Global Select Market", NEW_YORK, USD),
+            Exchange("XNMS", "NASDAQ", "Nasdaq Global Market", NEW_YORK, USD),
+            Exchange("XNCM", "NASDAQ", "Nasdaq Capital Market", NEW_YORK, USD),
+            Exchange("XASE", "NYSE American", "NYSE American", NEW_YORK, USD),
+            Exchange("ARCX", "NYSE Arca", "NYSE Arca", NEW_YORK, USD),
+            Exchange("BATS", "Cboe BZX", "Cboe BZX Exchange", NEW_YORK, USD),
+            Exchange("IEXG", "IEX", "Investors Exchange", NEW_YORK, USD),
+            Exchange("OTCM", "OTC", "OTC Markets Group", NEW_YORK, USD),
+            Exchange("OOTC", "OTC", "OTC Markets Other OTC", NEW_YORK, USD),
+            Exchange("PINX", "OTC", "OTC Pink Open Market", NEW_YORK, USD),
+            Exchange("PSGM", "OTC", "OTC Grey Market", NEW_YORK, USD),
+            Exchange("EXPM", "OTC", "OTC Expert Market", NEW_YORK, USD),
+            Exchange("OTCB", "OTC", "OTCQB Venture Market", NEW_YORK, USD),
+            Exchange("OTCQ", "OTC", "OTCQX Best Market", NEW_YORK, USD),
+            Exchange("XOTC", "OTC", "OTC Bulletin Board", NEW_YORK, USD),
+        )
 
         private val EU_EXCHANGES = listOf(
-            Exchange("XETR", "XETRA", "Europe/Berlin", "EUR"),
-            Exchange("XFRA", "Frankfurt", "Europe/Berlin", "EUR"),
-            Exchange("XBER", "Berlin", "Europe/Berlin", "EUR"),
-            Exchange("XMUN", "Munich", "Europe/Berlin", "EUR"),
-            Exchange("XSTU", "Stuttgart", "Europe/Berlin", "EUR"),
-            Exchange("XDUS", "Dusseldorf", "Europe/Berlin", "EUR"),
-            Exchange("XHAM", "Hamburg", "Europe/Berlin", "EUR"),
-            Exchange("XHAN", "Hannover", "Europe/Berlin", "EUR"),
-            Exchange("XPAR", "Euronext Paris", "Europe/Paris", "EUR"),
-            Exchange("XAMS", "Euronext Amsterdam", "Europe/Amsterdam", "EUR"),
-            Exchange("XBRU", "Euronext Brussels", "Europe/Brussels", "EUR"),
-            Exchange("XLIS", "Euronext Lisbon", "Europe/Lisbon", "EUR"),
-            Exchange("XMSM", "Euronext Dublin", "Europe/Dublin", "EUR"),
-            Exchange("XDUB", "Euronext Dublin", "Europe/Dublin", "EUR"),
-            Exchange("XOSL", "Oslo Bors", "Europe/Oslo", "NOK"),
-            Exchange("XMIL", "Borsa Italiana", "Europe/Rome", "EUR"),
-            Exchange("MTAA", "Borsa Italiana", "Europe/Rome", "EUR"),
-            Exchange("XMAD", "BME", "Europe/Madrid", "EUR"),
-            Exchange("XSTO", "Nasdaq Stockholm", "Europe/Stockholm", "SEK"),
-            Exchange("XHEL", "Nasdaq Helsinki", "Europe/Helsinki", "EUR"),
-            Exchange("XCSE", "Nasdaq Copenhagen", "Europe/Copenhagen", "DKK"),
-            Exchange("XICE", "Nasdaq Iceland", "Atlantic/Reykjavik", "ISK"),
-            Exchange("XRIS", "Nasdaq Riga", "Europe/Riga", "EUR"),
-            Exchange("XTAL", "Nasdaq Tallinn", "Europe/Tallinn", "EUR"),
-            Exchange("XLIT", "Nasdaq Vilnius", "Europe/Vilnius", "EUR"),
-            Exchange("XWBO", "Vienna", "Europe/Vienna", "EUR"),
-            Exchange("XWAR", "GPW", "Europe/Warsaw", "PLN"),
-            Exchange("XPRA", "Prague", "Europe/Prague", "CZK"),
-            Exchange("XBUD", "Budapest", "Europe/Budapest", "HUF"),
-            Exchange("XATH", "Athens", "Europe/Athens", "EUR"),
-            Exchange("XLON", "LSE", "Europe/London", "GBP"),
-            Exchange("XSWX", "SIX", "Europe/Zurich", "CHF"),
-            Exchange("XVTX", "SIX", "Europe/Zurich", "CHF"),
-        ).map { it.mic to it.info(Market.EU) }
+            Exchange("XETR", "XETRA", "Xetra", "Europe/Berlin", "EUR"),
+            Exchange("XFRA", "Frankfurt", "Frankfurt Stock Exchange", "Europe/Berlin", "EUR"),
+            Exchange("XBER", "Berlin", "Berlin Stock Exchange", "Europe/Berlin", "EUR"),
+            Exchange("XMUN", "Munich", "Munich Stock Exchange", "Europe/Berlin", "EUR"),
+            Exchange("XSTU", "Stuttgart", "Stuttgart Stock Exchange", "Europe/Berlin", "EUR"),
+            Exchange("XDUS", "Dusseldorf", "Dusseldorf Stock Exchange", "Europe/Berlin", "EUR"),
+            Exchange("XHAM", "Hamburg", "Hamburg Stock Exchange", "Europe/Berlin", "EUR"),
+            Exchange("XHAN", "Hannover", "Hanover Stock Exchange", "Europe/Berlin", "EUR"),
+            Exchange("XPAR", "Euronext Paris", "Euronext Paris", "Europe/Paris", "EUR"),
+            Exchange("XAMS", "Euronext Amsterdam", "Euronext Amsterdam", "Europe/Amsterdam", "EUR"),
+            Exchange("XBRU", "Euronext Brussels", "Euronext Brussels", "Europe/Brussels", "EUR"),
+            Exchange("XLIS", "Euronext Lisbon", "Euronext Lisbon", "Europe/Lisbon", "EUR"),
+            Exchange("XMSM", "Euronext Dublin", "Euronext Dublin", "Europe/Dublin", "EUR"),
+            Exchange("XDUB", "Euronext Dublin", "Euronext Dublin", "Europe/Dublin", "EUR"),
+            Exchange("XOSL", "Oslo Bors", "Euronext Oslo Bors", "Europe/Oslo", "NOK"),
+            Exchange("XMIL", "Borsa Italiana", "Borsa Italiana", "Europe/Rome", "EUR"),
+            Exchange("MTAA", "Borsa Italiana", "Euronext Milan", "Europe/Rome", "EUR"),
+            Exchange("XMAD", "BME", "Madrid Stock Exchange", "Europe/Madrid", "EUR"),
+            Exchange("XSTO", "Nasdaq Stockholm", "Nasdaq Stockholm", "Europe/Stockholm", "SEK"),
+            Exchange("XHEL", "Nasdaq Helsinki", "Nasdaq Helsinki", "Europe/Helsinki", "EUR"),
+            Exchange("XCSE", "Nasdaq Copenhagen", "Nasdaq Copenhagen", "Europe/Copenhagen", "DKK"),
+            Exchange("XICE", "Nasdaq Iceland", "Nasdaq Iceland", "Atlantic/Reykjavik", "ISK"),
+            Exchange("XRIS", "Nasdaq Riga", "Nasdaq Riga", "Europe/Riga", "EUR"),
+            Exchange("XTAL", "Nasdaq Tallinn", "Nasdaq Tallinn", "Europe/Tallinn", "EUR"),
+            Exchange("XLIT", "Nasdaq Vilnius", "Nasdaq Vilnius", "Europe/Vilnius", "EUR"),
+            Exchange("XWBO", "Vienna", "Vienna Stock Exchange", "Europe/Vienna", "EUR"),
+            Exchange("XWAR", "GPW", "Warsaw Stock Exchange", "Europe/Warsaw", "PLN"),
+            Exchange("XPRA", "Prague", "Prague Stock Exchange", "Europe/Prague", "CZK"),
+            Exchange("XBUD", "Budapest", "Budapest Stock Exchange", "Europe/Budapest", "HUF"),
+            Exchange("XATH", "Athens", "Athens Exchange", "Europe/Athens", "EUR"),
+            Exchange("XLON", "LSE", "London Stock Exchange", "Europe/London", "GBP"),
+            Exchange("XSWX", "SIX", "SIX Swiss Exchange", "Europe/Zurich", "CHF"),
+            Exchange("XVTX", "SIX", "SIX Swiss Exchange", "Europe/Zurich", "CHF"),
+        )
 
         private val OTHER_EXCHANGES = listOf(
-            Exchange("XTKS", "TSE", "Asia/Tokyo", "JPY"),
-            Exchange("XTSE", "TSX", "America/Toronto", "CAD"),
-            Exchange("XTSX", "TSXV", "America/Toronto", "CAD"),
-            Exchange("XCNQ", "CSE", "America/Toronto", "CAD"),
-            Exchange("NEOE", "Cboe Canada", "America/Toronto", "CAD"),
-            Exchange("XHKG", "HKEX", "Asia/Hong_Kong", "HKD"),
-            Exchange("XASX", "ASX", "Australia/Sydney", "AUD"),
-            Exchange("XNZE", "NZX", "Pacific/Auckland", "NZD"),
-            Exchange("XSHG", "SSE", "Asia/Shanghai", "CNY"),
-            Exchange("XSHE", "SZSE", "Asia/Shanghai", "CNY"),
-            Exchange("XKRX", "KRX", "Asia/Seoul", "KRW"),
-            Exchange("XKOS", "KOSDAQ", "Asia/Seoul", "KRW"),
-            Exchange("XBOM", "BSE", "Asia/Kolkata", "INR"),
-            Exchange("XNSE", "NSE", "Asia/Kolkata", "INR"),
-            Exchange("XSES", "SGX", "Asia/Singapore", "SGD"),
-            Exchange("XTAI", "TWSE", "Asia/Taipei", "TWD"),
-            Exchange("ROCO", "TPEx", "Asia/Taipei", "TWD"),
-            Exchange("XBKK", "SET", "Asia/Bangkok", "THB"),
-            Exchange("XIDX", "IDX", "Asia/Jakarta", "IDR"),
-            Exchange("XKLS", "Bursa Malaysia", "Asia/Kuala_Lumpur", "MYR"),
-            Exchange("XPHS", "PSE", "Asia/Manila", "PHP"),
-            Exchange("XSTC", "HOSE", "Asia/Ho_Chi_Minh", "VND"),
-            Exchange("XIST", "Borsa Istanbul", "Europe/Istanbul", "TRY"),
-            Exchange("MISX", "MOEX", "Europe/Moscow", "RUB"),
-            Exchange("XTAE", "TASE", "Asia/Jerusalem", "ILS"),
-            Exchange("XSAU", "Tadawul", "Asia/Riyadh", "SAR"),
-            Exchange("DSMD", "QSE", "Asia/Qatar", "QAR"),
-            Exchange("XDFM", "DFM", "Asia/Dubai", "AED"),
-            Exchange("XKUW", "Boursa Kuwait", "Asia/Kuwait", "KWD"),
-            Exchange("XBAH", "Bahrain Bourse", "Asia/Bahrain", "BHD"),
-            Exchange("XJSE", "JSE", "Africa/Johannesburg", "ZAR"),
-            Exchange("XCAI", "EGX", "Africa/Cairo", "EGP"),
-            Exchange("XCAS", "Casablanca SE", "Africa/Casablanca", "MAD"),
-            Exchange("XNSA", "NGX", "Africa/Lagos", "NGN"),
-            Exchange("BVMF", "B3", "America/Sao_Paulo", "BRL"),
-            Exchange("XMEX", "BMV", "America/Mexico_City", "MXN"),
-            Exchange("XBUE", "BYMA", "America/Argentina/Buenos_Aires", "ARS"),
-            Exchange("XSGO", "Santiago SE", "America/Santiago", "CLP"),
-            Exchange("XBOG", "BVC", "America/Bogota", "COP"),
-            Exchange("XCAR", "Caracas SE", "America/Caracas", "VES"),
-        ).map { it.mic to it.info(market = null) }
+            Exchange("XTKS", "TSE", "Tokyo Stock Exchange", "Asia/Tokyo", "JPY"),
+            Exchange("XTSE", "TSX", "Toronto Stock Exchange", "America/Toronto", "CAD"),
+            Exchange("XTSX", "TSXV", "TSX Venture Exchange", "America/Toronto", "CAD"),
+            Exchange("XCNQ", "CSE", "Canadian Securities Exchange", "America/Toronto", "CAD"),
+            Exchange("NEOE", "Cboe Canada", "Cboe Canada", "America/Toronto", "CAD"),
+            Exchange("XHKG", "HKEX", "Hong Kong Stock Exchange", "Asia/Hong_Kong", "HKD"),
+            Exchange("XASX", "ASX", "Australian Securities Exchange", "Australia/Sydney", "AUD"),
+            Exchange("XNZE", "NZX", "New Zealand Exchange", "Pacific/Auckland", "NZD"),
+            Exchange("XSHG", "SSE", "Shanghai Stock Exchange", "Asia/Shanghai", "CNY"),
+            Exchange("XSHE", "SZSE", "Shenzhen Stock Exchange", "Asia/Shanghai", "CNY"),
+            Exchange("XKRX", "KRX", "Korea Exchange", "Asia/Seoul", "KRW"),
+            Exchange("XKOS", "KOSDAQ", "KOSDAQ Market", "Asia/Seoul", "KRW"),
+            Exchange("XBOM", "BSE", "Bombay Stock Exchange", "Asia/Kolkata", "INR"),
+            Exchange("XNSE", "NSE", "National Stock Exchange of India", "Asia/Kolkata", "INR"),
+            Exchange("XSES", "SGX", "Singapore Exchange", "Asia/Singapore", "SGD"),
+            Exchange("XTAI", "TWSE", "Taiwan Stock Exchange", "Asia/Taipei", "TWD"),
+            Exchange("ROCO", "TPEx", "Taipei Exchange", "Asia/Taipei", "TWD"),
+            Exchange("XBKK", "SET", "Stock Exchange of Thailand", "Asia/Bangkok", "THB"),
+            Exchange("XIDX", "IDX", "Indonesia Stock Exchange", "Asia/Jakarta", "IDR"),
+            Exchange("XKLS", "Bursa Malaysia", "Bursa Malaysia", "Asia/Kuala_Lumpur", "MYR"),
+            Exchange("XPHS", "PSE", "Philippine Stock Exchange", "Asia/Manila", "PHP"),
+            Exchange("XSTC", "HOSE", "Ho Chi Minh Stock Exchange", "Asia/Ho_Chi_Minh", "VND"),
+            Exchange("XIST", "Borsa Istanbul", "Borsa Istanbul", "Europe/Istanbul", "TRY"),
+            Exchange("MISX", "MOEX", "Moscow Exchange", "Europe/Moscow", "RUB"),
+            Exchange("XTAE", "TASE", "Tel Aviv Stock Exchange", "Asia/Jerusalem", "ILS"),
+            Exchange("XSAU", "Tadawul", "Saudi Exchange", "Asia/Riyadh", "SAR"),
+            Exchange("DSMD", "QSE", "Qatar Stock Exchange", "Asia/Qatar", "QAR"),
+            Exchange("XDFM", "DFM", "Dubai Financial Market", "Asia/Dubai", "AED"),
+            Exchange("XKUW", "Boursa Kuwait", "Boursa Kuwait", "Asia/Kuwait", "KWD"),
+            Exchange("XBAH", "Bahrain Bourse", "Bahrain Bourse", "Asia/Bahrain", "BHD"),
+            Exchange("XJSE", "JSE", "Johannesburg Stock Exchange", "Africa/Johannesburg", "ZAR"),
+            Exchange("XCAI", "EGX", "Egyptian Exchange", "Africa/Cairo", "EGP"),
+            Exchange("XCAS", "Casablanca SE", "Casablanca Stock Exchange", "Africa/Casablanca", "MAD"),
+            Exchange("XNSA", "NGX", "Nigerian Exchange", "Africa/Lagos", "NGN"),
+            Exchange("BVMF", "B3", "B3 - Brasil Bolsa Balcao", "America/Sao_Paulo", "BRL"),
+            Exchange("XMEX", "BMV", "Mexican Stock Exchange", "America/Mexico_City", "MXN"),
+            Exchange("XBUE", "BYMA", "Bolsas y Mercados Argentinos", "America/Argentina/Buenos_Aires", "ARS"),
+            Exchange("XSGO", "Santiago SE", "Santiago Stock Exchange", "America/Santiago", "CLP"),
+            Exchange("XBOG", "BVC", "Colombian Stock Exchange", "America/Bogota", "COP"),
+            Exchange("XCAR", "Caracas SE", "Caracas Stock Exchange", "America/Caracas", "VES"),
+        )
 
-        val EXCHANGES_BY_MIC: Map<String, ExchangeInfo> = (US_EXCHANGES + EU_EXCHANGES + OTHER_EXCHANGES).toMap()
+        val EXCHANGES_BY_MIC: Map<String, ExchangeInfo> = (
+            US_EXCHANGES.map { it.mic to it.info(Market.US) } +
+                EU_EXCHANGES.map { it.mic to it.info(Market.EU) } +
+                OTHER_EXCHANGES.map { it.mic to it.info(market = null) }
+            ).toMap()
+
+        val FULL_NAMES_BY_MIC: Map<String, String> =
+            (US_EXCHANGES + EU_EXCHANGES + OTHER_EXCHANGES).associate { it.mic to it.fullName }
+
+        val US_MICS: List<String> = US_EXCHANGES.map { it.mic }
     }
 
-    private data class Exchange(val mic: String, val name: String, val zone: String, val currency: String) {
+    private data class Exchange(
+        val mic: String,
+        val name: String,
+        val fullName: String,
+        val zone: String,
+        val currency: String,
+    ) {
         fun info(market: Market?) = ExchangeInfo(name, ZoneId.of(zone), market, currency)
     }
 }
