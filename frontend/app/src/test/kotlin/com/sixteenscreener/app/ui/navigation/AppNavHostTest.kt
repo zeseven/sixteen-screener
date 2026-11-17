@@ -112,9 +112,13 @@ class AppNavHostTest {
         clickText("Search")
         composeRule.onNodeWithText("Tab SEARCH").assertExists()
 
+        clickText("Exchanges")
+        composeRule.onNodeWithText("Tab EXCHANGES").assertExists()
+        composeRule.onNodeWithText("Tab SEARCH").assertDoesNotExist()
+
         clickText("Sources")
         composeRule.onNodeWithText("Tab SOURCES").assertExists()
-        composeRule.onNodeWithText("Tab SEARCH").assertDoesNotExist()
+        composeRule.onNodeWithText("Tab EXCHANGES").assertDoesNotExist()
     }
 
     @Test

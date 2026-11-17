@@ -35,5 +35,6 @@ data object SettingsRoute : NavKey
 enum class MainTab(@param:StringRes val label: Int, @param:DrawableRes val icon: Int) {
     WATCHLIST(R.string.tab_watchlist, R.drawable.ic_watchlist),
     SEARCH(R.string.tab_search, R.drawable.ic_search),
+    EXCHANGES(R.string.tab_exchanges, R.drawable.ic_exchanges),
     SOURCES(R.string.tab_sources, R.drawable.ic_sources),
 }

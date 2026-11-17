@@ -138,8 +138,9 @@ private fun NameAndFlag(
     }
 }
 
+/** Spoken description of the flag of [market], empty without a market. */
 @Composable
-private fun marketDescription(market: Market?): String = when (market) {
+fun marketDescription(market: Market?): String = when (market) {
     Market.US -> stringResource(R.string.market_us)
     Market.EU -> stringResource(R.string.market_eu)
     null -> ""

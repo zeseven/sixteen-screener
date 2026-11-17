@@ -3,6 +3,7 @@ package com.sixteenscreener.app.data.remote
 import com.sixteenscreener.app.data.remote.auth.AuthenticationException
 import com.sixteenscreener.app.data.remote.dto.BalanceSheetResponseDto
 import com.sixteenscreener.app.data.remote.dto.CompanyProfileResponseDto
+import com.sixteenscreener.app.data.remote.dto.ExchangesDto
 import com.sixteenscreener.app.data.remote.dto.PriceAndRatiosResponseDto
 import com.sixteenscreener.app.data.remote.dto.ProblemDto
 import com.sixteenscreener.app.data.remote.dto.ProfileCreateDto
@@ -21,6 +22,7 @@ import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfileData
+import com.sixteenscreener.app.domain.model.Exchange
 import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.ProblemDetails
@@ -127,6 +129,9 @@ class OkHttpApiClient @Inject constructor(
 
     override suspend fun getSources(profileId: ProfileId): ApiResult<List<Source>> =
         get(profileUrl(profileId, "sources")) { json.decodeFromString<SourcesDto>(it).toDomain() }
+
+    override suspend fun getExchanges(): ApiResult<List<Exchange>> =
+        get(url("exchanges")) { json.decodeFromString<ExchangesDto>(it).toDomain() }
 
     private fun watchlistAddBody(name: String): RequestBody =
         if (name.isBlank()) {

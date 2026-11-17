@@ -2,10 +2,12 @@ package com.sixteenscreener.app.di
 
 import com.sixteenscreener.app.data.repository.CompanyRepository
 import com.sixteenscreener.app.data.repository.DefaultCompanyRepository
+import com.sixteenscreener.app.data.repository.DefaultExchangeRepository
 import com.sixteenscreener.app.data.repository.DefaultProfileRepository
 import com.sixteenscreener.app.data.repository.DefaultSearchRepository
 import com.sixteenscreener.app.data.repository.DefaultSourceRepository
 import com.sixteenscreener.app.data.repository.DefaultWatchlistRepository
+import com.sixteenscreener.app.data.repository.ExchangeRepository
 import com.sixteenscreener.app.data.repository.ProfileRepository
 import com.sixteenscreener.app.data.repository.SearchRepository
 import com.sixteenscreener.app.data.repository.SourceRepository
@@ -33,4 +35,7 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun bindCompanyRepository(repository: DefaultCompanyRepository): CompanyRepository
+
+    @Binds
+    abstract fun bindExchangeRepository(repository: DefaultExchangeRepository): ExchangeRepository
 }

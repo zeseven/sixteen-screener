@@ -3,6 +3,7 @@ package com.sixteenscreener.app.data.remote
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfileData
+import com.sixteenscreener.app.domain.model.Exchange
 import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.Profile
@@ -14,7 +15,7 @@ import com.sixteenscreener.app.domain.model.Symbol
 import com.sixteenscreener.app.domain.model.WatchlistItem
 
 /**
- * Backend API client with one function per alpha operation of `docs/openapi.yaml`.
+ * Backend API client with one function per operation of `docs/openapi.yaml` used by the app.
  * All functions are main-safe and never throw for HTTP, network or parsing failures.
  */
 interface ApiClient {
@@ -71,4 +72,7 @@ interface ApiClient {
 
     /** `GET /profiles/{profileId}/sources`. */
     suspend fun getSources(profileId: ProfileId): ApiResult<List<Source>>
+
+    /** `GET /exchanges`: the static exchange table in backend order. */
+    suspend fun getExchanges(): ApiResult<List<Exchange>>
 }

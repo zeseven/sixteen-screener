@@ -7,6 +7,7 @@ import com.sixteenscreener.app.domain.model.BalanceSheetItem
 import com.sixteenscreener.app.domain.model.CallResult
 import com.sixteenscreener.app.domain.model.Capability
 import com.sixteenscreener.app.domain.model.DataStatus
+import com.sixteenscreener.app.domain.model.Exchange
 import com.sixteenscreener.app.domain.model.FiscalPeriod
 import com.sixteenscreener.app.domain.model.Indicator
 import com.sixteenscreener.app.domain.model.IndicatorLevel
@@ -581,6 +582,51 @@ class OkHttpApiClientTest {
         assertEquals(emptyList<RequestLimit>(), finnhubLogos.limits)
         assertEquals(SourceCallOutcome(CallResult.SUCCESS, null, Instant.parse("2026-11-14T11:05:00Z")), finnhubLogos.lastCall)
         assertEquals(5_000_000_000L, finnhubLogos.totalCalls)
+    }
+
+    @Test
+    fun `getExchanges requests the exchanges without a profile and keeps the backend order`() = runTest {
+        enqueueFixture("exchanges.json")
+
+        val exchanges = client.getExchanges().value()
+
+        val request = server.takeRequest()
+        assertEquals("GET", request.method)
+        assertEquals("/exchanges", request.pathAndQuery())
+        assertEquals(
+            listOf(
+                Exchange("", "NYSE", "New York Stock Exchange", "XNYS", "USD", "America/New_York", Market.US),
+                Exchange("DE", "XETRA", "Deutsche Boerse Xetra", "XETR", "EUR", "Europe/Berlin", Market.EU),
+                Exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", "CAD", "America/Toronto", null),
+            ),
+            exchanges,
+        )
+    }
+
+    @Test
+    fun `getExchanges maps an unknown market to no market`() = runTest {
+        enqueue(
+            body = """
+                {"items":[{"suffix":"HK","shortName":"HKEX","fullName":"Hong Kong Exchanges","mic":"XHKG","currency":"HKD",
+                  "timeZone":"Asia/Hong_Kong","market":"ASIA"}]}
+            """.trimIndent(),
+        )
+
+        assertNull(client.getExchanges().value().single().market)
+    }
+
+    @Test
+    fun `getExchanges without a required field is a parse error`() = runTest {
+        enqueue(body = """{"items":[{"suffix":"V","shortName":"TSXV"}]}""")
+
+        assertTrue(client.getExchanges().error() is ApiError.Parse)
+    }
+
+    @Test
+    fun `getExchanges failure carries the HTTP status`() = runTest {
+        enqueue(code = 503)
+
+        assertEquals(ApiError.Http(503, null), client.getExchanges().error())
     }
 
     @Test

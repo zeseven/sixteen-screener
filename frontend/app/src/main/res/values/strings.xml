@@ -87,8 +87,23 @@
     <string name="connection_app_error">Last call failed with an internal error</string>
     <string name="sources_empty">No sources configured</string>
 
+    <string name="exchanges_filter_label">Filter exchanges</string>
+    <string name="exchanges_filter_clear">Clear filter</string>
+    <string name="exchanges_loading">Loading exchanges</string>
+    <string name="exchanges_empty">No exchanges available</string>
+    <string name="exchanges_no_matches">No exchanges match</string>
+    <string name="exchanges_retry">Retry</string>
+    <string name="exchange_column_suffix">Suffix</string>
+    <string name="exchange_column_short_name">Short name</string>
+    <string name="exchange_column_full_name">Full name</string>
+    <string name="exchange_column_mic">MIC</string>
+    <string name="exchange_column_currency">Currency</string>
+    <string name="exchange_column_time_zone">Time zone</string>
+    <string name="exchange_column_market">Market</string>
+
     <string name="tab_watchlist">Watchlist</string>
     <string name="tab_search">Search</string>
+    <string name="tab_exchanges">Exchanges</string>
     <string name="tab_sources">Sources</string>
     <string name="settings_open">Settings</string>
     <string name="settings_title">Settings</string>

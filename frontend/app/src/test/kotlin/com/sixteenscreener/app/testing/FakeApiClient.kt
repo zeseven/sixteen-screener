@@ -4,6 +4,7 @@ import com.sixteenscreener.app.data.remote.ApiClient
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfileData
+import com.sixteenscreener.app.domain.model.Exchange
 import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.Profile
@@ -32,6 +33,7 @@ class FakeApiClient : ApiClient {
     var getCompanyProfile: suspend (ProfileId, Symbol, SourceId?, Boolean) -> ApiResult<CompanyProfileData> =
         { _, _, _, _ -> notStubbed() }
     var getSources: suspend (ProfileId) -> ApiResult<List<Source>> = { notStubbed() }
+    var getExchanges: suspend () -> ApiResult<List<Exchange>> = { notStubbed() }
 
     override suspend fun getOrCreateProfile(name: String) = record("getOrCreateProfile($name)") { getOrCreateProfile.invoke(name) }
 
@@ -70,6 +72,8 @@ class FakeApiClient : ApiClient {
         }
 
     override suspend fun getSources(profileId: ProfileId) = record("getSources(${profileId.value})") { getSources.invoke(profileId) }
+
+    override suspend fun getExchanges() = record("getExchanges()") { getExchanges.invoke() }
 
     private inline fun <T> record(call: String, block: () -> T): T {
         calls += call

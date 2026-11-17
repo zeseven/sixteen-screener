@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sixteenscreener.app.ui.detail.DetailScreen
+import com.sixteenscreener.app.ui.exchanges.ExchangesScreen
 import com.sixteenscreener.app.ui.profile.ProfileScreen
 import com.sixteenscreener.app.ui.search.SearchScreen
 import com.sixteenscreener.app.ui.settings.SettingsScreen
@@ -32,6 +33,7 @@ private val AppScreens = AppDestinations(
                 modifier = modifier,
             )
             MainTab.SEARCH -> SearchScreen(onOpenDetail = { navigator.openDetail(it, it.inWatchlist) }, modifier = modifier)
+            MainTab.EXCHANGES -> ExchangesScreen(modifier = modifier)
             MainTab.SOURCES -> SourcesScreen(modifier = modifier)
         }
     },

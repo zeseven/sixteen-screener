@@ -1,0 +1,7 @@
+{
+  "items": [
+    {"suffix": "", "shortName": "NYSE", "fullName": "New York Stock Exchange", "mic": "XNYS", "currency": "USD", "timeZone": "America/New_York", "market": "US"},
+    {"suffix": "DE", "shortName": "XETRA", "fullName": "Deutsche Boerse Xetra", "mic": "XETR", "currency": "EUR", "timeZone": "Europe/Berlin", "market": "EU"},
+    {"suffix": "V", "shortName": "TSXV", "fullName": "TSX Venture Exchange", "mic": "XTSX", "currency": "CAD", "timeZone": "America/Toronto", "market": null}
+  ]
+}
