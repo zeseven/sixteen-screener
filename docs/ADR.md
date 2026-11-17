@@ -709,3 +709,14 @@ External sources are distributed as follows:
 **Decision:** "Finnhub logos" (`finnhub-logos`) is a separate logo source used as a backup after logoapi.sh. The URL comes from the cached Finnhub company profile, otherwise from the pattern; the Finnhub API is never called for logos. Downloads are limited to 1 MB and must be PNG files. PNG logos are stored in the bucket under `finnhub-logos/` and served as `image/png`; the backend does no conversion. The source has no request limits and a never-resetting total call counter shown on the Sources screen (`requestCounters/{source}__TOTAL`, without TTL). Misses are recorded per logo source and symbol (`logoMisses/{source}__{symbol}`). The default logo is cached by clients for 1 day when no source has a logo and 1 hour after a source failure, and the app respects the backend's Cache-Control.
 
 **Consequences:** More companies get a real logo, including non-US companies. The app renders both SVG and PNG logos; small PNG logos are drawn at their own size. Calls to static2.finnhub.io don't use the Finnhub API limit; the pattern is undocumented and may change, in which case misses are recorded and the default logo is returned.
+
+## ADR-070: Exchanges table served from the static exchange table
+
+**Date:** 2026-11-17
+**Status:** Accepted
+
+**Context:** The Exchanges screen lists the exchanges the app knows about. The backend already has a hardcoded static exchange table (ADR-062) mapping symbol suffixes and MICs to exchange name, market, time zone and currency.
+
+**Decision:** The static exchange table is extended with full exchange names and stays the single hardcoded table. `GET /exchanges` (not per profile) returns one row per known symbol suffix (suffixes sharing an exchange give separate rows) and one row per US exchange MIC with an empty suffix: suffix, short name, full name, MIC, currency, time zone, market. MICs that are neither US nor the target of a suffix are not listed. The app requests the table the first time the screen is opened, keeps it in memory only (not persisted, lost on app shutdown) and filters it in memory by a case-insensitive substring match in any field except the market flag.
+
+**Consequences:** No source requests and no storage are involved. Changing the table requires a backend release until it is moved to a file or the database (RC).

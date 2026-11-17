@@ -131,8 +131,10 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [ ] Optional: map source sector names to a fixed list of predefined sectors
 
 ### Exchanges screen
-- [ ] Exchanges screen listing every known symbol suffix with its exchange: suffix (e.g. `.V`), short exchange name (e.g. TSXV), full exchange name (e.g. TSX Venture Exchange) and market flag; US exchanges (no suffix) listed as well
-- [ ] Data taken from the backend's static exchange table (full names hardcoded there) or from cached data only; the screen makes no source requests
+- [ ] Exchanges tab between Search and Sources: a table with one row per symbol suffix (two suffixes of one exchange give two rows) and one row per US exchange (empty suffix); columns: suffix, short exchange name, full exchange name, MIC, currency, time zone, market flag
+- [ ] Table served by the backend from the static exchange table (`GET /exchanges`, full names hardcoded there); no source requests
+- [ ] The app requests the table once when the screen is first opened and keeps it in memory only (not stored on the device)
+- [ ] Text filter above the table: case-insensitive match in any field except the flag, done in memory without backend calls
 
 ### Indicators
 - [ ] Indicator settings stored in Firestore per profile
@@ -154,6 +156,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [ ] EODHD client: search, prices, fundamentals, dividends
 - [ ] Graceful handling of very low daily limits (Alpha Vantage 25/day, EODHD 20/day): requests only on explicit demand
 - [ ] Further European exchange coverage from the added sources (search, prices, ratios, exchange names)
+- [ ] Static exchange table moved from hardcoded backend code to a file or the database
 
 ### Settings
 - [ ] All app settings consolidated on the settings screen (profile, default source, indicators)

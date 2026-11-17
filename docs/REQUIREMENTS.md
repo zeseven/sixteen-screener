@@ -31,13 +31,14 @@ https://logoapi.sh/ticker/AAPL.svg
 ~~~
 
 ## Application screens
-There are 3 tabs on the main screen of the app:
+There are 4 tabs on the main screen of the app:
 - Watchlist. Displays selected companies. There are buttons to add stock and remove any existing one.
 Contains filters (drop-down controls): Market (USA/EU/all), sector (finances/technology/etc), user tags.
 - Search. Contains input box for search; searches default source by company ticker or first letters from company name.
 Search is triggered after each letter typed, but no more than 1 request/sec.
 Companies found displayed as a list of rows without stock price and indicators (logo, ticker with exchange name, company name, flag); any company can be added to the watchlist. Search makes no source requests other than the search itself.
 If the source request limit is reached or the source fails, the search shows no results and the reason under the input box.
+- Exchanges. A table of known exchanges, with a text filter above it that matches any field.
 - Sources. Displays all the sources for stock prices and ratios. Default one is marked and can be changed by user.
 Each source shows its request limits and counter for requests already made per corresponding interval (min, hour, day).
 Each source also shows a connection indicator for the last call made to it: nothing if the last call succeeded; the response code (e.g. 400) if the response was outside 2XX; 'T' for a timeout; 'NPE' for an unexpected application error.

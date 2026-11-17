@@ -44,6 +44,8 @@ tags:
     description: Per-profile indicator settings
   - name: Sources
     description: External data sources and their request limits
+  - name: Exchanges
+    description: Static exchange table
   - name: Logos
     description: Company logos
 
@@ -515,6 +517,23 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /exchanges:
+    get:
+      tags: [Exchanges]
+      operationId: getExchanges
+      summary: Get exchanges
+      description: |
+        The static exchange table: one row per known symbol suffix (suffixes of the same exchange give separate rows) and
+        one row per US exchange with an empty suffix. Sorted by suffix, then MIC. Makes no source requests.
+      x-milestone: beta
+      responses:
+        '200':
+          description: Exchanges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exchanges'
 
   /logos/{symbol}:
     parameters:
@@ -1251,6 +1270,47 @@ components:
         at:
           type: string
           format: date-time
+
+    Exchanges:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Exchange'
+
+    Exchange:
+      type: object
+      required: [suffix, shortName, fullName, mic, currency, timeZone, market]
+      properties:
+        suffix:
+          type: string
+          description: Symbol suffix without the dot; empty for US exchanges.
+          example: V
+        shortName:
+          type: string
+          example: TSXV
+        fullName:
+          type: string
+          example: TSX Venture Exchange
+        mic:
+          type: string
+          description: ISO 10383 market identifier code.
+          example: XTSX
+        currency:
+          type: string
+          description: ISO 4217 currency code.
+          example: CAD
+        timeZone:
+          type: string
+          description: IANA time zone.
+          example: America/Toronto
+        market:
+          allOf:
+            - $ref: '#/components/schemas/Market'
+          nullable: true
+          description: Null for exchanges outside the US and EU markets.
 
     Sources:
       type: object
