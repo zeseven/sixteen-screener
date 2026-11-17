@@ -4,10 +4,14 @@ import com.sixteenscreener.domain.model.Capability
 import com.sixteenscreener.domain.model.CompanyIdentity
 import com.sixteenscreener.domain.model.DataStatus
 import com.sixteenscreener.domain.model.ExchangeCode
+import com.sixteenscreener.domain.model.Indicator
+import com.sixteenscreener.domain.model.IndicatorLevel
 import com.sixteenscreener.domain.model.Market
 import com.sixteenscreener.domain.model.PriceTrend
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.Quote
+import com.sixteenscreener.domain.model.RatioCode
+import com.sixteenscreener.domain.model.Ratios
 import com.sixteenscreener.domain.model.ResourceNotFoundException
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceCallResult
@@ -61,6 +65,35 @@ class CompanyDataServiceTest : FunSpec({
             f.cache.get(quoteKey("AAPL"))?.fetchedAt shouldBe f.now
             f.cache.get(ratiosKey("AAPL"))?.data shouldBe sampleRatios()
             f.cache.history(FINNHUB, AAPL).map { it.quote.price } shouldContainExactly listOf(190.0)
+        }
+
+        test("indicators are calculated with the profile's settings, copied from the defaults first") {
+            val f = fixture()
+            f.quoteFromSource("AAPL", 190.0)
+            f.ratiosFromSource("AAPL", sampleRatios(pe = 45.0))
+
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+
+            result.indicators shouldContainExactly listOf(Indicator(RatioCode.PE, IndicatorLevel.BAD))
+            f.profiles.findById(f.profile.id)?.indicatorSettings shouldBe IndicatorDefaults.all.map { it.setting }
+        }
+
+        test("P/E calculated from the quote price makes an indicator while the returned ratio stays null") {
+            val f = fixture()
+            f.quoteFromSource("AAPL", 13.9)
+            f.ratiosFromSource("AAPL", Ratios.of(mapOf(RatioCode.EPS to -2.252)))
+
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+
+            result.indicators shouldContainExactly listOf(Indicator(RatioCode.PE, IndicatorLevel.BAD))
+            result.ratios.data?.valueOf(RatioCode.PE) shouldBe null
+        }
+
+        test("no ratios make no indicators") {
+            val f = fixture()
+            f.quoteFromSource("AAPL", 190.0)
+
+            f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false).indicators.shouldBeEmpty()
         }
 
         test("budget for both calls is reserved in one transaction") {

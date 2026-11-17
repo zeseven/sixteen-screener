@@ -22,7 +22,10 @@ import com.sixteenscreener.domain.model.Symbol
  * source. When `source` is null, the profile's default source is used.
  */
 interface CompanyDataUseCase {
-    /** Latest quote and ratios of [symbol]; the combined status is defined by [PriceAndRatios]. */
+    /**
+     * Latest quote and ratios of [symbol] with the indicators of the profile's settings; the combined status is
+     * defined by [PriceAndRatios].
+     */
     suspend fun priceAndRatios(profileId: ProfileId, symbol: Symbol, source: SourceId?, refresh: Boolean): PriceAndRatios
 
     /** Annual balance sheet periods of [symbol], newest first. */

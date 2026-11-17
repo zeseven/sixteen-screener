@@ -20,6 +20,7 @@ import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.domain.model.SymbolLookup
+import com.sixteenscreener.domain.model.WatchlistSourceData
 import com.sixteenscreener.port.inbound.CompanyDataUseCase
 import com.sixteenscreener.port.outbound.BalanceSheetSource
 import com.sixteenscreener.port.outbound.Clock
@@ -53,6 +54,7 @@ class CompanyDataService(
     private val marketResolver: MarketResolver,
     private val identities: CompanyIdentityResolver,
     private val watchlistCompanies: WatchlistCompanySync,
+    private val indicatorSettings: IndicatorSettingsService,
     private val clock: Clock,
     private val maxConcurrentCalls: Int = DEFAULT_MAX_CONCURRENT_CALLS,
 ) : CompanyDataUseCase {
@@ -74,7 +76,10 @@ class CompanyDataService(
                 detailedPlan(ratiosKey, target.lookup, cached[ratiosKey], refresh) { ratiosFetch(ratiosKey, it) },
             ),
         )
-        return PriceAndRatios(loaded[quoteKey], loaded[ratiosKey])
+        val quote = loaded[quoteKey]
+        val ratios = loaded[ratiosKey]
+        val settings = indicatorSettings.settingsOf(target.profile)
+        return PriceAndRatios(quote, ratios, IndicatorEvaluator.indicators(settings, ratios.data, quote.data?.quote?.price))
     }
 
     override suspend fun balanceSheet(
@@ -112,20 +117,24 @@ class CompanyDataService(
         return load(source, listOf(unexpiredProfilePlan(key, lookup, cached)))[key]
     }
 
-    suspend fun watchlistQuotes(
+    suspend fun watchlistData(
         source: SourceId,
         symbols: List<Symbol>,
         lookups: Map<Symbol, SymbolLookup>,
-    ): Map<Symbol, SourceData<QuoteRecord>> {
+    ): Map<Symbol, WatchlistSourceData> {
         if (symbols.isEmpty()) return emptyMap()
-        val keys = symbols.associateWith { CacheKey(source, it, DataType.QUOTE) }
-        val cached = cache.getAll(keys.values)
-        val plans = symbols.map { symbol ->
-            val key = keys.getValue(symbol)
-            watchlistQuotePlan(key, lookups[symbol] ?: SymbolLookup.Unavailable, cached[key])
+        val quoteKeys = symbols.associateWith { CacheKey(source, it, DataType.QUOTE) }
+        val ratiosKeys = symbols.associateWith { CacheKey(source, it, DataType.RATIOS) }
+        val cached = cache.getAll(quoteKeys.values + ratiosKeys.values)
+        val lookupOf = { symbol: Symbol -> lookups[symbol] ?: SymbolLookup.Unavailable }
+        val quotePlans = symbols.map { symbol ->
+            quoteKeys.getValue(symbol).let { watchlistQuotePlan(it, lookupOf(symbol), cached[it]) }
         }
-        val loaded = load(source, oldestFirst(plans))
-        return symbols.associateWith { loaded[keys.getValue(it)] }
+        val ratiosPlans = symbols.map { symbol ->
+            ratiosKeys.getValue(symbol).let { watchlistRatiosPlan(it, lookupOf(symbol), cached[it]) }
+        }
+        val loaded = load(source, oldestFirst(quotePlans) + oldestFirst(ratiosPlans))
+        return symbols.associateWith { WatchlistSourceData(loaded[quoteKeys.getValue(it)], loaded[ratiosKeys.getValue(it)]) }
     }
 
     private data class Target(
@@ -169,6 +178,17 @@ class CompanyDataService(
             listing == null -> Settled(key, fallback(key, cached, DataStatus.SOURCE_ERROR))
             else -> quoteFetch(key, cached, listing)
         }
+    }
+
+    private fun watchlistRatiosPlan(
+        key: CacheKey<Ratios>,
+        lookup: SymbolLookup,
+        cached: CacheEntry<Ratios>?,
+    ): Plan<Ratios> = when {
+        !supports(key, lookup) -> notSupported(key)
+        cached != null && freshness.isWatchlistRatiosUpToDate(cached.fetchedAt) -> Settled(key, fromCache(key, cached))
+        lookup.listing == null -> Settled(key, fallback(key, cached, DataStatus.SOURCE_ERROR))
+        else -> ratiosFetch(key, cached)
     }
 
     private fun unexpiredProfilePlan(

@@ -34,6 +34,7 @@ data class PriceAndRatiosResponseDto(
     val meta: SourceDataMetaDto,
     val quote: QuoteDto?,
     val ratios: List<RatioDto>,
+    val indicators: List<IndicatorDto>,
 )
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -108,6 +109,7 @@ fun PriceAndRatios.toDto() = PriceAndRatiosResponseDto(
     meta = metaOf(source, status, fetchedAt),
     quote = quote.toQuoteDto(),
     ratios = ratios.data?.items.orEmpty().map { it.toDto() },
+    indicators = indicators.map { it.toDto() },
 )
 
 fun SourceData<BalanceSheet>.toDto() = BalanceSheetResponseDto(

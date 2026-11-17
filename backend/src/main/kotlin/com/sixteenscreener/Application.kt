@@ -101,6 +101,8 @@ class AppServices(
 
     private val watchlistCompanies = WatchlistCompanySync(profiles, sourceCatalog, clock)
 
+    val indicatorSettings = IndicatorSettingsService(profiles, indicatorDefaults, clock)
+
     val companyData = CompanyDataService(
         catalog = sourceCatalog,
         marketDataSources = marketDataSources,
@@ -115,6 +117,7 @@ class AppServices(
         marketResolver = marketResolver,
         identities = identities,
         watchlistCompanies = watchlistCompanies,
+        indicatorSettings = indicatorSettings,
         clock = clock,
     )
 
@@ -122,7 +125,7 @@ class AppServices(
         ProfileService(profiles, symbolDirectory, sourceCatalog, companyData, identities, marketResolver, clock)
 
     val watchlistUseCase: WatchlistUseCase =
-        WatchlistService(profiles, sourceCatalog, symbolDirectory, companyData, identities)
+        WatchlistService(profiles, sourceCatalog, symbolDirectory, companyData, identities, indicatorSettings)
 
     val companyDataUseCase: CompanyDataUseCase get() = companyData
 
@@ -147,8 +150,6 @@ class AppServices(
     )
 
     val exchangesUseCase: ExchangesUseCase = ExchangeService(marketResolver)
-
-    val indicatorSettings = IndicatorSettingsService(profiles, indicatorDefaults, clock)
 
     val indicatorSettingsUseCase: IndicatorSettingsUseCase get() = indicatorSettings
 

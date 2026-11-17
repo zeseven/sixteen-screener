@@ -28,6 +28,7 @@ import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.fakes.FakeBalanceSheetSource
 import com.sixteenscreener.fakes.FakeMarketDataSource
 import com.sixteenscreener.fakes.InMemoryCompanyCache
+import com.sixteenscreener.fakes.InMemoryIndicatorDefaultsRepository
 import com.sixteenscreener.fakes.InMemoryProfileRepository
 import com.sixteenscreener.fakes.InMemoryRequestCounterRepository
 import com.sixteenscreener.fakes.InMemorySourceCallOutcomeRepository
@@ -118,6 +119,8 @@ class CompanyDataFixture(
     val marketResolver = MarketResolver()
     val identities = CompanyIdentityResolver(marketResolver)
     val watchlistCompanies = WatchlistCompanySync(profiles, catalog, clock)
+    val indicatorDefaults = InMemoryIndicatorDefaultsRepository()
+    val indicatorSettings = IndicatorSettingsService(profiles, indicatorDefaults, clock)
     val profile = Profile(
         id = ProfileId.random(),
         name = ProfileName.of("Alice"),
@@ -141,6 +144,7 @@ class CompanyDataFixture(
         marketResolver = marketResolver,
         identities = identities,
         watchlistCompanies = watchlistCompanies,
+        indicatorSettings = indicatorSettings,
         clock = clock,
     )
 
@@ -196,6 +200,8 @@ class CompanyDataFixture(
         counters.setCount(FINNHUB, LimitInterval.MINUTE, now, limit - remaining)
 
     fun quoteCalls(): List<String> = source.calls.filter { it.startsWith("quote:") }
+
+    fun ratiosCalls(): List<String> = source.calls.filter { it.startsWith("ratios:") }
 
     fun profileCalls(): List<String> = source.calls.filter { it.startsWith("profile:") }
 

@@ -23,10 +23,12 @@ interface WatchlistUseCase {
     /**
      * Market data of the [symbols] that are in the watchlist of profile [profileId], in watchlist order (ADR-058).
      *
-     * Symbols outside the watchlist are skipped and duplicates are ignored. Only quotes are loaded: stale quotes
-     * (older than 1 hour) are refreshed oldest first within the source request limits; company profiles are not
-     * requested. A row whose quote couldn't be refreshed keeps its cached quote, or none, with the status describing
-     * the reason. A symbol no longer found in the exchange directory keeps its cached quote without refresh.
+     * Symbols outside the watchlist are skipped and duplicates are ignored. Quotes and ratios are loaded (ADR-075):
+     * quotes older than 1 hour and ratios older than 1 day are refreshed oldest first within one source budget
+     * reservation, quotes first; company profiles are not requested. A row whose quote or ratios couldn't be refreshed
+     * keeps its cached data, or none, with the status describing the reason. A symbol no longer found in the exchange
+     * directory keeps its cached data without refresh. Indicators are calculated from the ratios and the quote with the
+     * profile's indicator settings, which are copied from the defaults first when the profile misses some (ADR-072).
      *
      * Throws [com.sixteenscreener.domain.model.InvalidInputException] when [symbols] is empty or holds more than
      * [MAX_MARKET_DATA_SYMBOLS] entries, and [com.sixteenscreener.domain.model.ResourceNotFoundException] for an unknown

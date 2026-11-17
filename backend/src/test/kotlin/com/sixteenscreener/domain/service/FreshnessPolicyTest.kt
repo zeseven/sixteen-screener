@@ -32,6 +32,16 @@ class FreshnessPolicyTest : FunSpec({
         policy.isFresh(now + Duration.ofMinutes(1)) shouldBe true
     }
 
+    test("watchlist ratios younger than 1 day are up to date") {
+        policy.isWatchlistRatiosUpToDate(now - Duration.ofDays(1) + Duration.ofMillis(1)) shouldBe true
+        policy.isWatchlistRatiosUpToDate(now - Duration.ofHours(2)) shouldBe true
+    }
+
+    test("watchlist ratios of exactly 1 day or older need a refresh") {
+        policy.isWatchlistRatiosUpToDate(now - Duration.ofDays(1)) shouldBe false
+        policy.isWatchlistRatiosUpToDate(now - Duration.ofDays(3)) shouldBe false
+    }
+
     test("company profile older than 14 days but younger than 90 days is not expired") {
         policy.isProfileExpired(now - Duration.ofDays(14)) shouldBe false
         policy.isProfileExpired(now - Duration.ofDays(90) + Duration.ofMillis(1)) shouldBe false

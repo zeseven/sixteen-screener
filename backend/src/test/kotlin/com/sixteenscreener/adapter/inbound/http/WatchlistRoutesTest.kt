@@ -15,10 +15,13 @@ import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.Quote
 import com.sixteenscreener.domain.model.QuoteRecord
+import com.sixteenscreener.domain.model.RatioCode
+import com.sixteenscreener.domain.model.Ratios
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.service.IndicatorDefaults
 import com.sixteenscreener.testConfig
 import com.sixteenscreener.watchlistEntry
 import io.kotest.core.spec.style.FunSpec
@@ -62,6 +65,23 @@ private fun TestPorts.quoteFromSource(symbol: String, price: Double) {
     marketData.quotes[Symbol.of(symbol)] = SourceResult.Success(Quote(price, "USD"), SourceCallOutcome.success(clock.now()))
 }
 
+private fun TestPorts.ratiosFromSource(symbol: String, vararg values: Pair<RatioCode, Double?>) {
+    marketData.ratios[Symbol.of(symbol)] = SourceResult.Success(Ratios.of(values.toMap()), SourceCallOutcome.success(clock.now()))
+}
+
+private suspend fun TestPorts.cachedRatios(symbol: String, age: Duration, vararg values: Pair<RatioCode, Double?>) {
+    val entry = CacheEntry(Ratios.of(values.toMap()), clock.now() - age)
+    companyCache.put(CacheKey(finnhub, Symbol.of(symbol), DataType.RATIOS), entry)
+}
+
+private fun indicator(code: String, name: String, level: String) = JsonObject(
+    mapOf("ratioCode" to JsonPrimitive(code), "name" to JsonPrimitive(name), "level" to JsonPrimitive(level)),
+)
+
+private fun quotesOnlyConfig(): AppConfig = testConfig().let { config ->
+    config.copy(sources = config.sources.map { it.copy(capabilities = it.capabilities - Capability.RATIOS) })
+}
+
 private fun marketDataUrl(profile: Profile, symbols: List<String>) =
     "/profiles/${profile.id}/watchlist/market-data?symbols=${symbols.joinToString(",")}"
 
@@ -84,12 +104,13 @@ class WatchlistRoutesTest : FunSpec({
         }
     }
 
-    test("market data row carries every alpha field of MarketData and Quote and requests no company profile") {
+    test("market data row carries every field of MarketData and Quote and requests no company profile") {
         routeTest(config = profileCapableConfig()) { ports ->
             val profile = ports.savedProfile(watchlist = listOf("SAP.DE"))
             ports.listed("SAP.DE", mic = "XETR", currency = "EUR", name = "SAP SE")
             ports.marketData.quotes[Symbol.of("SAP.DE")] =
                 SourceResult.Success(Quote(201.5, "EUR"), SourceCallOutcome.success(ports.clock.now()))
+            ports.ratiosFromSource("SAP.DE", RatioCode.PE to 45.0, RatioCode.ROE to 25.0, RatioCode.ROA to 3.0)
             ports.marketData.profiles[Symbol.of("SAP.DE")] = SourceResult.Success(
                 CompanyProfile("SAP SE", "DE", "EUR", "Software", null, null, null, null, null, null, null),
                 SourceCallOutcome.success(ports.clock.now()),
@@ -101,6 +122,7 @@ class WatchlistRoutesTest : FunSpec({
                 mapOf(
                     "symbol" to JsonPrimitive("SAP.DE"),
                     "status" to JsonPrimitive("FRESH"),
+                    "indicatorsStatus" to JsonPrimitive("FRESH"),
                     "quote" to JsonObject(
                         mapOf(
                             "price" to JsonPrimitive(201.5),
@@ -111,10 +133,152 @@ class WatchlistRoutesTest : FunSpec({
                             "source" to JsonPrimitive("finnhub"),
                         ),
                     ),
-                    "indicators" to JsonArray(emptyList()),
+                    "indicators" to JsonArray(
+                        listOf(
+                            indicator("ROE", "ROE", "GOOD"),
+                            indicator("ROA", "ROA", "WARNING"),
+                            indicator("PE", "P/E", "BAD"),
+                        ),
+                    ),
                 ),
             )
-            ports.marketData.calls shouldContainExactly listOf("quote:SAP.DE")
+            ports.marketData.calls shouldContainExactly listOf("quote:SAP.DE", "ratios:SAP.DE")
+        }
+    }
+
+    context("indicators of a market data row") {
+        test("ratios younger than 1 day are used without a request") {
+            routeTest { ports ->
+                val profile = ports.savedProfile(watchlist = listOf("AAPL"))
+                ports.listed("AAPL")
+                ports.cachedQuote("AAPL", 1.0, age = Duration.ofMinutes(5))
+                ports.cachedRatios("AAPL", Duration.ofHours(23).plusMinutes(59), RatioCode.ROE to 127.61)
+
+                val item = client.get(marketDataUrl(profile, listOf("AAPL"))).json().items().single()
+
+                item["indicatorsStatus"] shouldBe JsonPrimitive("CACHED")
+                item["indicators"] shouldBe JsonArray(listOf(indicator("ROE", "ROE", "GOOD")))
+                ports.marketData.calls.shouldBeEmpty()
+            }
+        }
+
+        test("ratios of 1 day or older are refreshed") {
+            routeTest { ports ->
+                val profile = ports.savedProfile(watchlist = listOf("AAPL"))
+                ports.listed("AAPL")
+                ports.cachedQuote("AAPL", 1.0, age = Duration.ofMinutes(5))
+                ports.cachedRatios("AAPL", Duration.ofDays(1), RatioCode.ROE to 127.61)
+                ports.ratiosFromSource("AAPL", RatioCode.ROE to 1.0)
+
+                val item = client.get(marketDataUrl(profile, listOf("AAPL"))).json().items().single()
+
+                item["status"] shouldBe JsonPrimitive("FRESH")
+                item["indicatorsStatus"] shouldBe JsonPrimitive("FRESH")
+                item["indicators"] shouldBe JsonArray(listOf(indicator("ROE", "ROE", "BAD")))
+                ports.marketData.calls shouldContainExactly listOf("ratios:AAPL")
+            }
+        }
+
+        test("failed ratios keep the cached indicators with their own status, independently of the quote") {
+            routeTest { ports ->
+                val profile = ports.savedProfile(watchlist = listOf("AAPL", "MSFT"))
+                ports.listed("AAPL")
+                ports.listed("MSFT")
+                ports.quoteFromSource("AAPL", 1.0)
+                ports.quoteFromSource("MSFT", 1.0)
+                ports.cachedRatios("AAPL", Duration.ofDays(2), RatioCode.ROA to 3.0)
+                listOf("AAPL", "MSFT").forEach {
+                    ports.marketData.ratios[Symbol.of(it)] =
+                        SourceResult.SourceError(SourceCallOutcome.timeout(ports.clock.now()))
+                }
+
+                val items = client.get(marketDataUrl(profile, listOf("AAPL", "MSFT"))).json().items()
+
+                items.map { it["status"] } shouldContainExactly listOf(JsonPrimitive("FRESH"), JsonPrimitive("FRESH"))
+                items.map { it["indicatorsStatus"] } shouldContainExactly
+                    listOf(JsonPrimitive("SOURCE_ERROR"), JsonPrimitive("SOURCE_ERROR"))
+                items[0]["indicators"] shouldBe JsonArray(listOf(indicator("ROA", "ROA", "WARNING")))
+                items[1]["indicators"] shouldBe JsonArray(emptyList())
+            }
+        }
+
+        test("a source without ratios gives NOT_SUPPORTED indicators without a request") {
+            routeTest(config = quotesOnlyConfig()) { ports ->
+                val profile = ports.savedProfile(watchlist = listOf("AAPL"))
+                ports.listed("AAPL")
+                ports.quoteFromSource("AAPL", 1.0)
+
+                val item = client.get(marketDataUrl(profile, listOf("AAPL"))).json().items().single()
+
+                item["status"] shouldBe JsonPrimitive("FRESH")
+                item["indicatorsStatus"] shouldBe JsonPrimitive("NOT_SUPPORTED")
+                item["indicators"] shouldBe JsonArray(emptyList())
+                ports.marketData.calls shouldContainExactly listOf("quote:AAPL")
+            }
+        }
+
+        test("missing P/E of a company with losses is calculated from the quote and the negative EPS") {
+            routeTest { ports ->
+                val profile = ports.savedProfile(watchlist = listOf("RIVN"))
+                ports.listed("RIVN")
+                ports.quoteFromSource("RIVN", 13.9)
+                ports.ratiosFromSource("RIVN", RatioCode.PE to null, RatioCode.EPS to -2.252, RatioCode.ROE to -60.16)
+
+                val item = client.get(marketDataUrl(profile, listOf("RIVN"))).json().items().single()
+
+                item["indicators"] shouldBe JsonArray(listOf(indicator("PE", "P/E", "BAD"), indicator("ROE", "ROE", "BAD")))
+            }
+        }
+
+        test("the profile's settings are used and a profile without settings gets the defaults") {
+            routeTest { ports ->
+                val custom = IndicatorDefaults.all.map { default ->
+                    default.setting.copy(enabled = default.ratioCode == RatioCode.BETA || default.ratioCode == RatioCode.ROE)
+                }
+                val customized = ports.savedProfile(name = "Bob", watchlist = listOf("AAPL")).copy(indicatorSettings = custom)
+                    .also(ports.profiles::save)
+                val fresh = ports.savedProfile(watchlist = listOf("AAPL"))
+                ports.listed("AAPL")
+                ports.cachedQuote("AAPL", 1.0, age = Duration.ofMinutes(5))
+                ports.cachedRatios(
+                    "AAPL",
+                    Duration.ofHours(1),
+                    RatioCode.PE to 45.0,
+                    RatioCode.ROE to 25.0,
+                    RatioCode.BETA to 2.5,
+                )
+
+                val customizedItem = client.get(marketDataUrl(customized, listOf("AAPL"))).json().items().single()
+                val freshItem = client.get(marketDataUrl(fresh, listOf("AAPL"))).json().items().single()
+
+                customizedItem["indicators"] shouldBe
+                    JsonArray(listOf(indicator("ROE", "ROE", "GOOD"), indicator("BETA", "Beta", "BAD")))
+                freshItem["indicators"] shouldBe
+                    JsonArray(listOf(indicator("ROE", "ROE", "GOOD"), indicator("PE", "P/E", "BAD")))
+                ports.profiles.findById(fresh.id)?.indicatorSettings shouldBe IndicatorDefaults.all.map { it.setting }
+                ports.profiles.findById(customized.id)?.indicatorSettings shouldBe custom
+            }
+        }
+
+        test("quotes are served before ratios within one budget reservation") {
+            routeTest { ports ->
+                val tickers = listOf("A", "B", "C")
+                val profile = ports.savedProfile(watchlist = tickers)
+                tickers.forEach {
+                    ports.listed(it)
+                    ports.quoteFromSource(it, 1.0)
+                    ports.ratiosFromSource(it, RatioCode.ROE to 25.0)
+                }
+                ports.requestCounters.setCount(finnhub, LimitInterval.MINUTE, ports.clock.now(), 56)
+
+                val items = client.get(marketDataUrl(profile, tickers)).json().items()
+
+                items.map { it["status"] } shouldContainExactly List(3) { JsonPrimitive("FRESH") }
+                items.count { it["indicatorsStatus"] == JsonPrimitive("FRESH") } shouldBe 1
+                items.count { it["indicatorsStatus"] == JsonPrimitive("LIMIT_REACHED") } shouldBe 2
+                ports.marketData.calls.filter { it.startsWith("quote:") } shouldHaveSize 3
+                ports.marketData.calls.filter { it.startsWith("ratios:") } shouldHaveSize 1
+            }
         }
     }
 
@@ -207,13 +371,13 @@ class WatchlistRoutesTest : FunSpec({
 
                 quote["trend"] shouldBe JsonPrimitive(case.trend)
                 quote["previousCachedPrice"] shouldBe (case.previous?.let(::JsonPrimitive) ?: JsonNull)
-                ports.marketData.calls.shouldBeEmpty()
+                ports.marketData.calls.filter { it.startsWith("quote:") }.shouldBeEmpty()
             }
         }
     }
 
     test("two market data requests of 50 companies with a budget of 60 calls refresh 60 quotes and return the rest without quote") {
-        routeTest { ports ->
+        routeTest(config = quotesOnlyConfig()) { ports ->
             val tickers = (1..100).map { "C%03d".format(it) }
             val profile = ports.savedProfile(watchlist = tickers)
             tickers.forEach { ports.listed(it); ports.quoteFromSource(it, 10.0) }
@@ -245,7 +409,7 @@ class WatchlistRoutesTest : FunSpec({
 
             response.status shouldBe HttpStatusCode.OK
             val prices = response.json().items().map { it.quote()!!["price"]!!.jsonPrimitive.content.toDouble() }
-            prices.count { it == 6.0 } shouldBe ports.marketData.calls.size - 1
+            prices.count { it == 6.0 } shouldBe ports.marketData.calls.count { it.startsWith("quote:") } - 1
             prices.drop(10).forEach { it shouldBe 5.0 }
             ports.sourceCalls.writes.last().second.httpStatus shouldBe 429
         }
@@ -395,7 +559,7 @@ class WatchlistRoutesTest : FunSpec({
             response.status shouldBe HttpStatusCode.OK
             val items = response.json().items()
             items.map { it.symbol() } shouldContainExactly listOf("B", "D")
-            ports.marketData.calls.toSet() shouldBe setOf("quote:B", "quote:D")
+            ports.marketData.calls.toSet() shouldBe setOf("quote:B", "quote:D", "ratios:B", "ratios:D")
         }
     }
 

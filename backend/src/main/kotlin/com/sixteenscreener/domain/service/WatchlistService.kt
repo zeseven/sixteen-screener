@@ -16,6 +16,7 @@ class WatchlistService(
     private val symbolDirectory: SymbolDirectory,
     private val companyData: CompanyDataService,
     private val identities: CompanyIdentityResolver,
+    private val indicatorSettings: IndicatorSettingsService,
 ) : WatchlistUseCase {
 
     override suspend fun watchlist(profileId: ProfileId): List<WatchlistItem> {
@@ -33,7 +34,12 @@ class WatchlistService(
         val requested = symbols.toSet()
         val rows = profile.watchlistSymbols.filter { it in requested }
         if (rows.isEmpty()) return emptyList()
-        val quotes = companyData.watchlistQuotes(catalog.defaultSourceOf(profile), rows, symbolDirectory.lookupAll(rows))
-        return rows.map { WatchlistMarketData(it, quotes.getValue(it)) }
+        val settings = indicatorSettings.settingsOf(profile)
+        val data = companyData.watchlistData(catalog.defaultSourceOf(profile), rows, symbolDirectory.lookupAll(rows))
+        return rows.map { symbol ->
+            val (quote, ratios) = data.getValue(symbol)
+            val indicators = IndicatorEvaluator.indicators(settings, ratios.data, quote.data?.quote?.price)
+            WatchlistMarketData(symbol, quote, ratios, indicators)
+        }
     }
 }

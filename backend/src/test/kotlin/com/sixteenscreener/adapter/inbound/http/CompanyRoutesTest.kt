@@ -24,6 +24,7 @@ import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.service.IndicatorDefaults
 import com.sixteenscreener.fakes.FakeBalanceSheetSource
 import com.sixteenscreener.testConfig
 import io.kotest.core.spec.style.FunSpec
@@ -140,6 +141,10 @@ private fun meta(status: String, fetchedAt: String?, source: String = "finnhub")
     ),
 )
 
+private fun peIndicator(level: String) = JsonObject(
+    mapOf("ratioCode" to JsonPrimitive("PE"), "name" to JsonPrimitive("P/E"), "level" to JsonPrimitive(level)),
+)
+
 private fun JsonObject.meta() = getValue("meta").jsonObject
 
 private fun JsonObject.status() = meta()["status"]
@@ -162,7 +167,8 @@ class CompanyRoutesTest : FunSpec({
 
                 val body = client.get("/profiles/${saved.id}/companies/AAPL/price-ratios").json()
 
-                body.keys shouldBe setOf("meta", "quote", "ratios")
+                body.keys shouldBe setOf("meta", "quote", "ratios", "indicators")
+                body["indicators"] shouldBe JsonArray(listOf(peIndicator("WARNING")))
                 body.meta() shouldBe meta("FRESH", "2026-11-14T12:00:00Z")
                 body["quote"] shouldBe JsonObject(
                     mapOf(
@@ -190,6 +196,37 @@ class CompanyRoutesTest : FunSpec({
                 ratioItems.last()["unit"] shouldBe JsonPrimitive("CURRENCY")
                 ratioItems.last()["value"] shouldBe JsonNull
                 ports.marketData.calls shouldContainExactlyInAnyOrder listOf("quote:AAPL", "ratios:AAPL")
+            }
+        }
+
+        test("indicators use the profile's settings and a P/E calculated from the price while the ratio stays null") {
+            routeTest { ports ->
+                val settings = IndicatorDefaults.all.map { it.setting.copy(enabled = it.ratioCode == RatioCode.PE) }
+                val saved = ports.savedProfile().copy(indicatorSettings = settings).also(ports.profiles::save)
+                ports.listedApple()
+                ports.marketData.quotes[aapl] = SourceResult.Success(Quote(13.9, "USD"), ports.success())
+                ports.marketData.ratios[aapl] = SourceResult.Success(
+                    Ratios.of(mapOf(RatioCode.EPS to -2.252, RatioCode.ROE to 50.0)),
+                    ports.success(),
+                )
+
+                val body = client.get("/profiles/${saved.id}/companies/AAPL/price-ratios").json()
+
+                body["indicators"] shouldBe JsonArray(listOf(peIndicator("BAD")))
+                body.getValue("ratios").jsonArray.first().jsonObject["value"] shouldBe JsonNull
+            }
+        }
+
+        test("no ratios make no indicators and a profile without settings gets the defaults") {
+            routeTest { ports ->
+                val saved = ports.savedProfile()
+                ports.listedApple()
+                ports.sourceFailsEverything()
+
+                val body = client.get("/profiles/${saved.id}/companies/AAPL/price-ratios").json()
+
+                body["indicators"] shouldBe JsonArray(emptyList())
+                ports.profiles.findById(saved.id)?.indicatorSettings shouldBe IndicatorDefaults.all.map { it.setting }
             }
         }
 

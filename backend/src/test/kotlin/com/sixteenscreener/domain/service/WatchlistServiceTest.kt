@@ -3,10 +3,14 @@ package com.sixteenscreener.domain.service
 import com.sixteenscreener.domain.model.CompanyIdentity
 import com.sixteenscreener.domain.model.DataStatus
 import com.sixteenscreener.domain.model.ExchangeCode
+import com.sixteenscreener.domain.model.Indicator
+import com.sixteenscreener.domain.model.IndicatorLevel
 import com.sixteenscreener.domain.model.InvalidInputException
 import com.sixteenscreener.domain.model.Market
 import com.sixteenscreener.domain.model.PriceTrend
 import com.sixteenscreener.domain.model.ProfileId
+import com.sixteenscreener.domain.model.RatioCode
+import com.sixteenscreener.domain.model.Ratios
 import com.sixteenscreener.domain.model.ResourceNotFoundException
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.domain.model.WatchlistItem
@@ -26,7 +30,8 @@ import java.time.Duration
 
 private class WatchlistFixture(vararg tickers: String) {
     val data = CompanyDataFixture()
-    val service = WatchlistService(data.profiles, data.catalog, data.directory, data.service, data.identities)
+    val service =
+        WatchlistService(data.profiles, data.catalog, data.directory, data.service, data.identities, data.indicatorSettings)
 
     init {
         data.profiles.save(data.profile.copy(watchlist = watchlistEntries(tickers.toList())))
@@ -217,5 +222,44 @@ class WatchlistServiceTest : FunSpec({
         shouldThrow<ResourceNotFoundException> {
             WatchlistFixture().service.marketData(ProfileId.random(), listOf(Symbol.of("AAPL")))
         }
+    }
+
+    test("market data rows carry the ratios status and the indicators of the profile's settings") {
+        val f = WatchlistFixture("AAPL", "RIVN", "AD.AS")
+        f.data.directory.notCovered(ExchangeCode("AS"))
+        f.data.listed(listing("AAPL"), listing("RIVN"))
+        f.data.quoteFromSource("AAPL", 190.0)
+        f.data.quoteFromSource("RIVN", 13.9)
+        f.data.ratiosFromSource("AAPL", Ratios.of(mapOf(RatioCode.PE to 38.8, RatioCode.ROE to 127.6, RatioCode.ROA to 34.4)))
+        f.data.ratiosFromSource("RIVN", Ratios.of(mapOf(RatioCode.EPS to -2.252, RatioCode.ROA to 3.0)))
+
+        val rows = f.marketData("AAPL", "RIVN", "AD.AS")
+
+        rows.map { it.ratios.status } shouldContainExactly
+            listOf(DataStatus.FRESH, DataStatus.FRESH, DataStatus.NOT_SUPPORTED)
+        rows.map { it.indicators } shouldContainExactly listOf(
+            listOf(
+                Indicator(RatioCode.ROE, IndicatorLevel.GOOD),
+                Indicator(RatioCode.ROA, IndicatorLevel.GOOD),
+                Indicator(RatioCode.PE, IndicatorLevel.WARNING),
+            ),
+            listOf(Indicator(RatioCode.ROA, IndicatorLevel.WARNING), Indicator(RatioCode.PE, IndicatorLevel.BAD)),
+            emptyList(),
+        )
+        f.data.profiles.findById(f.data.profile.id)?.indicatorSettings shouldBe IndicatorDefaults.all.map { it.setting }
+    }
+
+    test("switched off ratios make no indicators") {
+        val f = WatchlistFixture("AAPL")
+        f.data.profiles.save(
+            checkNotNull(f.data.profiles.findById(f.data.profile.id))
+                .copy(indicatorSettings = IndicatorDefaults.all.map { it.setting.copy(enabled = false) }),
+        )
+        f.data.listed(listing("AAPL"))
+        f.data.quoteFromSource("AAPL", 190.0)
+        f.data.ratiosFromSource("AAPL", Ratios.of(mapOf(RatioCode.PE to 50.0)))
+
+        f.marketData("AAPL").single().indicators.shouldBeEmpty()
+        f.data.indicatorDefaults.reads shouldBe 0
     }
 })

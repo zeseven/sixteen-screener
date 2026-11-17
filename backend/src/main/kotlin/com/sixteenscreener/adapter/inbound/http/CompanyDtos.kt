@@ -63,8 +63,9 @@ data class IndicatorDto(
 data class MarketDataDto(
     val symbol: String,
     val status: String,
+    val indicatorsStatus: String,
     val quote: QuoteDto?,
-    val indicators: List<IndicatorDto> = emptyList(),
+    val indicators: List<IndicatorDto>,
 )
 
 @Serializable
@@ -109,7 +110,9 @@ fun WatchlistItem.toDto() = WatchlistItemDto(
 fun WatchlistMarketData.toDto() = MarketDataDto(
     symbol = symbol.value,
     status = quote.status.name,
+    indicatorsStatus = ratios.status.name,
     quote = quote.toQuoteDto(),
+    indicators = indicators.map { it.toDto() },
 )
 
 fun logoUrlOf(symbol: Symbol): String = "/logos/${symbol.value}"

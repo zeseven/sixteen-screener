@@ -5,10 +5,12 @@ import com.sixteenscreener.domain.model.DataStatus
 import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.Quote
+import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.profileKey
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.quoteKey
+import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.ratiosKey
 import com.sixteenscreener.fakes.FakeMarketDataSource
 import com.sixteenscreener.port.outbound.MarketDataSource
 import io.kotest.core.spec.style.FunSpec
@@ -44,7 +46,10 @@ private class ConcurrencyProbe(private val delegate: FakeMarketDataSource) : Mar
 private suspend fun CompanyDataFixture.watchlist(vararg tickers: String) = watchlist(tickers.toList())
 
 private suspend fun CompanyDataFixture.watchlist(tickers: List<String>) =
-    tickers.map(Symbol::of).let { symbols -> service.watchlistQuotes(FINNHUB, symbols, directory.lookupAll(symbols)) }
+    watchlistData(tickers).mapValues { it.value.quote }
+
+private suspend fun CompanyDataFixture.watchlistData(tickers: List<String>) =
+    tickers.map(Symbol::of).let { symbols -> service.watchlistData(FINNHUB, symbols, directory.lookupAll(symbols)) }
 
 private suspend fun CompanyDataFixture.unexpiredProfile(ticker: String) =
     service.unexpiredCompanyProfile(FINNHUB, Symbol.of(ticker), directory.lookup(Symbol.of(ticker)))
@@ -370,6 +375,129 @@ class CompanyDataServiceWatchlistTest : FunSpec({
 
             f.unexpiredProfile("AAPL").status shouldBe DataStatus.NOT_SUPPORTED
             f.source.calls.shouldBeEmpty()
+        }
+    }
+
+    context("ratios") {
+        test("ratios younger than 1 day are returned without a request, older ones are refreshed") {
+            val f = CompanyDataFixture()
+            f.listedWithQuotes(listOf("YOUNG", "OLD", "MISSING"))
+            f.cached(ratiosKey("YOUNG"), sampleRatios(10.0), age = Duration.ofDays(1).minusMillis(1))
+            f.cached(ratiosKey("OLD"), sampleRatios(11.0), age = Duration.ofDays(1))
+            f.ratiosFromSource("OLD", sampleRatios(21.0))
+            f.ratiosFromSource("MISSING", sampleRatios(22.0))
+
+            val result = f.watchlistData(listOf("YOUNG", "OLD", "MISSING"))
+
+            result.getValue(Symbol.of("YOUNG")).ratios.status shouldBe DataStatus.CACHED
+            result.getValue(Symbol.of("YOUNG")).ratios.data shouldBe sampleRatios(10.0)
+            result.getValue(Symbol.of("OLD")).ratios.status shouldBe DataStatus.FRESH
+            result.getValue(Symbol.of("OLD")).ratios.data shouldBe sampleRatios(21.0)
+            result.getValue(Symbol.of("MISSING")).ratios.data shouldBe sampleRatios(22.0)
+            f.ratiosCalls() shouldContainExactlyInAnyOrder listOf("ratios:OLD", "ratios:MISSING")
+            f.cache.get(ratiosKey("OLD"))?.fetchedAt shouldBe f.now
+        }
+
+        test("ratios fetched within the last hour are FRESH") {
+            val f = CompanyDataFixture()
+            f.listedWithQuotes(listOf("AAPL"))
+            f.cached(ratiosKey("AAPL"), sampleRatios(), age = Duration.ofMinutes(30))
+
+            f.watchlistData(listOf("AAPL")).getValue(Symbol.of("AAPL")).ratios.status shouldBe DataStatus.FRESH
+            f.ratiosCalls().shouldBeEmpty()
+        }
+
+        test("quotes and ratios are read with one cache read and budget is reserved once") {
+            val f = CompanyDataFixture()
+            val tickers = symbols(5)
+            f.listedWithQuotes(tickers)
+            tickers.forEach { f.ratiosFromSource(it) }
+
+            f.watchlistData(tickers)
+
+            f.cache.getAllCalls shouldBe 1
+            f.countingCounters.tryAcquireCalls shouldBe 1
+            f.quoteCalls() shouldHaveSize 5
+            f.ratiosCalls() shouldHaveSize 5
+        }
+
+        test("quotes are served first, then the oldest ratios, and ratios beyond the budget keep their cache") {
+            val f = CompanyDataFixture()
+            val tickers = symbols(4)
+            f.listedWithQuotes(tickers)
+            tickers.forEachIndexed { index, ticker ->
+                f.cached(ratiosKey(ticker), sampleRatios(index.toDouble()), age = Duration.ofDays(2L + index))
+                f.ratiosFromSource(ticker, sampleRatios(99.0))
+            }
+            f.remainingBudget(6)
+
+            val result = f.watchlistData(tickers)
+
+            tickers.forEach { result.getValue(Symbol.of(it)).quote.status shouldBe DataStatus.FRESH }
+            f.ratiosCalls() shouldContainExactlyInAnyOrder listOf("ratios:C004", "ratios:C003")
+            result.getValue(Symbol.of("C001")).ratios.status shouldBe DataStatus.LIMIT_REACHED
+            result.getValue(Symbol.of("C001")).ratios.data shouldBe sampleRatios(0.0)
+            result.getValue(Symbol.of("C004")).ratios.data shouldBe sampleRatios(99.0)
+        }
+
+        test("ratios without a cache beyond the budget have no data with LIMIT_REACHED") {
+            val f = CompanyDataFixture()
+            f.listedWithQuotes(listOf("AAPL"))
+            f.ratiosFromSource("AAPL")
+            f.remainingBudget(1)
+
+            val result = f.watchlistData(listOf("AAPL")).getValue(Symbol.of("AAPL"))
+
+            result.quote.status shouldBe DataStatus.FRESH
+            result.ratios.status shouldBe DataStatus.LIMIT_REACHED
+            result.ratios.data.shouldBeNull()
+        }
+
+        test("source without the ratios capability gives NOT_SUPPORTED without a request") {
+            val f = CompanyDataFixture(capabilities = quotesOnly)
+            f.listedWithQuotes(listOf("AAPL"))
+            f.ratiosFromSource("AAPL")
+
+            f.watchlistData(listOf("AAPL")).getValue(Symbol.of("AAPL")).ratios.status shouldBe DataStatus.NOT_SUPPORTED
+            f.ratiosCalls().shouldBeEmpty()
+        }
+
+        test("ratios of a symbol of a not covered exchange are NOT_SUPPORTED without a request") {
+            val f = CompanyDataFixture()
+            f.directory.notCovered(ExchangeCode("AS"))
+            f.ratiosFromSource("AD.AS")
+
+            val result = f.watchlistData(listOf("AD.AS")).getValue(Symbol.of("AD.AS"))
+
+            result.ratios.status shouldBe DataStatus.NOT_SUPPORTED
+            result.ratios.data.shouldBeNull()
+            f.source.calls.shouldBeEmpty()
+        }
+
+        test("old ratios of a symbol missing from the directory are kept without a request") {
+            val f = CompanyDataFixture()
+            f.cached(ratiosKey("GONE"), sampleRatios(), age = Duration.ofDays(3))
+            f.ratiosFromSource("GONE")
+
+            val result = f.watchlistData(listOf("GONE")).getValue(Symbol.of("GONE"))
+
+            result.ratios.status shouldBe DataStatus.SOURCE_ERROR
+            result.ratios.data shouldBe sampleRatios()
+            f.ratiosCalls().shouldBeEmpty()
+        }
+
+        test("ratio failures keep the cached ratios with the failure status") {
+            val f = CompanyDataFixture()
+            f.listedWithQuotes(listOf("ERR", "NONE"))
+            f.cached(ratiosKey("ERR"), sampleRatios(), age = Duration.ofDays(2))
+            f.source.ratios[Symbol.of("ERR")] = SourceResult.SourceError(SourceCallOutcome.httpError(500, f.now))
+            f.source.ratios[Symbol.of("NONE")] = SourceResult.NoData(f.success())
+
+            val result = f.watchlistData(listOf("ERR", "NONE"))
+
+            result.getValue(Symbol.of("ERR")).ratios.status shouldBe DataStatus.SOURCE_ERROR
+            result.getValue(Symbol.of("ERR")).ratios.data shouldBe sampleRatios()
+            result.getValue(Symbol.of("NONE")).ratios.status shouldBe DataStatus.NO_DATA
         }
     }
 })

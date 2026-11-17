@@ -35,14 +35,29 @@ data class WatchlistItem(
 )
 
 /**
- * Market data of one watchlist row (ADR-058).
+ * Quote and ratios of one watchlist company from one source (ADR-058, ADR-075).
+ *
+ * @property quote latest quote with its status
+ * @property ratios ratios with their status
+ */
+data class WatchlistSourceData(
+    val quote: SourceData<QuoteRecord>,
+    val ratios: SourceData<Ratios>,
+)
+
+/**
+ * Market data of one watchlist row (ADR-058, ADR-075).
  *
  * @property symbol canonical symbol
  * @property quote latest quote with its status; its status is the status of the row
+ * @property ratios ratios the indicators are calculated from, with their status
+ * @property indicators indicators in display order (ADR-073)
  */
 data class WatchlistMarketData(
     val symbol: Symbol,
     val quote: SourceData<QuoteRecord>,
+    val ratios: SourceData<Ratios>,
+    val indicators: List<Indicator>,
 )
 
 /**
@@ -56,10 +71,12 @@ data class WatchlistMarketData(
  *
  * @property quote latest quote
  * @property ratios price and financial ratios
+ * @property indicators indicators of the profile's settings in display order (ADR-073)
  */
 data class PriceAndRatios(
     val quote: SourceData<QuoteRecord>,
     val ratios: SourceData<Ratios>,
+    val indicators: List<Indicator> = emptyList(),
 ) {
     /** Source of both parts. */
     val source: SourceId get() = quote.source
