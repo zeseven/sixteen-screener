@@ -698,3 +698,14 @@ External sources are distributed as follows:
 **Decision:** Only curated logos are taken from logoapi.sh. Requests keep `fallback=404`, so logoapi.sh answers `404` instead of a favicon; a response with `X-Logo-Fallback: favicon` is still treated as a miss. Wordmarks and icons are accepted. This replaces the `X-Logo-Fallback` rule of ADR-038. The rule applies to logoapi.sh only; other logo sources may be added later with their own rules for raster logos or favicons.
 
 **Consequences:** Most companies get their real logo; wordmarks are wider than icons and are shown scaled down in the square logo slot. Companies with only a favicon on logoapi.sh get the default logo. Misses recorded under the old rule keep the default logo until they expire (14 days) or are deleted from the `logoMisses` collection.
+
+## ADR-069: Finnhub PNG logos as a backup logo source
+
+**Date:** 2026-11-17
+**Status:** Accepted
+
+**Context:** logoapi.sh has no curated logo for some companies (ADR-068). Finnhub publishes company logos as PNG files on static2.finnhub.io; the URL is the `logo` field of the `profile2` response and follows the pattern `.../stock_logo/{ticker}.png` (full symbol with suffix for non-US exchanges). Downloading these files is not a Finnhub API call.
+
+**Decision:** "Finnhub logos" (`finnhub-logos`) is a separate logo source used as a backup after logoapi.sh. The URL comes from the cached Finnhub company profile, otherwise from the pattern; the Finnhub API is never called for logos. Downloads are limited to 1 MB and must be PNG files. PNG logos are stored in the bucket under `finnhub-logos/` and served as `image/png`; the backend does no conversion. The source has no request limits and a never-resetting total call counter shown on the Sources screen (`requestCounters/{source}__TOTAL`, without TTL). Misses are recorded per logo source and symbol (`logoMisses/{source}__{symbol}`). The default logo is cached by clients for 1 day when no source has a logo and 1 hour after a source failure, and the app respects the backend's Cache-Control.
+
+**Consequences:** More companies get a real logo, including non-US companies. The app renders both SVG and PNG logos; small PNG logos are drawn at their own size. Calls to static2.finnhub.io don't use the Finnhub API limit; the pattern is undocumented and may change, in which case misses are recorded and the default logo is returned.

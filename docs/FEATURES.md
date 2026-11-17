@@ -117,6 +117,8 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [ ] Default source can be changed on the Sources screen; stored per profile and applied to search and detailed screen
 - [ ] Sources screen shows counters for all configured intervals including monthly limits
 - [ ] Wider coverage of European exchanges through the new sources, where their plans provide it
+- [x] Backup logo source when logoapi.sh has no SVG logo: PNG logo from static2.finnhub.io (URL from the cached Finnhub company profile, otherwise built from the ticker; no Finnhub API calls), stored in the bucket under `finnhub-logos/`; the app renders SVG and PNG logos
+- [x] Sources screen: never-resetting total call counter for sources without request limits (Finnhub logos)
 
 ### Detailed screen
 - [ ] Dividends tab
@@ -171,4 +173,3 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 ## Future improvements
 - [ ] EU "source of truth" for balance sheets (expected from the EU in 2027-2029)
 - [ ] Side-by-side comparison of several sources on the detailed screen (based on the alpha UX investigation)
-- [ ] Company logos from Finnhub: `/stock/profile2` returns a `logo` URL (PNG on `static2.finnhub.io`), usable as a fallback for the current logo source or instead of it (US stocks on the free plan)

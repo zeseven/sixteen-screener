@@ -98,7 +98,7 @@ The other collections (`profiles`, `profileNames`, `sourceCalls`) have no TTL. N
 
 ## 6. Cloud Storage bucket for logos and exchange directories
 
-The bucket is private; it stores cached SVG logos (`logos/{symbol}.svg`) and daily exchange directory
+The bucket is private; it stores cached SVG logos (`logos/{symbol}.svg`), backup PNG logos (`finnhub-logos/{symbol}.png`) and daily exchange directory
 snapshots (`directory/{source}/{exchangeCode}.json`, ADR-034). All files are served or managed by the backend.
 
 ```bash
