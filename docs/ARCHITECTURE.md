@@ -21,6 +21,7 @@ Tests: JUnit4.
 UI language: English only. All user-visible texts are kept in string resources to allow translations later.
 Backend URL: passed to the build only via the `SIXTEEN_BACKEND_URL` environment variable; never saved in a repo file or committed. The build fails with a clear message if it is not set.
 Watchlist filter selections are kept in memory while the app is running and are not stored on the device.
+The watchlist entries of each profile are stored on the device and shown on start while a fresh watchlist is loaded from the backend; prices and indicators are not stored. Adds and removes made while a load is in flight are kept and replayed on the loaded watchlist, which is loaded again afterwards to match the backend (ADR-076).
 README contains cli command for building a debug-signed apk file (`assembleDebug`) which should be uploaded via USB, including how to set the backend URL environment variable.
 
 ## Backend

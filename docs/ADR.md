@@ -775,3 +775,16 @@ External sources are distributed as follows:
 **Decision:** `GET /watchlist/market-data` also returns indicators, from cached ratios refreshed when older than 1 day, within the same per-source budget reservation as the quotes (quotes first). Each item has a separate `indicatorsStatus`; the app draws indicators in orange only when the ratios failed to load (network or backend error, `LIMIT_REACHED`, `SOURCE_ERROR`), independently of the price.
 
 **Consequences:** Watchlist indicators may be up to 1 day old. The detailed screen keeps its rules (cached data on open, manual refresh).
+
+## ADR-076: Watchlist cached on the device and reconciled with a numbered change log
+
+**Date:** 2026-11-17
+**Status:** Accepted
+
+**Context:** The watchlist was kept in memory only, so after a cold start the screen stayed empty until `GET /watchlist` returned, and showed nothing when the backend could not be reached. A slow `GET /watchlist` could also overwrite a company added or removed while it was in flight, because the response replaced the list in the app. The app cannot tell whether the backend handled a `PUT` or `DELETE` before or after it read the watchlist for a `GET` that overlapped it.
+
+**Decision:** The app stores the watchlist entries of each profile on the device (a DataStore file, JSON per profile ID) and shows them as soon as the profile is known; a `GET /watchlist` then runs in the background and replaces them. Prices and indicators are not stored and are lazy-loaded as before (ADR-058). The stored list holds only changes confirmed by the backend, never pending ones. The cache of a profile is deleted when the backend answers `404` for it.
+Adds and removes get increasing numbers and go into a change log; a confirmed change also gets the number current at its confirmation, and a failed change leaves the log (its rollback). The displayed list is the last backend snapshot (or the cached list) with the log replayed in order; replaying is idempotent (add only when absent, remove only when present), so a change already contained in the snapshot does no harm. Each `GET /watchlist` remembers the number current when it is sent: its snapshot prunes changes confirmed before that, keeps the others and replays them. A snapshot older than the last applied one is ignored. When changes are left in the log after a snapshot, the app requests the watchlist once more after the last pending change settles, so the list ends up matching the backend (order, fields filled by the backend, changes from other devices).
+The first snapshot replacing a cached list does not reload market data of rows already loaded since the start.
+
+**Consequences:** The watchlist is shown at once on a cold start and stays visible offline. A change during a load costs one extra `GET /watchlist` (no source requests, ADR-057). Until the snapshot arrives, the list may differ from the backend by changes made on other devices.

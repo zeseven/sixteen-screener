@@ -67,6 +67,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Only displayed rows (plus a 5-row buffer) refreshed: on screen open, on scrolling new rows into view, on filter change
 - [x] Watchlist stored as entries `{symbol, sector, tags}` and loaded without source requests; sector stored on add and updated by the detailed screen
 - [x] Prices and indicators lazy-loaded per displayed row; '-' until loaded; orange after a failed load
+- [x] Watchlist stored on the device and shown on start while a fresh one is loaded; adds and removes made during the load are kept
 - [x] Company name stored in the watchlist entry; companies of exchanges without a symbol list (EU on the Finnhub free plan) can be added with the name from the search result
 - [x] Filter by market (USA / EU / all)
 - [x] Filter by sector (sector names as provided by the source)
