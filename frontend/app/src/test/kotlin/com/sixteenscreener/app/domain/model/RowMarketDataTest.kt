@@ -90,6 +90,47 @@ class RowMarketDataTest {
     }
 
     @Test
+    fun `failed ratios keep the previous indicators while a fresh quote replaces the price`() {
+        val data = marketData(status = DataStatus.FRESH, quote = newQuote, indicatorsStatus = DataStatus.LIMIT_REACHED)
+
+        val row = previous.loadedWith(data)
+
+        assertEquals(RowMarketData(newQuote, listOf(indicator), MarketDataLoad.Loaded(DataStatus.FRESH, DataStatus.LIMIT_REACHED)), row)
+        assertFalse(row.isLastLoadFailed)
+        assertTrue(row.isIndicatorsLoadFailed)
+    }
+
+    @Test
+    fun `fresh ratios replace the indicators while a failed quote keeps the previous price`() {
+        val data = marketData(status = DataStatus.SOURCE_ERROR, quote = null, indicatorsStatus = DataStatus.FRESH)
+
+        val row = previous.loadedWith(data)
+
+        assertEquals(RowMarketData(oldQuote, emptyList(), MarketDataLoad.Loaded(DataStatus.SOURCE_ERROR, DataStatus.FRESH)), row)
+        assertTrue(row.isLastLoadFailed)
+        assertFalse(row.isIndicatorsLoadFailed)
+    }
+
+    @Test
+    fun `failed ratios store returned cached indicators`() {
+        val cached = Indicator("ROE", "ROE", IndicatorLevel.GOOD)
+        val data = marketData(indicators = listOf(cached), indicatorsStatus = DataStatus.SOURCE_ERROR)
+
+        assertEquals(listOf(cached), previous.loadedWith(data).indicators)
+    }
+
+    @Test
+    fun `only failed requests, limit reached and source error of the ratios count as failed indicator loads`() {
+        val failedStatuses = setOf(DataStatus.LIMIT_REACHED, DataStatus.SOURCE_ERROR)
+        DataStatus.entries.forEach { status ->
+            val row = RowMarketData(lastLoad = MarketDataLoad.Loaded(DataStatus.FRESH, indicatorsStatus = status))
+            assertEquals(status.name, status in failedStatuses, row.isIndicatorsLoadFailed)
+        }
+        assertTrue(RowMarketData(lastLoad = MarketDataLoad.Failed).isIndicatorsLoadFailed)
+        assertFalse(RowMarketData(lastLoad = MarketDataLoad.Loading).isIndicatorsLoadFailed)
+    }
+
+    @Test
     fun `only failed requests, limit reached and source error count as failed loads`() {
         val failedStatuses = setOf(DataStatus.LIMIT_REACHED, DataStatus.SOURCE_ERROR)
         DataStatus.entries.forEach { status ->

@@ -13,12 +13,15 @@
     "source": "finnhub"
   },
   "ratios": [
-    { "code": "PE", "name": "P/E", "value": 34.71 },
-    { "code": "PB", "name": "P/B", "value": 52.3 },
-    { "code": "DIVIDEND_YIELD", "name": "Dividend yield", "value": null },
-    { "code": "BETA", "name": "Beta" }
+    { "code": "PE", "name": "P/E", "unit": "RATIO", "value": 34.71 },
+    { "code": "PB", "name": "P/B", "unit": "RATIO", "value": 52.3 },
+    { "code": "DIVIDEND_YIELD", "name": "Dividend yield", "unit": "PERCENT", "value": null },
+    { "code": "EPS", "name": "EPS", "unit": "CURRENCY", "value": 6.42 },
+    { "code": "BETA", "name": "Beta", "unit": "BASIS_POINTS" },
+    { "code": "FUTURE_RATIO", "name": "Future ratio", "value": 1.5 }
   ],
   "indicators": [
-    { "ratioCode": "PE", "name": "P/E", "level": "BAD" }
+    { "ratioCode": "PE", "name": "P/E", "level": "BAD" },
+    { "ratioCode": "PB", "name": "P/B", "level": "EXCELLENT" }
   ]
 }

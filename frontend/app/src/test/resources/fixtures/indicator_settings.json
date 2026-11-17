@@ -1,0 +1,56 @@
+{
+  "settings": [
+    {
+      "ratioCode": "PE",
+      "enabled": true,
+      "thresholds": [15, 25, 40],
+      "levels": ["GOOD", "NEUTRAL", "WARNING", "BAD"],
+      "belowZeroLevel": "BAD",
+      "name": "P/E",
+      "shortName": "P/E",
+      "unit": "RATIO",
+      "category": "VALUATION",
+      "scaleMax": 60,
+      "step": 1
+    },
+    {
+      "ratioCode": "ROE",
+      "enabled": false,
+      "thresholds": [5, 12.5, 20],
+      "levels": ["BAD", "WARNING", "NEUTRAL", "GOOD"],
+      "belowZeroLevel": "BAD",
+      "name": "Return on equity",
+      "shortName": "ROE",
+      "unit": "PERCENT",
+      "category": "PROFITABILITY",
+      "scaleMax": 50,
+      "step": 0.5
+    },
+    {
+      "ratioCode": "FUTURE_RATIO",
+      "enabled": false,
+      "thresholds": [1, 2, 3],
+      "levels": ["GOOD", "EXCELLENT", "NEUTRAL", "BAD"],
+      "belowZeroLevel": "TERRIBLE",
+      "name": "Future ratio",
+      "shortName": "FUT",
+      "unit": "BASIS_POINTS",
+      "category": "SENTIMENT",
+      "scaleMax": 10,
+      "step": 0.1
+    },
+    {
+      "ratioCode": "BROKEN",
+      "enabled": true,
+      "thresholds": [1, 2],
+      "levels": ["GOOD", "NEUTRAL", "BAD"],
+      "belowZeroLevel": "BAD",
+      "name": "Broken",
+      "shortName": "BRK",
+      "unit": "RATIO",
+      "category": "RISK",
+      "scaleMax": 10,
+      "step": 1
+    }
+  ]
+}

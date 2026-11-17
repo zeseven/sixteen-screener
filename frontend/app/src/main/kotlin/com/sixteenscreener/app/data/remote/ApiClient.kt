@@ -4,6 +4,7 @@ import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfileData
 import com.sixteenscreener.app.domain.model.Exchange
+import com.sixteenscreener.app.domain.model.IndicatorSetting
 import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.Profile
@@ -72,6 +73,15 @@ interface ApiClient {
 
     /** `GET /profiles/{profileId}/sources`. */
     suspend fun getSources(profileId: ProfileId): ApiResult<List<Source>>
+
+    /** `GET /profiles/{profileId}/indicator-settings`: the profile's indicator settings in settings order. */
+    suspend fun getIndicatorSettings(profileId: ProfileId): ApiResult<List<IndicatorSetting>>
+
+    /**
+     * `PUT /profiles/{profileId}/indicator-settings`: replaces the configurable part of [settings] (switch, thresholds and levels);
+     * returns the stored settings.
+     */
+    suspend fun replaceIndicatorSettings(profileId: ProfileId, settings: List<IndicatorSetting>): ApiResult<List<IndicatorSetting>>
 
     /** `GET /exchanges`: the static exchange table in backend order. */
     suspend fun getExchanges(): ApiResult<List<Exchange>>

@@ -7,10 +7,12 @@ import com.sixteenscreener.app.domain.model.CompanyProfile
 import com.sixteenscreener.app.domain.model.CompanyProfileData
 import com.sixteenscreener.app.domain.model.DataStatus
 import com.sixteenscreener.app.domain.model.FiscalPeriod
+import com.sixteenscreener.app.domain.model.Indicator
 import com.sixteenscreener.app.domain.model.Market
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.Quote
 import com.sixteenscreener.app.domain.model.Ratio
+import com.sixteenscreener.app.domain.model.RatioUnit
 import com.sixteenscreener.app.domain.model.SourceDataMeta
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
@@ -50,9 +52,10 @@ object CompanyData {
 
     fun priceAndRatios(
         quote: Quote? = Companies.quote(),
-        ratios: List<Ratio> = listOf(Ratio("PE", "P/E", 31.25), Ratio("PB", "P/B", null)),
+        ratios: List<Ratio> = listOf(Ratio("PE", "P/E", RatioUnit.RATIO, 31.25), Ratio("PB", "P/B", RatioUnit.RATIO, null)),
         status: DataStatus = DataStatus.CACHED,
-    ) = PriceAndRatios(meta = meta(status = status), quote = quote, ratios = ratios)
+        indicators: List<Indicator> = emptyList(),
+    ) = PriceAndRatios(meta = meta(status = status), quote = quote, ratios = ratios, indicators = indicators)
 
     fun companyProfile(
         symbol: String = "AAPL",

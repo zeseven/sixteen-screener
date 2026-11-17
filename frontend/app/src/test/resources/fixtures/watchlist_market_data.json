@@ -3,6 +3,7 @@
     {
       "symbol": "AAPL",
       "status": "FRESH",
+      "indicatorsStatus": "CACHED",
       "quote": {
         "price": 229.1,
         "currency": "USD",
@@ -18,6 +19,7 @@
     {
       "symbol": "SAP.DE",
       "status": "LIMIT_REACHED",
+      "indicatorsStatus": "SOURCE_ERROR",
       "quote": {
         "price": 241.35,
         "currency": "EUR",
@@ -29,12 +31,14 @@
     {
       "symbol": "7203.T",
       "status": "NO_DATA",
+      "indicatorsStatus": "NO_DATA",
       "quote": null,
       "indicators": []
     },
     {
       "symbol": "NESN.SW",
       "status": "SOURCE_ERROR",
+      "indicatorsStatus": "STALE",
       "quote": null,
       "indicators": []
     },

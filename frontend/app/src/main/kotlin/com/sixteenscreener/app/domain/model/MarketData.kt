@@ -1,15 +1,15 @@
 package com.sixteenscreener.app.domain.model
 
-/** Level of a ratio indicator. */
-enum class IndicatorLevel { BAD, WARNING, GOOD, UNKNOWN }
+/** Level of a ratio indicator or of an indicator interval; `NEUTRAL` values make no indicator. */
+enum class IndicatorLevel { GOOD, WARNING, NEUTRAL, BAD, UNKNOWN }
 
 /**
- * Ratio whose value falls into a displayed interval.
+ * Switched on ratio whose value falls into a `GOOD`, `WARNING` or `BAD` interval.
  */
 data class Indicator(
     /** Ratio code shared across sources, e.g. `PE`. */
     val ratioCode: String,
-    /** Display name, e.g. `P/E`. */
+    /** Short name shown on the company row, e.g. `P/E`. */
     val name: String,
     /** Interval the value falls into. */
     val level: IndicatorLevel,
@@ -25,8 +25,10 @@ data class MarketData(
     val status: DataStatus,
     /** Quote, `null` when none is available. */
     val quote: Quote?,
-    /** Indicators of the company; empty until indicators are implemented. */
+    /** Indicators of the company in display order. */
     val indicators: List<Indicator>,
+    /** Freshness of the ratios the indicators are calculated from, or why they are missing or stale. */
+    val indicatorsStatus: DataStatus = status,
 )
 
 /** Outcome of the last market data load of a watchlist row. */
@@ -34,8 +36,8 @@ sealed interface MarketDataLoad {
     /** A request for the row is running. */
     data object Loading : MarketDataLoad
 
-    /** The backend returned the row with [status]. */
-    data class Loaded(val status: DataStatus) : MarketDataLoad
+    /** The backend returned the row with the quote [status] and the ratio [indicatorsStatus]. */
+    data class Loaded(val status: DataStatus, val indicatorsStatus: DataStatus = status) : MarketDataLoad
 
     /** The request failed: network error or error response of the backend. */
     data object Failed : MarketDataLoad
@@ -51,13 +53,19 @@ data class RowMarketData(
     val indicators: List<Indicator> = emptyList(),
     val lastLoad: MarketDataLoad = MarketDataLoad.Loading,
 ) {
-    /** Whether the last load failed: a failed request, or a source limit or source error reported by the backend. */
+    /** Whether the last load of the quote failed: a failed request, or a source limit or source error reported by the backend. */
     val isLastLoadFailed: Boolean
-        get() = when (lastLoad) {
-            MarketDataLoad.Failed -> true
-            is MarketDataLoad.Loaded -> lastLoad.status in FAILED_STATUSES
-            MarketDataLoad.Loading -> false
-        }
+        get() = isFailed { it.status }
+
+    /** Whether the last load of the ratios failed: a failed request, or a source limit or source error of the ratios. */
+    val isIndicatorsLoadFailed: Boolean
+        get() = isFailed { it.indicatorsStatus }
+
+    private inline fun isFailed(status: (MarketDataLoad.Loaded) -> DataStatus): Boolean = when (lastLoad) {
+        MarketDataLoad.Failed -> true
+        is MarketDataLoad.Loaded -> status(lastLoad) in FAILED_STATUSES
+        MarketDataLoad.Loading -> false
+    }
 
     private companion object {
         val FAILED_STATUSES = setOf(DataStatus.LIMIT_REACHED, DataStatus.SOURCE_ERROR)
@@ -72,14 +80,13 @@ fun RowMarketData?.failed(): RowMarketData = (this ?: RowMarketData()).copy(last
 
 /**
  * This row's data after [data] was received. A source limit or source error keeps the previous values unless the backend
- * returned cached ones; any other status replaces them.
+ * returned cached ones; any other status replaces them. The quote follows its status and the indicators the ratio status.
  */
 fun RowMarketData?.loadedWith(data: MarketData): RowMarketData {
-    val loaded = RowMarketData(data.quote, data.indicators, MarketDataLoad.Loaded(data.status))
-    if (!loaded.isLastLoadFailed) return loaded
+    val loaded = RowMarketData(data.quote, data.indicators, MarketDataLoad.Loaded(data.status, data.indicatorsStatus))
     val previous = this ?: RowMarketData()
     return loaded.copy(
-        quote = data.quote ?: previous.quote,
-        indicators = data.indicators.ifEmpty { previous.indicators },
+        quote = if (loaded.isLastLoadFailed) data.quote ?: previous.quote else data.quote,
+        indicators = if (loaded.isIndicatorsLoadFailed) data.indicators.ifEmpty { previous.indicators } else data.indicators,
     )
 }

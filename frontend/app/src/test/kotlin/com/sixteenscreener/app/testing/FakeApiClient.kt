@@ -5,6 +5,7 @@ import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfileData
 import com.sixteenscreener.app.domain.model.Exchange
+import com.sixteenscreener.app.domain.model.IndicatorSetting
 import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.Profile
@@ -34,6 +35,9 @@ class FakeApiClient : ApiClient {
         { _, _, _, _ -> notStubbed() }
     var getSources: suspend (ProfileId) -> ApiResult<List<Source>> = { notStubbed() }
     var getExchanges: suspend () -> ApiResult<List<Exchange>> = { notStubbed() }
+    var getIndicatorSettings: suspend (ProfileId) -> ApiResult<List<IndicatorSetting>> = { notStubbed() }
+    var replaceIndicatorSettings: suspend (ProfileId, List<IndicatorSetting>) -> ApiResult<List<IndicatorSetting>> =
+        { _, _ -> notStubbed() }
 
     override suspend fun getOrCreateProfile(name: String) = record("getOrCreateProfile($name)") { getOrCreateProfile.invoke(name) }
 
@@ -74,6 +78,14 @@ class FakeApiClient : ApiClient {
     override suspend fun getSources(profileId: ProfileId) = record("getSources(${profileId.value})") { getSources.invoke(profileId) }
 
     override suspend fun getExchanges() = record("getExchanges()") { getExchanges.invoke() }
+
+    override suspend fun getIndicatorSettings(profileId: ProfileId) =
+        record("getIndicatorSettings(${profileId.value})") { getIndicatorSettings.invoke(profileId) }
+
+    override suspend fun replaceIndicatorSettings(profileId: ProfileId, settings: List<IndicatorSetting>) =
+        record("replaceIndicatorSettings(${profileId.value}, ${settings.joinToString(",") { it.ratioCode }})") {
+            replaceIndicatorSettings.invoke(profileId, settings)
+        }
 
     private inline fun <T> record(call: String, block: () -> T): T {
         calls += call

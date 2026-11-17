@@ -18,14 +18,24 @@ data class SourceDataMeta(
     val fetchedAt: Instant?,
 )
 
+/** Unit of a ratio value: `PERCENT` values are percents (`15` is 15%), `CURRENCY` values are amounts per share. */
+enum class RatioUnit { PERCENT, RATIO, CURRENCY, UNKNOWN }
+
+/** Category of a ratio; indicator settings are grouped by it. */
+enum class RatioCategory {
+    VALUATION, PROFITABILITY, MARGINS, GROWTH, LIQUIDITY, LEVERAGE, EFFICIENCY, DIVIDENDS, RISK, PER_SHARE, UNKNOWN
+}
+
 /**
  * Financial ratio of a company.
  */
 data class Ratio(
     /** Ratio code shared across sources, e.g. `PE`. */
     val code: String,
-    /** Display name, e.g. `P/E`. */
+    /** Full display name without the percent suffix, e.g. `P/E`. */
     val name: String,
+    /** Unit of [value]. */
+    val unit: RatioUnit,
     /** Ratio value, `null` when the source provides none. */
     val value: Double?,
 )
@@ -40,6 +50,8 @@ data class PriceAndRatios(
     val quote: Quote?,
     /** Ratios provided by the source. */
     val ratios: List<Ratio>,
+    /** Indicators of the profile's settings in display order; each colors the ratio with the same code. */
+    val indicators: List<Indicator> = emptyList(),
 )
 
 /** Fiscal period of a balance sheet. */

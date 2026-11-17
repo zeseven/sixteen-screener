@@ -3,15 +3,20 @@ package com.sixteenscreener.app.ui.theme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.sixteenscreener.app.domain.model.IndicatorLevel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import kotlin.math.abs
 
 @RunWith(AndroidJUnit4::class)
 class SixteenThemeTest {
@@ -21,12 +26,14 @@ class SixteenThemeTest {
 
     private lateinit var colorScheme: ColorScheme
     private lateinit var priceColors: PriceColors
+    private lateinit var indicatorColors: IndicatorColors
 
     private fun captureTheme(darkTheme: Boolean, dynamicColor: Boolean) {
         composeRule.setContent {
             SixteenTheme(darkTheme = darkTheme, dynamicColor = dynamicColor) {
                 colorScheme = MaterialTheme.colorScheme
                 priceColors = SixteenTheme.priceColors
+                indicatorColors = SixteenTheme.indicatorColors
             }
         }
         composeRule.waitForIdle()
@@ -87,6 +94,49 @@ class SixteenThemeTest {
         assertEquals(PriceDownDark, priceColors.down)
         assertEquals(LoadFailedDark, priceColors.loadFailed)
     }
+
+    @Test
+    fun `indicator colors reuse the price green and red and add a yellow per theme`() {
+        captureTheme(darkTheme = false, dynamicColor = false)
+        assertEquals(IndicatorColors(PriceUpLight, IndicatorWarningLight, PriceDownLight, IndicatorNeutralLight), indicatorColors)
+    }
+
+    @Test
+    fun `dark theme indicator colors use the dark variants`() {
+        captureTheme(darkTheme = true, dynamicColor = false)
+        assertEquals(IndicatorColors(PriceUpDark, IndicatorWarningDark, PriceDownDark, IndicatorNeutralDark), indicatorColors)
+    }
+
+    @Test
+    fun `indicator yellow is readable on the background and differs from the load failure orange`() {
+        assertTrue(contrast(IndicatorWarningLight, LightColorScheme.surface) >= 4.5)
+        assertTrue(contrast(IndicatorWarningDark, DarkColorScheme.surface) >= 4.5)
+        assertTrue(hueDistance(IndicatorWarningLight, LoadFailedLight) >= 15f)
+        assertTrue(hueDistance(IndicatorWarningDark, LoadFailedDark) >= 15f)
+    }
+
+    @Test
+    fun `indicator text colors cover only the displayed levels`() {
+        val colors = IndicatorColors(Color.Green, Color.Yellow, Color.Red, Color.Gray)
+
+        assertEquals(Color.Green, colors.textColorOf(IndicatorLevel.GOOD))
+        assertEquals(Color.Yellow, colors.textColorOf(IndicatorLevel.WARNING))
+        assertEquals(Color.Red, colors.textColorOf(IndicatorLevel.BAD))
+        assertNull(colors.textColorOf(IndicatorLevel.NEUTRAL))
+        assertNull(colors.textColorOf(IndicatorLevel.UNKNOWN))
+        assertEquals(Color.Gray, colors.fillOf(IndicatorLevel.NEUTRAL))
+        assertEquals(Color.Gray, colors.fillOf(IndicatorLevel.UNKNOWN))
+    }
+
+    private fun contrast(foreground: Color, background: Color): Double {
+        val lighter = maxOf(foreground.luminance(), background.luminance())
+        val darker = minOf(foreground.luminance(), background.luminance())
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    private fun hueDistance(first: Color, second: Color): Float = abs(hue(first) - hue(second))
+
+    private fun hue(color: Color): Float = FloatArray(3).also { android.graphics.Color.colorToHSV(color.toArgb(), it) }[0]
 
     @Test
     fun `load failure color differs from the price colors in both themes`() {

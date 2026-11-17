@@ -10,7 +10,10 @@ import com.sixteenscreener.app.domain.model.DataStatus
 import com.sixteenscreener.app.domain.model.Exchange
 import com.sixteenscreener.app.domain.model.FiscalPeriod
 import com.sixteenscreener.app.domain.model.Indicator
+import com.sixteenscreener.app.domain.model.IndicatorIntervals
 import com.sixteenscreener.app.domain.model.IndicatorLevel
+import com.sixteenscreener.app.domain.model.IndicatorScale
+import com.sixteenscreener.app.domain.model.IndicatorSetting
 import com.sixteenscreener.app.domain.model.LimitInterval
 import com.sixteenscreener.app.domain.model.LimitUnit
 import com.sixteenscreener.app.domain.model.Market
@@ -20,6 +23,8 @@ import com.sixteenscreener.app.domain.model.Profile
 import com.sixteenscreener.app.domain.model.ProfileId
 import com.sixteenscreener.app.domain.model.Quote
 import com.sixteenscreener.app.domain.model.Ratio
+import com.sixteenscreener.app.domain.model.RatioCategory
+import com.sixteenscreener.app.domain.model.RatioUnit
 import com.sixteenscreener.app.domain.model.RequestLimit
 import com.sixteenscreener.app.domain.model.SearchItem
 import com.sixteenscreener.app.domain.model.SearchStatus
@@ -97,6 +102,109 @@ class OkHttpApiClientTest {
     }
 
     private val alice = Profile(profileId, "Alice", SourceId.FINNHUB)
+
+    private val peSetting = IndicatorSetting(
+        ratioCode = "PE",
+        name = "P/E",
+        shortName = "P/E",
+        unit = RatioUnit.RATIO,
+        category = RatioCategory.VALUATION,
+        scale = IndicatorScale(max = 60.0, step = 1.0),
+        enabled = true,
+        intervals = IndicatorIntervals(
+            thresholds = listOf(15.0, 25.0, 40.0),
+            levels = listOf(IndicatorLevel.GOOD, IndicatorLevel.NEUTRAL, IndicatorLevel.WARNING, IndicatorLevel.BAD),
+            belowZeroLevel = IndicatorLevel.BAD,
+        ),
+    )
+
+    @Test
+    fun `getIndicatorSettings parses the settings in backend order`() = runTest {
+        enqueueFixture("indicator_settings.json")
+
+        val settings = client.getIndicatorSettings(profileId).value()
+
+        assertEquals("/profiles/${profileId.value}/indicator-settings", server.takeRequest().pathAndQuery())
+        assertEquals(listOf("PE", "ROE", "FUTURE_RATIO"), settings.map { it.ratioCode })
+        assertEquals(peSetting, settings[0])
+        assertEquals(
+            peSetting.copy(
+                ratioCode = "ROE",
+                name = "Return on equity",
+                shortName = "ROE",
+                unit = RatioUnit.PERCENT,
+                category = RatioCategory.PROFITABILITY,
+                scale = IndicatorScale(max = 50.0, step = 0.5),
+                enabled = false,
+                intervals = IndicatorIntervals(
+                    thresholds = listOf(5.0, 12.5, 20.0),
+                    levels = listOf(IndicatorLevel.BAD, IndicatorLevel.WARNING, IndicatorLevel.NEUTRAL, IndicatorLevel.GOOD),
+                    belowZeroLevel = IndicatorLevel.BAD,
+                ),
+            ),
+            settings[1],
+        )
+    }
+
+    @Test
+    fun `getIndicatorSettings maps unknown unit, category and levels without failing`() = runTest {
+        enqueueFixture("indicator_settings.json")
+
+        val future = client.getIndicatorSettings(profileId).value().single { it.ratioCode == "FUTURE_RATIO" }
+
+        assertEquals(RatioUnit.UNKNOWN, future.unit)
+        assertEquals(RatioCategory.UNKNOWN, future.category)
+        assertEquals(
+            listOf(IndicatorLevel.GOOD, IndicatorLevel.NEUTRAL, IndicatorLevel.NEUTRAL, IndicatorLevel.BAD),
+            future.intervals.levels,
+        )
+        assertEquals(IndicatorLevel.NEUTRAL, future.intervals.belowZeroLevel)
+    }
+
+    @Test
+    fun `getIndicatorSettings drops settings without three thresholds and four levels`() = runTest {
+        enqueueFixture("indicator_settings.json")
+
+        assertTrue(client.getIndicatorSettings(profileId).value().none { it.ratioCode == "BROKEN" })
+    }
+
+    @Test
+    fun `getIndicatorSettings maps 404 to not found`() = runTest {
+        enqueueProblem("problem_404.json", code = 404)
+
+        assertTrue(client.getIndicatorSettings(profileId).error() is ApiError.NotFound)
+    }
+
+    @Test
+    fun `replaceIndicatorSettings puts only the configurable values and parses the stored settings`() = runTest {
+        enqueueFixture("indicator_settings.json")
+        val edited = peSetting.copy(
+            enabled = false,
+            intervals = peSetting.intervals.copy(thresholds = listOf(12.5, 25.0, 40.0), belowZeroLevel = IndicatorLevel.UNKNOWN),
+        )
+
+        val stored = client.replaceIndicatorSettings(profileId, listOf(edited)).value()
+
+        val request = server.takeRequest()
+        assertEquals("PUT", request.method)
+        assertEquals("/profiles/${profileId.value}/indicator-settings", request.pathAndQuery())
+        assertTrue(request.headers["Content-Type"]!!.startsWith("application/json"))
+        assertEquals(
+            """{"settings":[{"ratioCode":"PE","enabled":false,"thresholds":[12.5,25.0,40.0],""" +
+                """"levels":["GOOD","NEUTRAL","WARNING","BAD"],"belowZeroLevel":"NEUTRAL"}]}""",
+            request.body!!.utf8(),
+        )
+        assertEquals(peSetting, stored.first())
+    }
+
+    @Test
+    fun `replaceIndicatorSettings maps a rejected update to an HTTP error with the problem`() = runTest {
+        enqueueProblem("problem_400.json", code = 400)
+
+        val error = client.replaceIndicatorSettings(profileId, listOf(peSetting)).error()
+
+        assertTrue(error is ApiError.Http && error.status == 400 && error.problem != null)
+    }
 
     @Test
     fun `getOrCreateProfile posts the name as JSON and returns an existing profile`() = runTest {
@@ -206,16 +314,24 @@ class OkHttpApiClientTest {
                     status = DataStatus.FRESH,
                     quote = Quote(229.1, "USD", Instant.parse("2026-11-15T10:05:00Z"), 228.52, Trend.UP, SourceId.FINNHUB),
                     indicators = listOf(Indicator("PE", "P/E", IndicatorLevel.WARNING)),
+                    indicatorsStatus = DataStatus.CACHED,
                 ),
                 MarketData(
                     symbol = Symbol("SAP.DE"),
                     status = DataStatus.LIMIT_REACHED,
                     quote = Quote(241.35, "EUR", Instant.parse("2026-11-12T09:15:00Z"), null, Trend.DOWN, null),
                     indicators = emptyList(),
+                    indicatorsStatus = DataStatus.SOURCE_ERROR,
                 ),
-                MarketData(Symbol("7203.T"), DataStatus.NO_DATA, null, emptyList()),
-                MarketData(Symbol("NESN.SW"), DataStatus.SOURCE_ERROR, null, emptyList()),
-                MarketData(Symbol("SHEL.L"), DataStatus.NOT_SUPPORTED, null, listOf(Indicator("ROE", "ROE", IndicatorLevel.UNKNOWN))),
+                MarketData(Symbol("7203.T"), DataStatus.NO_DATA, null, emptyList(), DataStatus.NO_DATA),
+                MarketData(Symbol("NESN.SW"), DataStatus.SOURCE_ERROR, null, emptyList(), DataStatus.UNKNOWN),
+                MarketData(
+                    Symbol("SHEL.L"),
+                    DataStatus.NOT_SUPPORTED,
+                    null,
+                    listOf(Indicator("ROE", "ROE", IndicatorLevel.UNKNOWN)),
+                    DataStatus.UNKNOWN,
+                ),
             ),
             items,
         )
@@ -227,7 +343,7 @@ class OkHttpApiClientTest {
 
         val items = client.getWatchlistMarketData(profileId, listOf(Symbol("AAPL"))).value()
 
-        assertEquals(listOf(MarketData(Symbol("AAPL"), DataStatus.UNKNOWN, null, emptyList())), items)
+        assertEquals(listOf(MarketData(Symbol("AAPL"), DataStatus.UNKNOWN, null, emptyList(), DataStatus.UNKNOWN)), items)
     }
 
     @Test
@@ -445,12 +561,18 @@ class OkHttpApiClientTest {
         assertEquals(Trend.UP, data.quote?.trend)
         assertEquals(
             listOf(
-                Ratio("PE", "P/E", 34.71),
-                Ratio("PB", "P/B", 52.3),
-                Ratio("DIVIDEND_YIELD", "Dividend yield", null),
-                Ratio("BETA", "Beta", null),
+                Ratio("PE", "P/E", RatioUnit.RATIO, 34.71),
+                Ratio("PB", "P/B", RatioUnit.RATIO, 52.3),
+                Ratio("DIVIDEND_YIELD", "Dividend yield", RatioUnit.PERCENT, null),
+                Ratio("EPS", "EPS", RatioUnit.CURRENCY, 6.42),
+                Ratio("BETA", "Beta", RatioUnit.UNKNOWN, null),
+                Ratio("FUTURE_RATIO", "Future ratio", RatioUnit.UNKNOWN, 1.5),
             ),
             data.ratios,
+        )
+        assertEquals(
+            listOf(Indicator("PE", "P/E", IndicatorLevel.BAD), Indicator("PB", "P/B", IndicatorLevel.UNKNOWN)),
+            data.indicators,
         )
     }
 
@@ -463,6 +585,7 @@ class OkHttpApiClientTest {
         assertEquals(SourceDataMeta(SourceId.FINNHUB, DataStatus.LIMIT_REACHED, null), data.meta)
         assertNull(data.quote)
         assertTrue(data.ratios.isEmpty())
+        assertTrue(data.indicators.isEmpty())
     }
 
     @Test

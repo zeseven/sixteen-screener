@@ -18,7 +18,10 @@ fun SixteenTheme(
     content: @Composable () -> Unit,
 ) {
     val colorScheme = colorSchemeFor(darkTheme, dynamicColor && supportsDynamicColor())
-    CompositionLocalProvider(LocalPriceColors provides priceColors(darkTheme, colorScheme.onSurface)) {
+    CompositionLocalProvider(
+        LocalPriceColors provides priceColors(darkTheme, colorScheme.onSurface),
+        LocalIndicatorColors provides indicatorColors(darkTheme),
+    ) {
         MaterialTheme(colorScheme = colorScheme, content = content)
     }
 }
@@ -28,6 +31,11 @@ object SixteenTheme {
         @Composable
         @ReadOnlyComposable
         get() = LocalPriceColors.current
+
+    val indicatorColors: IndicatorColors
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalIndicatorColors.current
 }
 
 internal fun supportsDynamicColor() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S

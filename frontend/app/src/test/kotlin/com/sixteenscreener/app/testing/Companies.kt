@@ -81,5 +81,6 @@ object Companies {
         status: DataStatus = DataStatus.FRESH,
         quote: Quote? = quote(),
         indicators: List<Indicator> = emptyList(),
-    ) = MarketData(Symbol(symbol), status, quote, indicators)
+        indicatorsStatus: DataStatus = status,
+    ) = MarketData(Symbol(symbol), status, quote, indicators, indicatorsStatus)
 }

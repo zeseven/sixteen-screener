@@ -26,6 +26,7 @@ import com.sixteenscreener.app.domain.model.DataStatus
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.Quote
 import com.sixteenscreener.app.domain.model.Ratio
+import com.sixteenscreener.app.domain.model.RatioUnit
 import com.sixteenscreener.app.domain.model.SourceDataMeta
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Trend
@@ -112,7 +113,7 @@ private fun PriceAndRatiosTabPreview() {
             PriceAndRatios(
                 meta = SourceDataMeta(SourceId.FINNHUB, DataStatus.CACHED, Instant.now()),
                 quote = Quote(189.84, "USD", Instant.now(), 187.5, Trend.UP, SourceId.FINNHUB),
-                ratios = listOf(Ratio("PE", "P/E", 31.2), Ratio("PB", "P/B", null)),
+                ratios = listOf(Ratio("PE", "P/E", RatioUnit.RATIO, 31.2), Ratio("ROE", "Return on equity", RatioUnit.PERCENT, null)),
             ),
         )
     }

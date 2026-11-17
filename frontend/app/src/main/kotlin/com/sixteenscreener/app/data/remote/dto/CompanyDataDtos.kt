@@ -27,6 +27,7 @@ data class SourceDataMetaDto(
 data class RatioDto(
     val code: String,
     val name: String,
+    val unit: String? = null,
     val value: Double? = null,
 )
 
@@ -35,6 +36,7 @@ data class PriceAndRatiosResponseDto(
     val meta: SourceDataMetaDto,
     val quote: QuoteDto? = null,
     val ratios: List<RatioDto>,
+    val indicators: List<IndicatorDto> = emptyList(),
 )
 
 @Serializable
@@ -95,7 +97,8 @@ fun SourceDataMetaDto.toDomain() = SourceDataMeta(
 fun PriceAndRatiosResponseDto.toDomain() = PriceAndRatios(
     meta = meta.toDomain(),
     quote = quote?.toDomain(),
-    ratios = ratios.map { Ratio(code = it.code, name = it.name, value = it.value) },
+    ratios = ratios.map { Ratio(code = it.code, name = it.name, unit = it.unit.toRatioUnit(), value = it.value) },
+    indicators = indicators.map { it.toDomain() },
 )
 
 fun BalanceSheetResponseDto.toDomain() = BalanceSheet(

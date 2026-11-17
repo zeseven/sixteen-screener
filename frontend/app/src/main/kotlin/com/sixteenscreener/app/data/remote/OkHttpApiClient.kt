@@ -4,6 +4,7 @@ import com.sixteenscreener.app.data.remote.auth.AuthenticationException
 import com.sixteenscreener.app.data.remote.dto.BalanceSheetResponseDto
 import com.sixteenscreener.app.data.remote.dto.CompanyProfileResponseDto
 import com.sixteenscreener.app.data.remote.dto.ExchangesDto
+import com.sixteenscreener.app.data.remote.dto.IndicatorSettingsDto
 import com.sixteenscreener.app.data.remote.dto.PriceAndRatiosResponseDto
 import com.sixteenscreener.app.data.remote.dto.ProblemDto
 import com.sixteenscreener.app.data.remote.dto.ProfileCreateDto
@@ -15,6 +16,7 @@ import com.sixteenscreener.app.data.remote.dto.WatchlistDto
 import com.sixteenscreener.app.data.remote.dto.WatchlistItemDto
 import com.sixteenscreener.app.data.remote.dto.WatchlistMarketDataDto
 import com.sixteenscreener.app.data.remote.dto.toDomain
+import com.sixteenscreener.app.data.remote.dto.toUpdateDto
 import com.sixteenscreener.app.di.AuthenticatedHttpClient
 import com.sixteenscreener.app.di.BackendUrl
 import com.sixteenscreener.app.di.IoDispatcher
@@ -23,6 +25,7 @@ import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfileData
 import com.sixteenscreener.app.domain.model.Exchange
+import com.sixteenscreener.app.domain.model.IndicatorSetting
 import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.ProblemDetails
@@ -129,6 +132,19 @@ class OkHttpApiClient @Inject constructor(
 
     override suspend fun getSources(profileId: ProfileId): ApiResult<List<Source>> =
         get(profileUrl(profileId, "sources")) { json.decodeFromString<SourcesDto>(it).toDomain() }
+
+    override suspend fun getIndicatorSettings(profileId: ProfileId): ApiResult<List<IndicatorSetting>> =
+        get(profileUrl(profileId, "indicator-settings")) { json.decodeFromString<IndicatorSettingsDto>(it).toDomain() }
+
+    override suspend fun replaceIndicatorSettings(
+        profileId: ProfileId,
+        settings: List<IndicatorSetting>,
+    ): ApiResult<List<IndicatorSetting>> {
+        val body = json.encodeToString(settings.toUpdateDto()).toRequestBody(JSON_MEDIA_TYPE)
+        return send(Request.Builder().url(profileUrl(profileId, "indicator-settings")).put(body).build()) {
+            json.decodeFromString<IndicatorSettingsDto>(it).toDomain()
+        }
+    }
 
     override suspend fun getExchanges(): ApiResult<List<Exchange>> =
         get(url("exchanges")) { json.decodeFromString<ExchangesDto>(it).toDomain() }

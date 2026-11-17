@@ -70,6 +70,7 @@ data class IndicatorDto(
 data class MarketDataDto(
     val symbol: String,
     val status: String,
+    val indicatorsStatus: String? = null,
     val quote: QuoteDto? = null,
     val indicators: List<IndicatorDto> = emptyList(),
 )
@@ -133,6 +134,7 @@ fun MarketDataDto.toDomain() = MarketData(
     status = status.toEnumOr(DataStatus.UNKNOWN),
     quote = quote?.toDomain(),
     indicators = indicators.map { it.toDomain() },
+    indicatorsStatus = indicatorsStatus?.toEnumOr(DataStatus.UNKNOWN) ?: DataStatus.UNKNOWN,
 )
 
 fun WatchlistMarketDataDto.toDomain(): List<MarketData> = items.map { it.toDomain() }
