@@ -145,7 +145,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Settings per ratio: on/off, three thresholds, a level per interval (green, yellow, neutral, red) and a level for values below 0; fixed scale maximum and step per ratio
 - [x] Indicators calculated on the backend and returned in display order with watchlist market data and on the price and ratios tab
 - [x] Watchlist ratios refreshed when older than 1 day; separate status for indicators (orange only when the ratios failed to load)
-- [x] Company row: up to 3 indicators (short names) under each other to the right of the price, `...` after the third when there are more; no calculation in the app
+- [x] Company row: up to 3 indicators (short names) under each other to the right of the price, `…` after the third when there are more; no calculation in the app
 - [x] Detailed screen: ratios colored by their indicator level; `, %` appended to names of percent ratios
 - [x] Indicator settings page opened from the settings screen: ratios grouped by category, a checkbox and an interval bar per ratio (draggable thresholds, tap to change an interval color, long press for an exact value)
 

@@ -21,6 +21,7 @@ Tests: JUnit4.
 UI language: English only. All user-visible texts are kept in string resources to allow translations later.
 Backend URL: passed to the build only via the `SIXTEEN_BACKEND_URL` environment variable; never saved in a repo file or committed. The build fails with a clear message if it is not set.
 Watchlist filter selections are kept in memory while the app is running and are not stored on the device.
+Data stored on the device (the active profile and the cached watchlist) is excluded from cloud backup and device-to-device transfer.
 The watchlist entries of each profile are stored on the device and shown on start while a fresh watchlist is loaded from the backend; prices and indicators are not stored. Adds and removes made while a load is in flight are kept and replayed on the loaded watchlist, which is loaded again afterwards to match the backend (ADR-076).
 README contains cli command for building a debug-signed apk file (`assembleDebug`) which should be uploaded via USB, including how to set the backend URL environment variable.
 
@@ -109,7 +110,7 @@ Default settings are kept in Firestore in the `config/indicatorDefaults` documen
 Profile settings are stored in the profile document. When the settings of a profile are read (by the settings endpoint or to calculate indicators) and the profile has none, the defaults are copied into the profile in a transaction; ratios present in the defaults but missing in the profile are added the same way. After the copy, the profile's settings are used and later changes of the defaults don't affect them.
 
 ### Display order
-The backend returns the indicators of a company in display order: one of each level in the order `GOOD`, `WARNING`, `BAD` (the first in settings order within a level), the free places of the first three filled from the biggest level group (on a tie, from the group whose next indicator comes first in settings order), the three sorted by level in the same order, and then the remaining indicators by level and settings order. The company row shows the first three under each other to the right of the price and `...` after the third when there are more. The detailed screen colors each ratio with the level of its indicator.
+The backend returns the indicators of a company in display order: one of each level in the order `GOOD`, `WARNING`, `BAD` (the first in settings order within a level), the free places of the first three filled from the biggest level group (on a tie, from the group whose next indicator comes first in settings order), the three sorted by level in the same order, and then the remaining indicators by level and settings order. The company row shows the first three under each other to the right of the price and `…` after the third when there are more. The detailed screen colors each ratio with the level of its indicator.
 
 ### Freshness
 The watchlist market data endpoint reads cached ratios together with quotes and refreshes ratios older than 1 day (quotes keep the 1 hour freshness). Quote and ratio requests share the per-source budget reservation; quotes are served first. The status of the ratios is returned separately from the quote status, and the app draws the indicators in orange only when the ratios failed to load.
