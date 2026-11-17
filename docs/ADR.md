@@ -720,3 +720,58 @@ External sources are distributed as follows:
 **Decision:** The static exchange table is extended with full exchange names and stays the single hardcoded table. `GET /exchanges` (not per profile) returns one row per known symbol suffix (suffixes sharing an exchange give separate rows) and one row per US exchange MIC with an empty suffix: suffix, short name, full name, MIC, currency, time zone, market. MICs that are neither US nor the target of a suffix are not listed. The app requests the table the first time the screen is opened, keeps it in memory only (not persisted, lost on app shutdown) and filters it in memory by a case-insensitive substring match in any field except the market flag.
 
 **Consequences:** No source requests and no storage are involved. Changing the table requires a backend release until it is moved to a file or the database (RC).
+
+## ADR-071: Indicator intervals as three thresholds
+
+**Date:** 2026-11-17
+**Status:** Accepted
+
+**Context:** The spec described indicator intervals as lists of ranges per level (bad, warning, good), which may overlap or leave gaps and are hard to edit on a phone. Some ratios are not monotonic: a P/E is bad below 0 and above 40, good between 0 and 15.
+
+**Decision:** A ratio setting has three thresholds `t1 <= t2 <= t3` splitting `[0, +inf)` into four intervals, a level (`GOOD`, `WARNING`, `NEUTRAL`, `BAD`) per interval, a separate level for values below 0 and an on/off switch. Lower bounds are inclusive. Each ratio has a fixed scale maximum and step (not editable in the app); values above the scale maximum take the level of the last interval. The settings page draws each ratio as a bar from 0 to the scale maximum with a below-zero zone at the left edge: thresholds are dragged (snapping to the step, exact values typed after a long press) and a tap on an interval cycles its color. The `Range` schema is removed from the spec.
+
+**Consequences:** Intervals never overlap and have no gaps. Levels may repeat, and equal thresholds remove an interval, so fewer than four intervals can be configured. Values below 0 are red by default but can be recolored per ratio (growth, beta).
+
+## ADR-072: Default indicator settings copied into the profile on first access
+
+**Date:** 2026-11-17
+**Status:** Accepted
+
+**Context:** Profiles created before indicators exist have no indicator settings. The defaults should be tunable without a backend release.
+
+**Decision:** Defaults live in the Firestore document `config/indicatorDefaults`, created by the backend from values in code when missing and never overwritten. Reading the settings of a profile without settings (from the settings endpoint or to calculate indicators) copies the defaults into the profile document in a transaction. Ratios that are in the defaults but missing in the profile are added on read in the same way; existing ratio settings of a profile are never changed. Defaults: all 31 indicator ratios have values, and only P/E, ROA and ROE are switched on.
+
+**Consequences:** Existing profiles get indicators without a migration. Later changes of the defaults reach only profiles created or reset (RC) afterwards; newly added ratios reach all profiles. A `GET` can write to Firestore once per profile.
+
+## ADR-073: Order of displayed indicators
+
+**Date:** 2026-11-17
+**Status:** Accepted
+
+**Context:** The company row has room for three indicators. The most useful three are a mix of strong and weak points.
+
+**Decision:** The backend returns indicators in display order: one per level in the order green, yellow, red (the first in settings order within a level); free places go to the biggest group, on a tie to the group whose next indicator comes first in settings order; the chosen three are grouped by level in the same order, followed by the remaining indicators. The app shows the first three under each other to the right of the price and `...` after the third when there are more. Settings order is the order of the defaults, as settings can't be reordered yet.
+
+**Consequences:** The app does no selection logic, and the detailed screen uses the same list for coloring its ratios.
+
+## ADR-074: Curated Finnhub ratios and calculated P/E
+
+**Date:** 2026-11-17
+**Status:** Accepted
+
+**Context:** Finnhub `/stock/metric` returns about 130 keys, many of them absolute values (52-week high, market cap) or the same ratio for several periods. Recorded responses (AAPL, JPM, RIVN, MCD, BRK.B) show that Finnhub omits P/E, EPS growth, P/CF and P/FCF for companies with losses instead of returning negative values, that banks have no current ratio, turnover or gross margin values, and that `BRK.B` is answered with `BRK.A` data.
+
+**Decision:** The backend maps 33 ratios: 31 that can be indicators (valuation, profitability, margins, growth, liquidity, leverage, efficiency, dividends, risk) and 2 per share values (EPS, book value per share) shown on the detailed screen only. Each ratio takes the first present value among its keys, TTM or quarterly first, then annual. Units stay as Finnhub returns them (percents for returns, margins, growth, yield and payout). Per share values are dropped when the response symbol differs from the requested one. When Finnhub returns no P/E and the EPS is negative, the P/E used for indicators is price / EPS from the quote of the same source; the detailed screen shows the source value (calculated values on the detailed screen are a future improvement).
+
+**Consequences:** Companies with losses get a red P/E indicator. Missing ratios show `-` and make no indicator.
+
+## ADR-075: Ratios refreshed daily for watchlist indicators
+
+**Date:** 2026-11-17
+**Status:** Accepted
+
+**Context:** Indicators of watchlist rows need ratios, an extra Finnhub call per company. Ratios change slowly; the 1-hour freshness of quotes would double the number of calls.
+
+**Decision:** `GET /watchlist/market-data` also returns indicators, from cached ratios refreshed when older than 1 day, within the same per-source budget reservation as the quotes (quotes first). Each item has a separate `indicatorsStatus`; the app draws indicators in orange only when the ratios failed to load (network or backend error, `LIMIT_REACHED`, `SOURCE_ERROR`), independently of the price.
+
+**Consequences:** Watchlist indicators may be up to 1 day old. The detailed screen keeps its rules (cached data on open, manual refresh).

@@ -440,7 +440,10 @@ paths:
       tags: [Indicators]
       operationId: getIndicatorSettings
       summary: Get indicator settings
-      description: Returns the profile's indicator settings, or the defaults if the profile has none.
+      description: |
+        Returns the profile's indicator settings, one per indicator ratio, in settings order (the order of the defaults).
+        A profile without settings gets a copy of the defaults stored first; ratios present in the defaults but missing
+        in the profile are added from the defaults the same way (ADR-072).
       x-milestone: beta
       responses:
         '200':
@@ -457,14 +460,18 @@ paths:
       tags: [Indicators]
       operationId: replaceIndicatorSettings
       summary: Replace indicator settings
-      description: Replaces all indicator settings of the profile.
+      description: |
+        Replaces the indicator settings of the profile. Ratios missing in the request keep their stored settings
+        (or get the defaults). Rejected with `400` when a ratio code is unknown or not an indicator ratio, a code is
+        repeated, thresholds are not ordered (`t1 <= t2 <= t3`), a threshold is outside `[0, scaleMax]`, or there are
+        not exactly 3 thresholds and 4 levels.
       x-milestone: beta
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/IndicatorSettings'
+              $ref: '#/components/schemas/IndicatorSettingsUpdate'
       responses:
         '200':
           description: Stored indicator settings
@@ -798,16 +805,23 @@ components:
     MarketData:
       type: object
       description: Quote and indicators of one watchlist row.
-      required: [symbol, status, quote, indicators]
+      required: [symbol, status, indicatorsStatus, quote, indicators]
       properties:
         symbol:
           $ref: '#/components/schemas/Symbol'
         status:
           type: string
           description: |
-            Status of the quote, as in `SourceDataMeta.status`. The app draws the price and indicators in orange for
+            Status of the quote, as in `SourceDataMeta.status`. The app draws the price in orange for
             LIMIT_REACHED and SOURCE_ERROR, and in the neutral color when there is no quote for NOT_SUPPORTED and NO_DATA.
           enum: [FRESH, CACHED, LIMIT_REACHED, SOURCE_ERROR, NOT_SUPPORTED, NO_DATA]
+        indicatorsStatus:
+          type: string
+          description: |
+            Status of the ratios the indicators are calculated from, as in `SourceDataMeta.status`. Ratios are refreshed
+            when older than 1 day. The app draws the indicators in orange for LIMIT_REACHED and SOURCE_ERROR.
+          enum: [FRESH, CACHED, LIMIT_REACHED, SOURCE_ERROR, NOT_SUPPORTED, NO_DATA]
+          x-milestone: beta
         quote:
           allOf:
             - $ref: '#/components/schemas/Quote'
@@ -815,7 +829,7 @@ components:
           description: Null when no quote is available.
         indicators:
           type: array
-          description: Empty until indicators are implemented.
+          description: Indicators in display order (ADR-073). The row shows the first 3 and `...` when there are more.
           items:
             $ref: '#/components/schemas/Indicator'
           x-milestone: beta
@@ -878,28 +892,62 @@ components:
         source:
           $ref: '#/components/schemas/SourceId'
 
+    RatioCode:
+      type: string
+      description: |
+        Ratio code shared across sources. All codes except `EPS` and `BOOK_VALUE_PER_SHARE` (per share amounts) can be
+        indicators. Listed in display and settings order.
+      enum: [PE, PB, PS, EV_EBITDA, EV_REVENUE, PCF, PFCF, PEG,
+             ROE, ROA, ROI,
+             GROSS_MARGIN, OPERATING_MARGIN, PRETAX_MARGIN, NET_MARGIN,
+             REVENUE_GROWTH, REVENUE_GROWTH_5Y, EPS_GROWTH, EPS_GROWTH_5Y, DIVIDEND_GROWTH_5Y,
+             CURRENT_RATIO, QUICK_RATIO,
+             DEBT_TO_EQUITY, LT_DEBT_TO_EQUITY, INTEREST_COVERAGE,
+             ASSET_TURNOVER, INVENTORY_TURNOVER, RECEIVABLES_TURNOVER,
+             DIVIDEND_YIELD, PAYOUT_RATIO,
+             BETA,
+             EPS, BOOK_VALUE_PER_SHARE]
+      example: PE
+
+    RatioUnit:
+      type: string
+      description: PERCENT values are percents (`15` is 15%); the app appends `, %` to the full name. CURRENCY values are amounts per share.
+      enum: [PERCENT, RATIO, CURRENCY]
+
+    RatioCategory:
+      type: string
+      enum: [VALUATION, PROFITABILITY, MARGINS, GROWTH, LIQUIDITY, LEVERAGE, EFFICIENCY, DIVIDENDS, RISK, PER_SHARE]
+
     Ratio:
       type: object
-      required: [code, name, value]
+      required: [code, name, unit, value]
       properties:
         code:
           type: string
-          description: |
-            Ratio code shared across sources, e.g. `PE`, `PB`, `PS`, `EV_EBITDA`, `ROE`, `ROA`, `NET_MARGIN`,
-            `DEBT_TO_EQUITY`, `CURRENT_RATIO`, `DIVIDEND_YIELD`, `EPS`, `BETA`.
+          description: A `RatioCode`; unknown codes are ignored by the app.
           example: PE
         name:
           type: string
-          description: Display name.
+          description: Full display name, without the `, %` suffix.
           example: P/E
+        unit:
+          $ref: '#/components/schemas/RatioUnit'
         value:
           type: number
           format: double
           nullable: true
+          description: Value returned by the source; null when the source doesn't provide it.
+
+    IndicatorLevel:
+      type: string
+      description: NEUTRAL values make no indicator.
+      enum: [GOOD, WARNING, NEUTRAL, BAD]
 
     Indicator:
       type: object
-      description: A ratio whose value falls into a displayed interval. Ratios in the "ok" interval are not returned.
+      description: |
+        A switched on ratio whose value falls into a GOOD, WARNING or BAD interval. Neutral, missing and switched off
+        ratios are not returned.
       required: [ratioCode, name, level]
       properties:
         ratioCode:
@@ -907,6 +955,7 @@ components:
           example: PE
         name:
           type: string
+          description: Short name (at most 6 characters) shown on the company row.
           example: P/E
         level:
           type: string
@@ -952,6 +1001,10 @@ components:
             $ref: '#/components/schemas/Ratio'
         indicators:
           type: array
+          description: |
+            Indicators of the profile's settings in display order (ADR-073). The app colors each ratio with the level of
+            its indicator. A P/E calculated as price / EPS (when the source has no P/E and the EPS is negative) can make
+            an indicator while the ratio value stays null (ADR-074).
           items:
             $ref: '#/components/schemas/Indicator'
           x-milestone: beta
@@ -1139,43 +1192,63 @@ components:
             minLength: 1
             maxLength: 30
 
-    Range:
-      type: object
-      description: Value range; `min` is inclusive, `max` is exclusive. A missing bound means unbounded.
-      properties:
-        min:
-          type: number
-          format: double
-          nullable: true
-        max:
-          type: number
-          format: double
-          nullable: true
-
-    IndicatorSetting:
+    IndicatorSettingValues:
       type: object
       description: |
-        Intervals of a ratio. A value falling into none of the bad, warning or good ranges is in the "ok" interval and is not displayed.
-        Ranges of different levels must not overlap.
-      required: [ratioCode, enabled, bad, warning, good]
+        Configurable part of a ratio's indicator setting. `thresholds` (t1 <= t2 <= t3, inclusive lower bounds) split
+        `[0, +inf)` into the intervals `[0, t1)`, `[t1, t2)`, `[t2, t3)`, `[t3, +inf)`; `levels` gives the level of each
+        interval in that order and `belowZeroLevel` the level of values below 0. Equal thresholds make an empty interval.
+      required: [ratioCode, enabled, thresholds, levels, belowZeroLevel]
       properties:
         ratioCode:
-          type: string
-          example: PE
+          $ref: '#/components/schemas/RatioCode'
         enabled:
           type: boolean
-        bad:
+        thresholds:
           type: array
+          minItems: 3
+          maxItems: 3
           items:
-            $ref: '#/components/schemas/Range'
-        warning:
+            type: number
+            format: double
+          example: [15, 25, 40]
+        levels:
           type: array
+          minItems: 4
+          maxItems: 4
           items:
-            $ref: '#/components/schemas/Range'
-        good:
-          type: array
-          items:
-            $ref: '#/components/schemas/Range'
+            $ref: '#/components/schemas/IndicatorLevel'
+          example: [GOOD, NEUTRAL, WARNING, BAD]
+        belowZeroLevel:
+          $ref: '#/components/schemas/IndicatorLevel'
+
+    IndicatorSetting:
+      description: Indicator setting of a ratio with the ratio's fixed metadata (from the defaults, not editable).
+      allOf:
+        - $ref: '#/components/schemas/IndicatorSettingValues'
+        - type: object
+          required: [name, shortName, unit, category, scaleMax, step]
+          properties:
+            name:
+              type: string
+              example: P/E
+            shortName:
+              type: string
+              example: P/E
+            unit:
+              $ref: '#/components/schemas/RatioUnit'
+            category:
+              $ref: '#/components/schemas/RatioCategory'
+            scaleMax:
+              type: number
+              format: double
+              description: Right end of the settings bar; values above it belong to the last interval.
+              example: 60
+            step:
+              type: number
+              format: double
+              description: Step the thresholds snap to when dragged.
+              example: 1
 
     IndicatorSettings:
       type: object
@@ -1185,6 +1258,15 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/IndicatorSetting'
+
+    IndicatorSettingsUpdate:
+      type: object
+      required: [settings]
+      properties:
+        settings:
+          type: array
+          items:
+            $ref: '#/components/schemas/IndicatorSettingValues'
 
     RequestLimit:
       type: object

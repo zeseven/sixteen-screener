@@ -137,12 +137,16 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Text filter above the table: case-insensitive match in any field except the flag, done in memory without backend calls
 
 ### Indicators
-- [ ] Indicator settings stored in Firestore per profile
-- [ ] Indicators calculated on the backend and returned with company data
-- [ ] Ratio indicators rendered on the company row (ratio names colored by interval); no calculation in the app
-- [ ] Intervals per ratio: bad (red), warning (yellow), ok (not displayed), good (green)
-- [ ] Indicator settings page: configure intervals per ratio and switch each indicator on/off
-- [ ] Default indicator configuration for common ratios (P/E, P/B, ROE, debt/equity, dividend yield, etc.)
+- [ ] Curated set of 33 Finnhub ratios (31 usable as indicators, EPS and book value per share on the detailed screen only), TTM or quarterly values with annual fallback
+- [ ] P/E calculated as price / EPS for indicators when Finnhub returns no P/E and the EPS is negative
+- [ ] Default indicator settings for all 31 ratios in Firestore (`config/indicatorDefaults`), created from code when missing; only P/E, ROA and ROE switched on
+- [ ] Indicator settings stored per profile, copied from the defaults on first access; ratios missing in the profile added from the defaults on read
+- [ ] Settings per ratio: on/off, three thresholds, a level per interval (green, yellow, neutral, red) and a level for values below 0; fixed scale maximum and step per ratio
+- [ ] Indicators calculated on the backend and returned in display order with watchlist market data and on the price and ratios tab
+- [ ] Watchlist ratios refreshed when older than 1 day; separate status for indicators (orange only when the ratios failed to load)
+- [ ] Company row: up to 3 indicators (short names) under each other to the right of the price, `...` after the third when there are more; no calculation in the app
+- [ ] Detailed screen: ratios colored by their indicator level; `, %` appended to names of percent ratios
+- [ ] Indicator settings page opened from the settings screen: ratios grouped by category, a checkbox and an interval bar per ratio (draggable thresholds, tap to change an interval color, long press for an exact value)
 
 ### Profiles
 - [ ] Per-profile user tags stored in Firestore
@@ -176,3 +180,4 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 ## Future improvements
 - [ ] EU "source of truth" for balance sheets (expected from the EU in 2027-2029)
 - [ ] Side-by-side comparison of several sources on the detailed screen (based on the alpha UX investigation)
+- [ ] Detailed screen: show calculated ratio values (e.g. P/E calculated from price and EPS), marked as calculated

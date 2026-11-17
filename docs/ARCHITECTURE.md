@@ -93,8 +93,25 @@ Cache-Control: 30 days for a real logo, 1 day for the default logo when the sour
 The frontend renders logos with Coil (coil-svg for SVG) and respects the backend's Cache-Control (coil-network-cache-control). SVG logos are fitted into the logo slot; PNG logos larger than the slot are scaled down, smaller ones are drawn centered at their size in device pixels. If a logo can't be decoded, the frontend shows the default logo.
 
 ## Indicators
-Indicator settings (intervals per ratio and on/off switch) are stored in Firestore per profile.
 Indicators are calculated on the backend and returned together with company data; the frontend only renders them.
+
+### Ratios
+The backend maps a curated set of Finnhub `/stock/metric` keys to shared ratio codes. Each ratio has a code, a full name, a short name (at most 6 characters, used on the company row), a unit (`PERCENT`, `RATIO`, `CURRENCY`) and a category (valuation, profitability, margins, growth, liquidity, leverage, efficiency, dividends, risk, per share). Values keep Finnhub's units: percent ratios are percents (`15` is 15%). A ratio takes the first value present among its keys (TTM or quarterly first, then annual). The app appends `, %` to the full names of percent ratios.
+Ratios of the per share category (EPS, book value per share) are amounts in currency: they are shown on the detailed screen only and can't be indicators. When the symbol of a Finnhub response differs from the requested one (`BRK.B` is answered with `BRK.A` data), per share values are dropped.
+When Finnhub returns no P/E and the EPS is negative, the P/E used for indicators is calculated as price / EPS from the quote of the same source; the detailed screen still shows the value returned by the source.
+
+### Indicator settings
+A setting of one ratio has an on/off switch, three thresholds `t1 <= t2 <= t3` and a level for each of the four intervals `[0, t1)`, `[t1, t2)`, `[t2, t3)`, `[t3, +inf)`, plus a level for values below 0. A level is `GOOD`, `WARNING`, `NEUTRAL` or `BAD`; a `NEUTRAL` value, a missing value and a switched off ratio make no indicator. Equal thresholds make an empty interval.
+Each ratio also has a fixed scale maximum and step, used by the settings page to draw and move the thresholds; values above the scale maximum belong to the last interval like any value above `t3`.
+
+Default settings are kept in Firestore in the `config/indicatorDefaults` document. The backend creates it from the values in code when it is missing and never overwrites it, so the defaults can be tuned in the database. The scale maximum and step of each ratio come from this document only.
+Profile settings are stored in the profile document. When the settings of a profile are read (by the settings endpoint or to calculate indicators) and the profile has none, the defaults are copied into the profile in a transaction; ratios present in the defaults but missing in the profile are added the same way. After the copy, the profile's settings are used and later changes of the defaults don't affect them.
+
+### Display order
+The backend returns the indicators of a company in display order: one of each level in the order `GOOD`, `WARNING`, `BAD` (the first in settings order within a level), the free places of the first three filled from the biggest level group (on a tie, from the group whose next indicator comes first in settings order), the three sorted by level in the same order, and then the remaining indicators by level and settings order. The company row shows the first three under each other to the right of the price and `...` after the third when there are more. The detailed screen colors each ratio with the level of its indicator.
+
+### Freshness
+The watchlist market data endpoint reads cached ratios together with quotes and refreshes ratios older than 1 day (quotes keep the 1 hour freshness). Quote and ratio requests share the per-source budget reservation; quotes are served first. The status of the ratios is returned separately from the quote status, and the app draws the indicators in orange only when the ratios failed to load.
 
 ## Markets
 Market is detected by exchange. US exchanges map to the USA market.

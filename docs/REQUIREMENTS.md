@@ -68,7 +68,7 @@ Under the stock price lays caching indicator - an Unicode character displaying '
 For today's data clock number is 1; for yesterday's data it's 2, and so on. If data is fresh (or cached less than 1 hour ago),
 indicator is not displayed.
 Cache indicator displayed in smaller font and pale color, same as an exchange name.
-On the watchlist screen, stock price and indicators are loaded lazily for the displayed rows (see Data freshness). Until a row's data arrives, the price and indicators show the last values the app has, or '-' in the default text color if it has none. A source that has no price for the company (or doesn't provide prices) shows '-' in the default text color as well. Indicators follow the same rules as the stock price: orange after a failed load, '-' when absent.
+On the watchlist screen, stock price and indicators are loaded lazily for the displayed rows (see Data freshness). Until a row's data arrives, the price and indicators show the last values the app has, or '-' in the default text color if it has none. A source that has no price for the company (or doesn't provide prices) shows '-' in the default text color as well. Indicators follow the same rules as the stock price, but are orange only when the load of the ratios they come from failed.
 
 ### Indicators
 Indicators are special markers showing company's weakest and strongest points. Literally it's ratio names (P/E, ROE etc) displayed in different colors if they sit in a configured intervals:
@@ -77,6 +77,9 @@ Indicators are special markers showing company's weakest and strongest points. L
 - average/expected value: don't display indicator,
 - better than average: green.
 Each ratio can be configured with those 4 intervals (bad, warning, ok, good) and can be switched on and off (as an indicator) on the indicator settings page.
+Indicators sit to the right of the stock price, one under another. At most 3 are shown, followed by '...' when there are more.
+The 3 shown are one of each color in the order green, yellow, red; the first in settings order is taken within a color. Places of missing colors go to the biggest color group (on a tie, to the group whose next indicator comes first in settings order).
+On the detailed screen, ratios that make an indicator are shown in the indicator's color.
 
 ## Users and profiles
 This app has a limited amount of users (friends and family). It is not designed for commercial use nor for a high load.
