@@ -77,7 +77,7 @@ fun CompanyRow(
         val nameMaxWidth = maxWidth / 2
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             CompanyLogo(
                 logoUrl = company.logoUrl,
@@ -170,7 +170,6 @@ private fun CompanyRowPreview() {
                         ),
                     )
                 },
-                action = { CompanyDetailsButton(companyName = "Apple Inc.", onClick = {}) },
             )
         }
     }

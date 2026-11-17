@@ -1,13 +1,25 @@
 package com.sixteenscreener.app.ui.watchlist
 
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.TouchInjectionScope
+import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sixteenscreener.app.domain.MarketFilter
 import com.sixteenscreener.app.domain.VisibleRows
@@ -88,13 +100,103 @@ class WatchlistContentTest {
     }
 
     @Test
-    fun `row opens the detail and its button removes the company`() {
+    fun `row opens the detail and has no remove button`() {
         setContent(loaded(apple))
 
         composeRule.onNodeWithText("Apple Inc.").performClick()
-        composeRule.onNodeWithContentDescription("Remove Apple Inc. from the watchlist").performClick()
 
         assertEquals(listOf(apple), opened)
+        composeRule.onNodeWithContentDescription("Remove Apple Inc. from the watchlist").assertDoesNotExist()
+        assertTrue(removed.isEmpty())
+    }
+
+    @Test
+    fun `swiping a row to the start removes the company`() {
+        setContent(loaded(apple))
+
+        swipeRow { swipeLeft() }
+
+        assertEquals(listOf(apple), removed)
+        assertTrue(opened.isEmpty())
+    }
+
+    @Test
+    fun `swiping a row to the end does not remove the company`() {
+        setContent(loaded(apple))
+
+        swipeRow { swipeRight() }
+
+        assertTrue(removed.isEmpty())
+        rowNode().assertLeftPositionInRootIsEqualTo(0.dp)
+    }
+
+    @Test
+    fun `swiped row shows the remove background`() {
+        setContent(loaded(apple))
+        composeRule.mainClock.autoAdvance = false
+
+        rowNode().performTouchInput {
+            down(centerRight)
+            moveBy(Offset(-width / 3f, 0f))
+        }
+        composeRule.mainClock.advanceTimeByFrame()
+
+        composeRule.onNodeWithTag(WatchlistScreenTags.SWIPE_BACKGROUND, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `undo after a swipe removal adds the company back`() {
+        val uiState = setStatefulContent(
+            loaded(apple),
+            onRemove = { state, company -> state.value = loaded().copy(message = WatchlistMessage.Removed(company, 0)) },
+            onUndo = { state, removal -> state.value = loaded(removal.company) },
+        )
+
+        swipeRow { swipeLeft() }
+        composeRule.onNodeWithText("Apple Inc. removed").assertExists()
+        composeRule.onNodeWithText("Undo").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(listOf(apple), removed)
+        assertEquals(listOf(WatchlistMessage.Removed(apple, 0)), undone)
+        assertEquals(listOf(apple), uiState.value.companies)
+        rowNode().assertLeftPositionInRootIsEqualTo(0.dp)
+    }
+
+    @Test
+    fun `failed removal slides the swiped row back`() {
+        val failure = WatchlistMessage.RemoveFailed(apple, ApiError.Network(isTimeout = false))
+        val uiState = setStatefulContent(loaded(apple))
+
+        swipeRow { swipeLeft() }
+        uiState.value = loaded(apple).copy(message = failure)
+        composeRule.waitForIdle()
+
+        assertEquals(listOf(apple), removed)
+        rowNode().assertLeftPositionInRootIsEqualTo(0.dp)
+        composeRule.onNodeWithText("Cannot remove AAPL: Cannot reach server. Check connection").assertExists()
+    }
+
+    @Test
+    fun `failed removal of another company keeps the swiped row removed`() {
+        val sap = item("SAP.DE", name = "SAP SE")
+        val uiState = setStatefulContent(loaded(apple))
+
+        swipeRow { swipeLeft() }
+        uiState.value = loaded(apple).copy(message = WatchlistMessage.RemoveFailed(sap, ApiError.Network(isTimeout = false)))
+        composeRule.waitForIdle()
+
+        val rowLeft = rowNode().getUnclippedBoundsInRoot().left
+        assertTrue("row left $rowLeft must stay swiped away", rowLeft < 0.dp)
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun `remove accessibility action removes the company`() {
+        setContent(loaded(apple))
+
+        rowNode().performCustomAccessibilityActionWithLabel("Remove Apple Inc. from the watchlist")
+
         assertEquals(listOf(apple), removed)
     }
 
@@ -123,7 +225,7 @@ class WatchlistContentTest {
         val message = WatchlistMessage.Removed(apple, 0)
         setContent(loaded().copy(message = message))
 
-        composeRule.onNodeWithText("AAPL removed").assertExists()
+        composeRule.onNodeWithText("Apple Inc. removed").assertExists()
         composeRule.onNodeWithText("Undo").performClick()
         composeRule.waitForIdle()
 
@@ -164,5 +266,42 @@ class WatchlistContentTest {
         composeRule.waitForIdle()
 
         assertEquals(20, visibleRows.last().first)
+    }
+
+    private fun setStatefulContent(
+        initial: WatchlistUiState,
+        onRemove: (MutableState<WatchlistUiState>, WatchlistItem) -> Unit = { _, _ -> },
+        onUndo: (MutableState<WatchlistUiState>, WatchlistMessage.Removed) -> Unit = { _, _ -> },
+    ): MutableState<WatchlistUiState> {
+        val uiState = mutableStateOf(initial)
+        composeRule.setContent {
+            SixteenTheme(dynamicColor = false) {
+                WatchlistContent(
+                    uiState = uiState.value,
+                    onRefresh = {},
+                    onMarketSelected = {},
+                    onSectorSelected = {},
+                    onRemove = {
+                        removed += it
+                        onRemove(uiState, it)
+                    },
+                    onUndo = {
+                        undone += it
+                        onUndo(uiState, it)
+                    },
+                    onMessageShown = {},
+                    onOpenDetail = { opened += it },
+                    onAddCompany = {},
+                )
+            }
+        }
+        return uiState
+    }
+
+    private fun rowNode() = composeRule.onNodeWithTag(CompanyRowTags.ROW)
+
+    private fun swipeRow(gesture: TouchInjectionScope.() -> Unit) {
+        rowNode().performTouchInput(gesture)
+        composeRule.waitForIdle()
     }
 }

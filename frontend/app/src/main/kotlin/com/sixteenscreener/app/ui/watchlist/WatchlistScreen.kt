@@ -1,5 +1,6 @@
 package com.sixteenscreener.app.ui.watchlist
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,22 +16,32 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -48,7 +59,6 @@ import com.sixteenscreener.app.domain.model.WatchlistItem
 import com.sixteenscreener.app.ui.component.CenteredMessage
 import com.sixteenscreener.app.ui.component.CompanyRow
 import com.sixteenscreener.app.ui.component.FilterDropdown
-import com.sixteenscreener.app.ui.component.RemoveFromWatchlistButton
 import com.sixteenscreener.app.ui.component.WatchlistMarketData
 import com.sixteenscreener.app.ui.component.apiErrorMessage
 import com.sixteenscreener.app.ui.theme.SixteenTheme
@@ -58,6 +68,7 @@ import kotlinx.coroutines.flow.filterNotNull
 object WatchlistScreenTags {
     const val LIST = "watchlist_list"
     const val ADD_BUTTON = "watchlist_add_button"
+    const val SWIPE_BACKGROUND = "watchlist_swipe_background"
 }
 
 /** Watchlist tab; loads the watchlist when shown and when the app returns to the foreground. */
@@ -125,8 +136,14 @@ fun WatchlistContent(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 when {
-                    uiState.companies.isNotEmpty() ->
-                        CompanyList(uiState.companies, uiState.marketData, onVisibleRowsChanged, onOpenDetail, onRemove)
+                    uiState.companies.isNotEmpty() -> CompanyList(
+                        companies = uiState.companies,
+                        marketData = uiState.marketData,
+                        failedRemoval = uiState.message as? WatchlistMessage.RemoveFailed,
+                        onVisibleRowsChanged = onVisibleRowsChanged,
+                        onOpenDetail = onOpenDetail,
+                        onRemove = onRemove,
+                    )
                     uiState.hasCompanies -> CenteredMessage(stringResource(R.string.watchlist_no_matches))
                     uiState.isLoaded -> CenteredMessage(stringResource(R.string.watchlist_empty))
                     uiState.loadError != null -> CenteredMessage(apiErrorMessage(uiState.loadError))
@@ -161,7 +178,7 @@ private fun WatchlistMessageSnackbar(
 @Composable
 private fun watchlistMessageText(message: WatchlistMessage): String = when (message) {
     is WatchlistMessage.LoadFailed -> apiErrorMessage(message.error)
-    is WatchlistMessage.Removed -> stringResource(R.string.watchlist_removed, message.company.ticker)
+    is WatchlistMessage.Removed -> stringResource(R.string.watchlist_removed, message.company.name)
     is WatchlistMessage.RemoveFailed ->
         stringResource(R.string.watchlist_remove_failed, message.company.ticker, apiErrorMessage(message.error))
     is WatchlistMessage.UndoFailed ->
@@ -212,6 +229,7 @@ private fun marketFilterLabel(market: MarketFilter): String = when (market) {
 private fun CompanyList(
     companies: List<WatchlistItem>,
     marketData: Map<Symbol, RowMarketData>,
+    failedRemoval: WatchlistMessage.RemoveFailed?,
     onVisibleRowsChanged: (VisibleRows) -> Unit,
     onOpenDetail: (WatchlistItem) -> Unit,
     onRemove: (WatchlistItem) -> Unit,
@@ -226,16 +244,78 @@ private fun CompanyList(
     }
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag(WatchlistScreenTags.LIST)) {
         items(companies, key = { it.symbol.value }) { company ->
-            val rowMarketData = marketData[company.symbol]
-            CompanyRow(
+            SwipeToRemoveCompanyRow(
                 company = company,
-                onClick = { onOpenDetail(company) },
-                marketData = { WatchlistMarketData(rowMarketData) },
-            ) {
-                RemoveFromWatchlistButton(companyName = company.name, onClick = { onRemove(company) })
-            }
+                marketData = marketData[company.symbol],
+                removalFailed = failedRemoval?.takeIf { it.company.symbol == company.symbol },
+                onOpenDetail = { onOpenDetail(company) },
+                onRemove = { onRemove(company) },
+            )
             HorizontalDivider()
         }
+    }
+}
+
+/**
+ * Watchlist row removed by swiping it to the start; screen readers get the removal as a custom action instead.
+ * The row slides back when [removalFailed] reports that its removal failed.
+ */
+@Composable
+private fun SwipeToRemoveCompanyRow(
+    company: WatchlistItem,
+    marketData: RowMarketData?,
+    removalFailed: WatchlistMessage.RemoveFailed?,
+    onOpenDetail: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    val dismissState = rememberSwipeToDismissBoxState()
+    LaunchedEffect(removalFailed) {
+        if (removalFailed != null) dismissState.reset()
+    }
+    val removeLabel = stringResource(R.string.watchlist_remove_description, company.name)
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) SwipeToRemoveBackground()
+        },
+        enableDismissFromStartToEnd = false,
+        onDismiss = { onRemove() },
+    ) {
+        CompanyRow(
+            company = company,
+            onClick = onOpenDetail,
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.background)
+                .semantics {
+                    customActions = listOf(CustomAccessibilityAction(removeLabel) { onRemove(); true })
+                },
+            marketData = { WatchlistMarketData(marketData) },
+        )
+    }
+}
+
+@Composable
+private fun SwipeToRemoveBackground() {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.errorContainer)
+            .padding(horizontal = 16.dp)
+            .testTag(WatchlistScreenTags.SWIPE_BACKGROUND)
+            .clearAndSetSemantics {},
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_delete),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onErrorContainer,
+        )
+        Text(
+            text = stringResource(R.string.watchlist_swipe_remove),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+        )
     }
 }
 

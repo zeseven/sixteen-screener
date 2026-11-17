@@ -124,6 +124,16 @@ class CompanyRowTest {
     }
 
     @Test
+    fun `row elements are 10 dp apart`() {
+        setRow(item(name = "IBM"))
+
+        val rowLeft = node(CompanyRowTags.ROW).getUnclippedBoundsInRoot().left
+        val tickerLeft = composeRule.onNodeWithText("AAPL", useUnmergedTree = true).getUnclippedBoundsInRoot().left
+
+        assertEquals((16.dp + 40.dp + 10.dp).value, (tickerLeft - rowLeft).value, 0.5f)
+    }
+
+    @Test
     fun `short name is not truncated`() {
         setRow(item(name = "IBM"))
         assertFalse(node(CompanyRowTags.NAME).textLayout().isLineEllipsized(0))
@@ -320,9 +330,7 @@ class CompanyRowTest {
             company = item(name = "International Business Machines Corporation"),
             marketData = { WatchlistMarketData(indicatorRow(listOf(roe, pe, roa, pb))) },
             rowWidth = 360.dp,
-        ) {
-            RemoveFromWatchlistButton(companyName = "IBM", onClick = {})
-        }
+        )
 
         val rowRight = node(CompanyRowTags.ROW).getUnclippedBoundsInRoot().right
         val indicators = node(CompanyRowTags.INDICATORS)

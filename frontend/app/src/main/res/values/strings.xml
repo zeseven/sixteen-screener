@@ -18,7 +18,6 @@
 
     <string name="company_open_details">Open details</string>
     <string name="company_logo_description">Logo of %1$s</string>
-    <string name="company_details_description">Details of %1$s</string>
     <string name="company_no_price">No price available</string>
     <string name="company_price_description">Price %1$s, %2$s</string>
     <string name="trend_up">higher than the previous price</string>
@@ -59,6 +58,7 @@
     <string name="watchlist_empty">Your watchlist is empty. Add companies via search.</string>
     <string name="watchlist_no_matches">No companies match the filters</string>
     <string name="watchlist_removed">%1$s removed</string>
+    <string name="watchlist_swipe_remove">Remove</string>
     <string name="watchlist_remove_failed">Cannot remove %1$s: %2$s</string>
     <string name="watchlist_undo_failed">Cannot restore %1$s: %2$s</string>
 

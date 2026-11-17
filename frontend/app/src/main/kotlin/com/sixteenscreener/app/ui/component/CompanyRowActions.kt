@@ -41,14 +41,3 @@ fun AddToWatchlistButton(
         }
     }
 }
-
-/** Row action opening the detailed screen. */
-@Composable
-fun CompanyDetailsButton(companyName: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    IconButton(onClick = onClick, modifier = modifier) {
-        Icon(
-            painter = painterResource(R.drawable.ic_chevron_right),
-            contentDescription = stringResource(R.string.company_details_description, companyName),
-        )
-    }
-}
