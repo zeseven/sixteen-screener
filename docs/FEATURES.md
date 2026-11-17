@@ -16,10 +16,10 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] OpenAPI spec `docs/openapi.yaml` (all milestones, marked with `x-milestone`) used by both backend and frontend; alpha endpoints implemented
 - [x] Backend: Kotlin + Gradle project with hexagonal architecture (domain, ports, adapters)
 - [x] Backend: Ktor application compiled into a GraalVM native image and packaged as a Docker image
-- [ ] Backend: Cloud Run deployment via gcloud CLI (min instances = 0, startup CPU boost)
-- [ ] Backend: endpoint access limited to the frontend app's service account and the developer's Google account (Cloud Run IAM)
-- [ ] Backend: Cloud Run max instances cap
-- [ ] Backend: Secret Manager integration for source API tokens
+- [x] Backend: Cloud Run deployment via gcloud CLI (min instances = 0, startup CPU boost)
+- [x] Backend: endpoint access limited to the frontend app's service account and the developer's Google account (Cloud Run IAM)
+- [x] Backend: Cloud Run max instances cap
+- [x] Backend: Secret Manager integration for source API tokens
 - [x] Backend: Firestore integration with TTL for cached data
 - [x] Backend: GCS bucket for logos
 - [x] Backend: sources list and per-source client configuration via application properties
