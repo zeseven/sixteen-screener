@@ -8,6 +8,7 @@ import coil3.request.ErrorResult
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import com.sixteenscreener.app.di.ImageModule
+import com.sixteenscreener.app.testing.LogoImages
 import dagger.Lazy
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
@@ -19,9 +20,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.GraphicsMode
 import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class LogoImageLoaderTest {
 
     private val server = MockWebServer()
@@ -76,5 +79,15 @@ class LogoImageLoaderTest {
         server.enqueue(MockResponse.Builder().code(500).build())
 
         assertTrue(imageLoader.execute(request("/logos/MISSING")) is ErrorResult)
+    }
+
+    @Test
+    fun `PNG logo is decoded`() = runTest {
+        server.enqueue(LogoImages.pngResponse(32, 32))
+
+        val result = imageLoader.execute(request("/logos/PNG"))
+
+        assertTrue("Expected success but was $result", result is SuccessResult)
+        assertEquals(32 to 32, (result as SuccessResult).image.let { it.width to it.height })
     }
 }

@@ -14,6 +14,7 @@ import com.sixteenscreener.app.R
 
 /**
  * Company logo loaded from the backend-relative [logoUrl]; the default logo is shown while loading and on any error.
+ * Logos larger than the slot are scaled down to fit it, smaller raster logos keep their pixel size and are centered.
  */
 @Composable
 fun CompanyLogo(
@@ -29,7 +30,7 @@ fun CompanyLogo(
         placeholder = defaultLogo,
         error = defaultLogo,
         fallback = defaultLogo,
-        contentScale = ContentScale.Fit,
+        contentScale = ContentScale.Inside,
         modifier = modifier
             .size(size)
             .clip(RoundedCornerShape(8.dp)),
