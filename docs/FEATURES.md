@@ -131,10 +131,10 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [ ] Optional: map source sector names to a fixed list of predefined sectors
 
 ### Exchanges screen
-- [ ] Exchanges tab between Search and Sources: a table with one row per symbol suffix (two suffixes of one exchange give two rows) and one row per US exchange (empty suffix); columns: suffix, short exchange name, full exchange name, MIC, currency, time zone, market flag
-- [ ] Table served by the backend from the static exchange table (`GET /exchanges`, full names hardcoded there); no source requests
-- [ ] The app requests the table once when the screen is first opened and keeps it in memory only (not stored on the device)
-- [ ] Text filter above the table: case-insensitive match in any field except the flag, done in memory without backend calls
+- [x] Exchanges tab between Search and Sources: a table with one row per symbol suffix (two suffixes of one exchange give two rows) and one row per US exchange (empty suffix); columns: suffix, short exchange name, full exchange name, MIC, currency, time zone, market flag
+- [x] Table served by the backend from the static exchange table (`GET /exchanges`, full names hardcoded there); no source requests
+- [x] The app requests the table once when the screen is first opened and keeps it in memory only (not stored on the device)
+- [x] Text filter above the table: case-insensitive match in any field except the flag, done in memory without backend calls
 
 ### Indicators
 - [ ] Indicator settings stored in Firestore per profile
