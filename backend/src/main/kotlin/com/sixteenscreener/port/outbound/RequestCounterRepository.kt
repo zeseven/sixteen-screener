@@ -10,6 +10,7 @@ import java.time.Instant
  *
  * One counter exists per source, limit interval and window; windows are given by
  * [com.sixteenscreener.domain.model.LimitInterval.windowStart] of [now] (UTC). A counter document expires at its window end.
+ * Sources configured with a total counter also have one counter of all calls that never expires and never resets.
  */
 interface RequestCounterRepository {
     /**
@@ -27,4 +28,10 @@ interface RequestCounterRepository {
 
     /** Usage of every limit in [limits] in its current window; a window without a counter has `used = 0`. */
     suspend fun usage(source: SourceId, limits: List<RequestLimit>, now: Instant): List<RequestUsage>
+
+    /** Adds [calls] to the never-resetting total counter of [source], creating it when absent. */
+    suspend fun incrementTotal(source: SourceId, calls: Int)
+
+    /** Total counters of [sources]; a source without a total counter has `0`. */
+    suspend fun totals(sources: Collection<SourceId>): Map<SourceId, Long>
 }

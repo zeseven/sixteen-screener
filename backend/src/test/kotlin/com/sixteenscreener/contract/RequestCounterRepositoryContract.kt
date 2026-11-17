@@ -103,6 +103,32 @@ fun requestCounterRepositoryContract(newRepository: suspend () -> RequestCounter
         repository.usage(source, listOf(perMinute), now).single().used shouldBe 70
     }
 
+    test("a source without a total counter has a total of zero") {
+        newRepository().totals(listOf(source, other)) shouldBe mapOf(source to 0L, other to 0L)
+    }
+
+    test("no sources, no totals") {
+        newRepository().totals(emptyList()) shouldBe emptyMap()
+    }
+
+    test("total counters add up per source and are independent of the limit windows") {
+        val repository = newRepository()
+        repository.incrementTotal(source, 3)
+        repository.incrementTotal(source, 2)
+        repository.incrementTotal(other, 1)
+        repository.incrementTotal(other, 0)
+
+        repository.totals(listOf(source, other)) shouldBe mapOf(source to 5L, other to 1L)
+        repository.usage(source, listOf(perMinute), now).single().used shouldBe 0
+    }
+
+    test("concurrent total increments are not lost") {
+        val repository = newRepository()
+        coroutineScope { (1..20).map { async { repository.incrementTotal(source, 1) } }.awaitAll() }
+
+        repository.totals(listOf(source)) shouldBe mapOf(source to 20L)
+    }
+
     test("usage reports zero and the window end for absent counters") {
         val usage = newRepository().usage(source, listOf(perMinute, perMonth), now)
         usage.map { it.used } shouldContainExactly listOf(0, 0)

@@ -1,7 +1,9 @@
 package com.sixteenscreener.adapter.outbound.firestore
 
 import com.google.cloud.firestore.DocumentReference
+import com.google.cloud.firestore.FieldValue
 import com.google.cloud.firestore.Firestore
+import com.google.cloud.firestore.SetOptions
 import com.google.cloud.firestore.Transaction
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.RequestLimit
@@ -52,6 +54,22 @@ class FirestoreRequestCounterRepository(private val firestore: Firestore) : Requ
         return windows.map { RequestUsage(it.limit, counts.getOrDefault(it.reference.id, 0L).toInt(), it.end) }
     }
 
+    override suspend fun incrementTotal(source: SourceId, calls: Int) {
+        require(calls >= 0) { "Calls must not be negative" }
+        if (calls == 0) return
+        counters.document(totalDocumentId(source))
+            .set(mapOf(SOURCE to source.value, COUNT to FieldValue.increment(calls.toLong())), SetOptions.merge())
+            .await()
+    }
+
+    override suspend fun totals(sources: Collection<SourceId>): Map<SourceId, Long> {
+        val distinctSources = sources.distinct()
+        if (distinctSources.isEmpty()) return emptyMap()
+        val counts = firestore.getAll(*distinctSources.map { counters.document(totalDocumentId(it)) }.toTypedArray()).await()
+            .associate { it.id to (it.getLong(COUNT) ?: 0L) }
+        return distinctSources.associateWith { counts.getOrDefault(totalDocumentId(it), 0L) }
+    }
+
     private fun windows(source: SourceId, limits: List<RequestLimit>, now: Instant): List<Window> =
         limits.map { limit ->
             val start = limit.interval.windowStart(now)
@@ -73,10 +91,14 @@ class FirestoreRequestCounterRepository(private val firestore: Firestore) : Requ
 
     companion object {
         private const val COUNT = "count"
+        private const val SOURCE = "source"
+        private const val TOTAL = "TOTAL"
         private const val WINDOW_START = "windowStart"
         private const val EXPIRE_AT = "expireAt"
 
         fun documentId(source: SourceId, interval: LimitInterval, windowStart: Instant): String =
             "${source}__${interval}__$windowStart"
+
+        fun totalDocumentId(source: SourceId): String = "${source}__$TOTAL"
     }
 }

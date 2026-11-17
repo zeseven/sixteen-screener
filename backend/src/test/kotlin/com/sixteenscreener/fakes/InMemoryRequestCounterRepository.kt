@@ -14,6 +14,9 @@ class InMemoryRequestCounterRepository : RequestCounterRepository {
 
     private val mutex = Mutex()
     private val counts = mutableMapOf<WindowKey, Int>()
+    private val totals = mutableMapOf<SourceId, Long>()
+
+    var failTotals: Boolean = false
 
     override suspend fun tryAcquire(source: SourceId, limits: List<RequestLimit>, requested: Int, now: Instant): Int {
         require(requested >= 0) { "Requested calls must not be negative" }
@@ -47,6 +50,20 @@ class InMemoryRequestCounterRepository : RequestCounterRepository {
                     resetsAt = limit.interval.windowEnd(now),
                 )
             }
+        }
+
+    override suspend fun incrementTotal(source: SourceId, calls: Int) {
+        require(calls >= 0) { "Calls must not be negative" }
+        mutex.withLock {
+            check(!failTotals) { "Simulated total counter failure" }
+            if (calls > 0) totals.merge(source, calls.toLong(), Long::plus)
+        }
+    }
+
+    override suspend fun totals(sources: Collection<SourceId>): Map<SourceId, Long> =
+        mutex.withLock {
+            check(!failTotals) { "Simulated total counter failure" }
+            sources.associateWith { totals.getOrDefault(it, 0L) }
         }
 
     fun setCount(source: SourceId, interval: LimitInterval, now: Instant, count: Int) {

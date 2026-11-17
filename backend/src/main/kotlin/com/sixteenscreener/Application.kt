@@ -178,6 +178,7 @@ fun wireServices(config: AppConfig): AppServices {
         limitsBySource = config.sources.associate { it.id to it.limits },
         counters = FirestoreRequestCounterRepository(firestore),
         clock = clock,
+        totalCountedSources = config.totalCountedSources,
     )
     val sourceCallOutcomes = SourceCallOutcomes(FirestoreSourceCallOutcomeRepository(firestore))
     val sourceCallGuard = SourceCallGuard(rateLimiter)

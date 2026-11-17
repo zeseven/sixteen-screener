@@ -19,6 +19,7 @@ data class SourceDto(
     val isDefault: Boolean,
     val limits: List<RequestLimitDto>,
     val lastCall: SourceCallOutcomeDto?,
+    val totalCalls: Long?,
 )
 
 @Serializable
@@ -47,6 +48,7 @@ fun SourceOverview.toDto() = SourceDto(
     isDefault = isDefault,
     limits = limits.map { it.toDto() },
     lastCall = lastCall?.toDto(),
+    totalCalls = totalCalls,
 )
 
 fun RequestUsage.toDto() = RequestLimitDto(

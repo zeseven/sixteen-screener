@@ -227,6 +227,17 @@ class FirestoreRequestCounterRepositoryEmulatorTest : FunSpec({
             "expireAt" to Instant.parse("2026-12-01T00:00:00Z").toTimestamp(),
         )
     }
+
+    test("the total counter document never expires") {
+        val firestore = emulator.reset()
+        val repository = FirestoreRequestCounterRepository(firestore)
+
+        repository.incrementTotal(SourceId.of("finnhub-logos"), 2)
+        repository.incrementTotal(SourceId.of("finnhub-logos"), 1)
+
+        firestore.document(FirestoreCollections.REQUEST_COUNTERS, "finnhub-logos__TOTAL") shouldBe
+            mapOf("source" to "finnhub-logos", "count" to 3L)
+    }
 })
 
 class FirestoreSourceCallOutcomeRepositoryEmulatorTest : FunSpec({

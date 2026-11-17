@@ -27,6 +27,7 @@ class RateLimiterTest : FunSpec({
             mapOf(finnhub to listOf(perMinute, perDay), logoapi to listOf(perDay), unlimited to emptyList()),
             counters,
             clock,
+            totalCountedSources = setOf(unlimited, logoapi),
         )
     }
 
@@ -124,5 +125,39 @@ class RateLimiterTest : FunSpec({
             Instant.parse("2026-11-14T12:01:00Z"),
             Instant.parse("2026-11-15T00:00:00Z"),
         )
+    }
+
+    test("granted calls of a source with a total counter are counted and never reset") {
+        val fixture = Fixture()
+        fixture.limiter.tryAcquire(unlimited, 3)
+        fixture.clock.advanceBy(Duration.ofDays(400))
+        fixture.limiter.tryAcquire(unlimited)
+
+        fixture.limiter.totalCalls(listOf(unlimited)) shouldBe mapOf(unlimited to 4L)
+    }
+
+    test("only granted calls are counted in the total") {
+        val fixture = Fixture()
+        fixture.limiter.tryAcquire(logoapi, 120) shouldBe 100
+        fixture.limiter.tryAcquire(logoapi) shouldBe 0
+        fixture.limiter.tryAcquire(logoapi, 0) shouldBe 0
+
+        fixture.limiter.totalCalls(listOf(logoapi)) shouldBe mapOf(logoapi to 100L)
+    }
+
+    test("sources without a total counter are neither counted nor reported") {
+        val fixture = Fixture()
+        fixture.limiter.tryAcquire(finnhub, 5)
+
+        fixture.counters.totals(listOf(finnhub)) shouldBe mapOf(finnhub to 0L)
+        fixture.limiter.totalCalls(listOf(finnhub, unlimited)) shouldBe mapOf(unlimited to 0L)
+        fixture.limiter.totalCalls(listOf(finnhub)) shouldBe emptyMap()
+    }
+
+    test("a failing total counter doesn't block the call") {
+        val fixture = Fixture()
+        fixture.counters.failTotals = true
+
+        fixture.limiter.tryAcquire(unlimited, 2) shouldBe 2
     }
 })

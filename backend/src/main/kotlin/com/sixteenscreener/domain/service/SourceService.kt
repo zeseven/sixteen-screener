@@ -27,9 +27,10 @@ class SourceService(
     override suspend fun sources(profileId: ProfileId): List<SourceOverview> = coroutineScope {
         val defaultSource = catalog.defaultSourceOf(profiles.existing(profileId))
         val lastCalls = async { lastCalls() }
+        val totalCalls = async { totalCalls() }
         val usages = sources.map { source -> async { usage(source.id) } }
         sources.zip(usages.awaitAll()) { source, usage ->
-            SourceOverview(source, source.id == defaultSource, usage, lastCalls.await()[source.id])
+            SourceOverview(source, source.id == defaultSource, usage, lastCalls.await()[source.id], totalCalls.await()[source.id])
         }
     }
 
@@ -40,6 +41,16 @@ class SourceService(
             throw e
         } catch (e: Exception) {
             logger.error("Failed to read the last source calls", e)
+            emptyMap()
+        }
+
+    private suspend fun totalCalls(): Map<SourceId, Long> =
+        try {
+            rateLimiter.totalCalls(sources.map { it.id })
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.error("Failed to read the total source calls", e)
             emptyMap()
         }
 

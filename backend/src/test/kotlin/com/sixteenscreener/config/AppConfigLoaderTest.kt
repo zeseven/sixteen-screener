@@ -108,6 +108,28 @@ class AppConfigLoaderTest : FunSpec({
         source.enabled shouldBe true
         source.limits shouldBe emptyList()
         source.timeout shouldBe 5000.milliseconds
+        source.countTotalCalls shouldBe false
+        config.totalCountedSources shouldBe emptySet()
+    }
+
+    test("a source with an empty limit list and a total call counter") {
+        val config = AppConfigLoader.load(
+            configWith(
+                source("finnhub", selectable = true),
+                source("finnhub-logos", capabilities = "LOGO", extra = "limits = []\ncountTotalCalls = true"),
+            ),
+            FULL_ENV,
+        )
+
+        val logos = config.source(SourceId.of("finnhub-logos"))!!
+        logos.limits shouldBe emptyList()
+        logos.countTotalCalls shouldBe true
+        config.totalCountedSources shouldBe setOf(SourceId.of("finnhub-logos"))
+    }
+
+    test("fails for an invalid total call counter flag") {
+        loadErrors(configWith(source("finnhub", selectable = true, extra = "countTotalCalls = maybe"))) shouldContainExactly
+            listOf("Source 'finnhub': invalid countTotalCalls 'maybe'")
     }
 
     test("parses several limits with units") {

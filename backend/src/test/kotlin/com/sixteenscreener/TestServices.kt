@@ -60,7 +60,12 @@ class TestPorts(
 )
 
 fun testServices(ports: TestPorts = TestPorts(), config: AppConfig = testConfig()): AppServices {
-    val rateLimiter = RateLimiter(config.sources.associate { it.id to it.limits }, ports.requestCounters, ports.clock)
+    val rateLimiter = RateLimiter(
+        limitsBySource = config.sources.associate { it.id to it.limits },
+        counters = ports.requestCounters,
+        clock = ports.clock,
+        totalCountedSources = config.totalCountedSources,
+    )
     return AppServices(
         config = config,
         clock = ports.clock,

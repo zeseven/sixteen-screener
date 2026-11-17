@@ -17,6 +17,8 @@ data class AppConfig(
 ) {
     val enabledSources: List<SourceConfig> get() = sources.filter { it.enabled }
 
+    val totalCountedSources: Set<SourceId> get() = sources.filter { it.countTotalCalls }.map { it.id }.toSet()
+
     fun source(id: SourceId): SourceConfig? = sources.firstOrNull { it.id == id }
 }
 
@@ -30,6 +32,7 @@ data class SourceConfig(
     val selectableAsDefault: Boolean,
     val limits: List<RequestLimit>,
     val timeout: Duration,
+    val countTotalCalls: Boolean = false,
 )
 
 data class SourceSecrets(

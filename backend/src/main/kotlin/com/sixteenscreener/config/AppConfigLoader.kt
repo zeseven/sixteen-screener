@@ -145,6 +145,7 @@ object AppConfigLoader {
             val additionalBaseUrls = additionalBaseUrls(block, label)
             val enabled = boolean(block, "enabled", default = true, label)
             val selectableAsDefault = boolean(block, "selectableAsDefault", default = false, label)
+            val countTotalCalls = boolean(block, "countTotalCalls", default = false, label)
             val capabilities = capabilities(block, label)
             val limits = limits(block, label)
             val timeoutMillis = block.stringOrNull("timeoutMillis")?.let { raw ->
@@ -165,6 +166,7 @@ object AppConfigLoader {
                 selectableAsDefault = selectableAsDefault,
                 limits = limits,
                 timeout = timeoutMillis.milliseconds,
+                countTotalCalls = countTotalCalls,
             )
         }
 

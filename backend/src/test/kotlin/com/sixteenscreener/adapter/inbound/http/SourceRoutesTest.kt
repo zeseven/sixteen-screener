@@ -30,6 +30,7 @@ private val finnhub = SourceId.of("finnhub")
 private val tiingo = SourceId.of("tiingo")
 private val secEdgar = SourceId.of("sec-edgar")
 private val logoapi = SourceId.of("logoapi")
+private val finnhubLogos = SourceId.of("finnhub-logos")
 
 private fun sourcesConfig(): AppConfig = testConfig().let { config ->
     val finnhubSource = config.sources.single()
@@ -64,6 +65,14 @@ private fun sourcesConfig(): AppConfig = testConfig().let { config ->
                 selectableAsDefault = false,
                 limits = emptyList(),
             ),
+            finnhubSource.copy(
+                id = finnhubLogos,
+                name = "Finnhub logos",
+                capabilities = setOf(Capability.LOGO),
+                selectableAsDefault = false,
+                limits = emptyList(),
+                countTotalCalls = true,
+            ),
         ),
     )
 }
@@ -95,7 +104,7 @@ class SourceRoutesTest : FunSpec({
 
             body.keys shouldBe setOf("items")
             body.items().map { it.getValue("id").jsonPrimitive.content } shouldContainExactly
-                listOf("finnhub", "sec-edgar", "tiingo", "logoapi")
+                listOf("finnhub", "sec-edgar", "tiingo", "logoapi", "finnhub-logos")
             body.item(finnhub) shouldBe JsonObject(
                 mapOf(
                     "id" to JsonPrimitive("finnhub"),
@@ -105,6 +114,7 @@ class SourceRoutesTest : FunSpec({
                     "isDefault" to JsonPrimitive(true),
                     "limits" to JsonArray(listOf(limit("MINUTE", 60, 0, "2026-11-14T12:01:00Z"))),
                     "lastCall" to JsonNull,
+                    "totalCalls" to JsonNull,
                 ),
             )
         }
@@ -212,6 +222,40 @@ class SourceRoutesTest : FunSpec({
 
             response.status shouldBe HttpStatusCode.OK
             response.json().items().map { it["lastCall"] }.toSet() shouldBe setOf(JsonNull)
+        }
+    }
+
+    test("total calls are reported for sources with a total counter only") {
+        routeTest(config = sourcesConfig()) { ports ->
+            val saved = ports.savedProfile()
+            ports.requestCounters.incrementTotal(finnhubLogos, 7)
+            ports.requestCounters.incrementTotal(finnhub, 3)
+
+            val body = client.get("/profiles/${saved.id}/sources").json()
+
+            body.item(finnhubLogos)["totalCalls"] shouldBe JsonPrimitive(7)
+            body.item(finnhub)["totalCalls"] shouldBe JsonNull
+            body.item(logoapi)["totalCalls"] shouldBe JsonNull
+        }
+    }
+
+    test("a source with a total counter that was never called reports zero calls") {
+        routeTest(config = sourcesConfig()) { ports ->
+            val saved = ports.savedProfile()
+
+            client.get("/profiles/${saved.id}/sources").json().item(finnhubLogos)["totalCalls"] shouldBe JsonPrimitive(0)
+        }
+    }
+
+    test("unreadable total counters degrade to null") {
+        routeTest(config = sourcesConfig()) { ports ->
+            val saved = ports.savedProfile()
+            ports.requestCounters.failTotals = true
+
+            val response = client.get("/profiles/${saved.id}/sources")
+
+            response.status shouldBe HttpStatusCode.OK
+            response.json().item(finnhubLogos)["totalCalls"] shouldBe JsonNull
         }
     }
 
