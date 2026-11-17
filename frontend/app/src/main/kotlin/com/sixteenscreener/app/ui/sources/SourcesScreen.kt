@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -214,7 +215,7 @@ private fun capabilityName(capability: Capability): Int? = when (capability) {
 private fun LimitText(limit: RequestLimit) {
     val interval = stringResource(intervalName(limit.interval))
     val usageCount = if (limit.unit == LimitUnit.UNIQUE_SYMBOLS) {
-        stringResource(R.string.source_limit_usage_symbols, limit.used, limit.limit, interval)
+        pluralStringResource(R.plurals.source_limit_usage_symbols, limit.limit, limit.used, limit.limit, interval)
     } else {
         stringResource(R.string.source_limit_usage, limit.used, limit.limit, interval)
     }

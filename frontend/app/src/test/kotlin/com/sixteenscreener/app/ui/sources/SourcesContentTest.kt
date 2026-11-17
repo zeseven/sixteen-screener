@@ -87,6 +87,13 @@ class SourcesContentTest {
     }
 
     @Test
+    fun `symbol limit of one uses the singular unit`() {
+        setSources(source(limits = listOf(limit(LimitInterval.MONTH, limit = 1, used = 0, unit = LimitUnit.UNIQUE_SYMBOLS))))
+
+        composeRule.onNodeWithTag(SourcesScreenTags.LIMIT, useUnmergedTree = true).assertTextEquals("0 / 1 symbol per month")
+    }
+
+    @Test
     fun `limit shows its reset time when present`() {
         setSources(source(limits = listOf(limit(LimitInterval.MINUTE, limit = 60, used = 59, resetsAt = Instant.parse("2026-11-14T10:01:00Z")))))
 

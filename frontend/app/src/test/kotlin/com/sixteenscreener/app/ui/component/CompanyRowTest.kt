@@ -275,7 +275,7 @@ class CompanyRowTest {
     fun `more than three indicators show the first three and dots after the third`() {
         setWatchlistRow(indicatorRow(listOf(roe, pe, roa, pb)))
 
-        node(CompanyRowTags.INDICATORS).assertTextEquals("ROE\nP/E\nROA ...")
+        node(CompanyRowTags.INDICATORS).assertTextEquals("ROE\nP/E\nROA …")
             .assertContentDescriptionEquals("Indicators ROE good, P/E warning, ROA bad, and more")
         assertEquals(listOf(indicatorColors.good, indicatorColors.warning, indicatorColors.bad), node(CompanyRowTags.INDICATORS).lineColors())
     }
@@ -292,7 +292,7 @@ class CompanyRowTest {
     fun `failed ratios draw the indicators in orange while the price keeps its trend color`() {
         setWatchlistRow(indicatorRow(listOf(roe, pe, roa, pb), indicatorsStatus = DataStatus.LIMIT_REACHED))
 
-        node(CompanyRowTags.INDICATORS).assertTextEquals("ROE\nP/E\nROA ...")
+        node(CompanyRowTags.INDICATORS).assertTextEquals("ROE\nP/E\nROA …")
             .assertContentDescriptionEquals("Indicators ROE good, P/E warning, ROA bad, and more, last update failed")
         assertEquals(List(3) { priceColors.loadFailed }, node(CompanyRowTags.INDICATORS).lineColors())
         assertEquals(priceColors.up, node(CompanyRowTags.PRICE).textColor())

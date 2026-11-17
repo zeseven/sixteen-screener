@@ -14,7 +14,10 @@
     <string name="profile_name_label">Profile name</string>
     <string name="profile_continue">Continue</string>
     <string name="profile_error_blank">Enter a profile name</string>
-    <string name="profile_error_too_long">Use at most %1$d characters</string>
+    <plurals name="profile_error_too_long">
+        <item quantity="one">Use at most %1$d character</item>
+        <item quantity="other">Use at most %1$d characters</item>
+    </plurals>
 
     <string name="company_open_details">Open details</string>
     <string name="company_logo_description">Logo of %1$s</string>
@@ -27,7 +30,7 @@
     <string name="company_no_indicators">No indicators</string>
     <string name="company_indicators_description">Indicators %1$s</string>
     <string name="company_indicator_description">%1$s %2$s</string>
-    <string name="company_indicators_more">%1$s ...</string>
+    <string name="company_indicators_more">%1$s …</string>
     <string name="company_indicators_more_description">%1$s, and more</string>
     <string name="indicator_level_good">good</string>
     <string name="indicator_level_warning">warning</string>
@@ -74,7 +77,10 @@
     <string name="source_no_limits">No request limits</string>
     <string name="source_total_calls">Total: %1$d</string>
     <string name="source_limit_usage">%1$d / %2$d %3$s</string>
-    <string name="source_limit_usage_symbols">%1$d / %2$d symbols %3$s</string>
+    <plurals name="source_limit_usage_symbols">
+        <item quantity="one">%1$d / %2$d symbol %3$s</item>
+        <item quantity="other">%1$d / %2$d symbols %3$s</item>
+    </plurals>
     <string name="source_limit_reached">%1$s, limit reached</string>
     <string name="source_limit_resets">resets %1$s</string>
     <string name="source_limit_with_reset">%1$s, %2$s</string>

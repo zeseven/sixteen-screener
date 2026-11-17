@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -116,7 +117,7 @@ fun ProfileContent(
 @Composable
 fun profileErrorMessage(error: ProfileError): String = when (error) {
     ProfileError.NameBlank -> stringResource(R.string.profile_error_blank)
-    ProfileError.NameTooLong -> stringResource(R.string.profile_error_too_long, ProfileName.MAX_LENGTH)
+    ProfileError.NameTooLong -> pluralStringResource(R.plurals.profile_error_too_long, ProfileName.MAX_LENGTH, ProfileName.MAX_LENGTH)
     is ProfileError.Request -> apiErrorMessage(error.error)
 }
 

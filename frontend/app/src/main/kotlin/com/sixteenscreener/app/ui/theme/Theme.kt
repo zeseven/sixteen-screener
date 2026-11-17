@@ -1,6 +1,7 @@
 package com.sixteenscreener.app.ui.theme
 
 import android.os.Build
+import androidx.annotation.ChecksSdkIntAtLeast
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
@@ -17,7 +18,7 @@ fun SixteenTheme(
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = colorSchemeFor(darkTheme, dynamicColor && supportsDynamicColor())
+    val colorScheme = colorSchemeFor(darkTheme, dynamicColor)
     CompositionLocalProvider(
         LocalPriceColors provides priceColors(darkTheme, colorScheme.onSurface),
         LocalIndicatorColors provides indicatorColors(darkTheme),
@@ -38,12 +39,13 @@ object SixteenTheme {
         get() = LocalIndicatorColors.current
 }
 
+@ChecksSdkIntAtLeast(api = Build.VERSION_CODES.S)
 internal fun supportsDynamicColor() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
 @Composable
 private fun colorSchemeFor(darkTheme: Boolean, dynamicColor: Boolean): ColorScheme = when {
-    dynamicColor && darkTheme -> dynamicDarkColorScheme(LocalContext.current)
-    dynamicColor -> dynamicLightColorScheme(LocalContext.current)
+    dynamicColor && supportsDynamicColor() && darkTheme -> dynamicDarkColorScheme(LocalContext.current)
+    dynamicColor && supportsDynamicColor() -> dynamicLightColorScheme(LocalContext.current)
     darkTheme -> DarkColorScheme
     else -> LightColorScheme
 }
