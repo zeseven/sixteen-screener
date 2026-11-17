@@ -380,7 +380,7 @@ External sources are distributed as follows:
 ## ADR-038: Ticker form for logoapi.sh
 
 **Date:** 2026-11-14
-**Status:** Accepted
+**Status:** Accepted; the `X-Logo-Fallback` rule is replaced by ADR-068
 
 **Decision:** US symbols are requested by their plain ticker (`AAPL`, `BRK.B`); other symbols by the full symbol with suffix (`SAP.DE`), because a bare non-US ticker may match the logo of an unrelated US company. Requests use `fallback=404`, and a response with the `X-Logo-Fallback` header is also treated as a miss.
 
@@ -687,3 +687,14 @@ External sources are distributed as follows:
 **Decision:** The backend stores its data in a named Firestore database, `sixteen-screener` by default (`firestoreDatabase` in `application.conf`, overridable by `FIRESTORE_DATABASE`). The database ID is validated on start. The runtime service account gets `roles/datastore.user` with an IAM condition limiting it to this database. The Firestore emulator tests use a named database too.
 
 **Consequences:** The backend's data is isolated from other services and can be managed on its own. Firestore's free quota applies only to the first database created in a project; if the `(default)` database was created first, usage of the named database is billed from the first operation. Creating a named database requires a project with billing enabled.
+
+## ADR-068: Curated logos only from logoapi.sh
+
+**Date:** 2026-11-17
+**Status:** Accepted
+
+**Context:** logoapi.sh returns curated logos (icons and wordmarks) and, when it has none, an auto-discovered favicon of the company website: a small raster image wrapped in SVG. The kind of a returned logo is reported in response headers: `X-Logo-Fallback: wordmark` marks a curated wordmark returned instead of an icon, `X-Logo-Fallback: favicon` marks an auto-discovered favicon. ADR-038 treated any response with `X-Logo-Fallback` as a miss, which rejected the curated wordmarks of most companies.
+
+**Decision:** Only curated logos are taken from logoapi.sh. Requests keep `fallback=404`, so logoapi.sh answers `404` instead of a favicon; a response with `X-Logo-Fallback: favicon` is still treated as a miss. Wordmarks and icons are accepted. This replaces the `X-Logo-Fallback` rule of ADR-038. The rule applies to logoapi.sh only; other logo sources may be added later with their own rules for raster logos or favicons.
+
+**Consequences:** Most companies get their real logo; wordmarks are wider than icons and are shown scaled down in the square logo slot. Companies with only a favicon on logoapi.sh get the default logo. Misses recorded under the old rule keep the default logo until they expire (14 days) or are deleted from the `logoMisses` collection.
