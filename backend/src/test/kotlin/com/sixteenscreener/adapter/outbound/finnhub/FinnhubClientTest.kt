@@ -270,6 +270,7 @@ class FinnhubClientTest : FunSpec({
 
             ratios.keys.toList() shouldContainExactly RatioCode.entries
             ratios.filterValues { it != null } shouldBe mapOf(
+                RatioCode.PE to 48.1203,
                 RatioCode.PB to 7.6614,
                 RatioCode.PS to 7.9052,
                 RatioCode.ROE to 15.9921,

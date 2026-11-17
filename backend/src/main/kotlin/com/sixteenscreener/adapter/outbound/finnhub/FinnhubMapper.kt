@@ -26,7 +26,7 @@ internal object FinnhubMapper {
     private const val ANNUAL_QUARTER = 0
 
     val metricKeys: Map<RatioCode, List<String>> = mapOf(
-        RatioCode.PE to listOf("peTTM", "peAnnual"),
+        RatioCode.PE to listOf("peTTM", "peBasicExclExtraTTM", "peExclExtraTTM", "peAnnual"),
         RatioCode.PB to listOf("pb", "pbQuarterly", "pbAnnual"),
         RatioCode.PS to listOf("psTTM", "psAnnual"),
         RatioCode.EV_EBITDA to listOf("evEbitdaTTM", "evEbitdaAnnual"),
