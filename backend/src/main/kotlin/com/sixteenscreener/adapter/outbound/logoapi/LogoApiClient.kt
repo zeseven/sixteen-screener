@@ -34,15 +34,19 @@ class LogoApiClient(
         ) { response -> svgOrNull(response) }
 
     private suspend fun svgOrNull(response: HttpResponse): ByteArray? {
-        if (response.headers[FALLBACK_HEADER] != null) return null
+        if (isFaviconFallback(response)) return null
         if ((response.contentLength() ?: 0) > maxSizeBytes) return null
         val content = response.bodyAsChannel().readRemaining(maxSizeBytes + 1).readByteArray()
         return content.takeIf { it.size <= maxSizeBytes && SvgContent.isSvg(it) }
     }
 
+    private fun isFaviconFallback(response: HttpResponse): Boolean =
+        response.headers[FALLBACK_HEADER]?.trim().equals(FAVICON_FALLBACK, ignoreCase = true)
+
     companion object {
         const val DEFAULT_MAX_SIZE_BYTES: Long = 512L * 1024
         const val FALLBACK_HEADER = "X-Logo-Fallback"
+        const val FAVICON_FALLBACK = "favicon"
 
         private const val FALLBACK_PARAMETER = "fallback"
         private const val FALLBACK_NOT_FOUND = "404"

@@ -25,7 +25,15 @@ import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
+private const val LOGO_KIND_HEADER = "X-Logo-Kind"
+
 private val svgHeaders = headersOf(HttpHeaders.ContentType, "image/svg+xml")
+
+private fun svgHeadersWith(vararg extra: Pair<String, String>): Headers =
+    Headers.build {
+        appendAll(svgHeaders)
+        extra.forEach { (name, value) -> append(name, value) }
+    }
 
 private class MockLogoApi(
     private val body: ByteArray = Fixtures.text("logoapi/aapl.svg").toByteArray(),
@@ -87,10 +95,55 @@ class LogoApiClientTest : FunSpec({
         api.logo("ZZZZ") shouldBe SourceResult.NoData(SourceCallOutcome.httpError(404, api.clock.now()))
     }
 
-    test("a fallback image flagged by the source is no data") {
-        val api = MockLogoApi(headers = Headers.build { appendAll(svgHeaders); append(LogoApiClient.FALLBACK_HEADER, "tile") })
+    context("a favicon fallback flagged by the source is no data") {
+        withData(
+            nameFn = { "'$it'" },
+            "favicon",
+            "Favicon",
+            "FAVICON",
+            " favicon ",
+        ) { fallback ->
+            val api = MockLogoApi(headers = svgHeadersWith(LogoApiClient.FALLBACK_HEADER to fallback))
 
-        api.logo("ZZZZ") shouldBe SourceResult.NoData(api.success)
+            api.logo("ZZZZ") shouldBe SourceResult.NoData(api.success)
+        }
+    }
+
+    context("a curated logo is accepted") {
+        withData(
+            nameFn = { logoHeaders -> logoHeaders.joinToString { (name, value) -> "$name: '$value'" }.ifEmpty { "no logo headers" } },
+            emptyList(),
+            listOf(LOGO_KIND_HEADER to "icon"),
+            listOf(LogoApiClient.FALLBACK_HEADER to "wordmark", LOGO_KIND_HEADER to "wordmark"),
+            listOf(LogoApiClient.FALLBACK_HEADER to ""),
+        ) { logoHeaders ->
+            val api = MockLogoApi(headers = svgHeadersWith(*logoHeaders.toTypedArray()))
+
+            val result = api.logo("V").shouldBeInstanceOf<SourceResult.Success<ByteArray>>()
+
+            String(result.data) shouldBe Fixtures.text("logoapi/aapl.svg")
+            api.requests.single().url.parameters["fallback"] shouldBe "404"
+        }
+    }
+
+    test("a wordmark fallback that is not SVG is no data") {
+        val api = MockLogoApi(
+            body = Fixtures.text("logoapi/not-svg.html").toByteArray(),
+            headers = svgHeadersWith(LogoApiClient.FALLBACK_HEADER to "wordmark"),
+        )
+
+        api.logo("KO") shouldBe SourceResult.NoData(api.success)
+    }
+
+    test("a wordmark fallback larger than the size cap is no data") {
+        val svg = "<svg>" + " ".repeat(200) + "</svg>"
+        val api = MockLogoApi(
+            body = svg.toByteArray(),
+            headers = svgHeadersWith(LogoApiClient.FALLBACK_HEADER to "wordmark"),
+            maxSizeBytes = 100,
+        )
+
+        api.logo("KO") shouldBe SourceResult.NoData(api.success)
     }
 
     test("a response that is not SVG is no data") {
