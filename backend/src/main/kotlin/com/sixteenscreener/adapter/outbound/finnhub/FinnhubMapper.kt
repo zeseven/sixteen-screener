@@ -74,6 +74,7 @@ internal object FinnhubMapper {
             employees = null,
             website = response.weburl.nullIfBlank(),
             description = null,
+            logoUrl = response.logo.nullIfBlank(),
         )
     }
 

@@ -31,6 +31,19 @@ class CachePayloadCodecTest : FunSpec({
         CachePayloadCodec.decode(DataType.COMPANY_PROFILE, encoded) shouldBe sampleProfile
     }
 
+    test("company profiles cached before the logo URL was stored decode without a logo URL") {
+        val encoded = CachePayloadCodec.encode(DataType.COMPANY_PROFILE, sampleProfile) - "logoUrl"
+
+        val profile = CachePayloadCodec.decode(DataType.COMPANY_PROFILE, encoded)
+
+        profile.logoUrl shouldBe null
+        profile shouldBe sampleProfile.copy(logoUrl = null)
+    }
+
+    test("the logo URL is stored in the profile payload") {
+        CachePayloadCodec.encode(DataType.COMPANY_PROFILE, sampleProfile)["logoUrl"] shouldBe sampleProfile.logoUrl
+    }
+
     test("quotes round-trip") {
         CachePayloadCodec.decodeQuote(CachePayloadCodec.encodeQuote(Quote(189.98, "USD"))) shouldBe Quote(189.98, "USD")
     }

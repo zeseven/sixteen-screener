@@ -39,6 +39,7 @@ internal data class CompanyProfile2Dto(
     val shareOutstanding: Double? = null,
     val weburl: String? = null,
     val finnhubIndustry: String? = null,
+    val logo: String? = null,
 )
 
 @Serializable

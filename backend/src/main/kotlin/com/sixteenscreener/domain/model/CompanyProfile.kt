@@ -17,6 +17,7 @@ import java.time.LocalDate
  * @property employees number of employees
  * @property website company website
  * @property description company description
+ * @property logoUrl URL of the company logo image provided by the source
  */
 data class CompanyProfile(
     val name: String?,
@@ -30,4 +31,5 @@ data class CompanyProfile(
     val employees: Int?,
     val website: String?,
     val description: String?,
+    val logoUrl: String? = null,
 )

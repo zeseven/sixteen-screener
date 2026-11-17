@@ -219,6 +219,7 @@ class FinnhubClientTest : FunSpec({
                     employees = null,
                     website = "https://www.apple.com/",
                     description = null,
+                    logoUrl = "https://static2.finnhub.io/file/publicdatany/finnhubimage/stock_logo/AAPL.png",
                 ),
                 finnhub.success,
             )
@@ -233,6 +234,7 @@ class FinnhubClientTest : FunSpec({
             profile.name shouldBe "SAP SE"
             profile.currency shouldBe "EUR"
             profile.ipoDate shouldBe null
+            profile.logoUrl shouldBe null
             profile.marketCapitalization shouldBe 270_512_500_000.0
             finnhub.single().shouldTarget("/stock/profile2", "symbol" to "SAP.DE")
         }

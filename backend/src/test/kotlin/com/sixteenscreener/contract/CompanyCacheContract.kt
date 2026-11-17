@@ -65,6 +65,7 @@ val sampleProfile = CompanyProfile(
     employees = 164000,
     website = "https://www.apple.com/",
     description = null,
+    logoUrl = "https://static2.finnhub.io/file/publicdatany/finnhubimage/stock_logo/AAPL.png",
 )
 
 private val emptyProfile = CompanyProfile(null, null, null, null, null, null, null, null, null, null, null)

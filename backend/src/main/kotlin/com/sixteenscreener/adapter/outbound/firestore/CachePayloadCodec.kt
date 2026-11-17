@@ -88,6 +88,7 @@ object CachePayloadCodec {
             "employees" to profile.employees?.toLong(),
             "website" to profile.website,
             "description" to profile.description,
+            "logoUrl" to profile.logoUrl,
         )
 
     private fun decodeProfile(payload: FirestoreMap): CompanyProfile =
@@ -103,6 +104,7 @@ object CachePayloadCodec {
             employees = payload.longOrNull("employees")?.toInt(),
             website = payload.stringOrNull("website"),
             description = payload.stringOrNull("description"),
+            logoUrl = payload.stringOrNull("logoUrl"),
         )
 
     private inline fun <reified E : Enum<E>> enumValueOrNull(raw: String): E? = enumValues<E>().firstOrNull { it.name == raw }
