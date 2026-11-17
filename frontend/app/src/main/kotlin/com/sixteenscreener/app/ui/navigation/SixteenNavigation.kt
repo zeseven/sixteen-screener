@@ -7,6 +7,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sixteenscreener.app.ui.detail.DetailScreen
 import com.sixteenscreener.app.ui.exchanges.ExchangesScreen
+import com.sixteenscreener.app.ui.indicators.IndicatorSettingsScreen
 import com.sixteenscreener.app.ui.profile.ProfileScreen
 import com.sixteenscreener.app.ui.search.SearchScreen
 import com.sixteenscreener.app.ui.settings.SettingsScreen
@@ -39,6 +40,11 @@ private val AppScreens = AppDestinations(
     },
     detail = { route, navigator -> DetailScreen(route = route, onBack = navigator::goBack) },
     settings = { navigator ->
-        SettingsScreen(onBack = navigator::goBack, onProfileSwitched = { navigator.showMain(MainTab.WATCHLIST) })
+        SettingsScreen(
+            onBack = navigator::goBack,
+            onProfileSwitched = { navigator.showMain(MainTab.WATCHLIST) },
+            onOpenIndicatorSettings = navigator::openIndicatorSettings,
+        )
     },
+    indicatorSettings = { navigator -> IndicatorSettingsScreen(onBack = navigator::goBack) },
 )

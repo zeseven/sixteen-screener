@@ -46,6 +46,10 @@ class AppNavigator(
         if (currentRoute != SettingsRoute) backStack.add(SettingsRoute)
     }
 
+    fun openIndicatorSettings() {
+        if (currentRoute != IndicatorSettingsRoute) backStack.add(IndicatorSettingsRoute)
+    }
+
     fun goBack() {
         if (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
     }

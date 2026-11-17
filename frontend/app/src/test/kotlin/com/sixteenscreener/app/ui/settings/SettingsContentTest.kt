@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sixteenscreener.app.domain.model.ApiError
@@ -36,6 +37,7 @@ class SettingsContentTest {
                 onBack = { events += "back" },
                 onNewProfileNameChange = { events += "name $it" },
                 onSwitchProfile = { events += "switch" },
+                onOpenIndicatorSettings = { events += "indicators" },
             )
         }
     }
@@ -99,11 +101,20 @@ class SettingsContentTest {
     }
 
     @Test
+    fun `the indicators entry opens the indicator settings`() {
+        setContent(state())
+
+        composeRule.onNodeWithTag(SettingsScreenTags.INDICATORS).performScrollTo().performClick()
+
+        assertEquals(listOf("indicators"), events)
+    }
+
+    @Test
     fun `section titles are headings`() {
         setContent(state())
 
         val titles = composeRule.onAllNodesWithTag(SettingsScreenTags.SECTION_TITLE, useUnmergedTree = true)
-        titles.assertCountEquals(2)
+        titles.assertCountEquals(3)
         titles.assertAll(isHeading())
     }
 }

@@ -31,6 +31,10 @@ data class DetailRoute(
 @Serializable
 data object SettingsRoute : NavKey
 
+/** Indicator settings screen, opened from the settings screen. */
+@Serializable
+data object IndicatorSettingsRoute : NavKey
+
 /** Tabs of the main screen, in bottom bar order. */
 enum class MainTab(@param:StringRes val label: Int, @param:DrawableRes val icon: Int) {
     WATCHLIST(R.string.tab_watchlist, R.drawable.ic_watchlist),

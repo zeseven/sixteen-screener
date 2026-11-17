@@ -19,6 +19,7 @@ class AppDestinations(
     val tab: @Composable (tab: MainTab, navigator: AppNavigator, modifier: Modifier) -> Unit,
     val detail: @Composable (route: DetailRoute, navigator: AppNavigator) -> Unit,
     val settings: @Composable (navigator: AppNavigator) -> Unit,
+    val indicatorSettings: @Composable (navigator: AppNavigator) -> Unit,
 )
 
 /**
@@ -52,6 +53,7 @@ fun AppNavHost(
             }
             entry<DetailRoute> { route -> destinations.detail(route, navigator) }
             entry<SettingsRoute> { destinations.settings(navigator) }
+            entry<IndicatorSettingsRoute> { destinations.indicatorSettings(navigator) }
         },
     )
 }

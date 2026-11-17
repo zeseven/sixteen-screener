@@ -68,6 +68,19 @@ class AppNavigatorTest {
     }
 
     @Test
+    fun `indicator settings open once on top of settings`() {
+        val navigator = navigator(MainRoute)
+        navigator.openSettings()
+
+        navigator.openIndicatorSettings()
+        navigator.openIndicatorSettings()
+
+        assertEquals(listOf(MainRoute, SettingsRoute, IndicatorSettingsRoute), navigator.backStack.toList())
+        navigator.goBack()
+        assertEquals(listOf(MainRoute, SettingsRoute), navigator.backStack.toList())
+    }
+
+    @Test
     fun `stored profile replaces the profile prompt with the watchlist tab`() {
         val navigator = navigator(ProfileRoute)
         navigator.selectTab(MainTab.SOURCES)

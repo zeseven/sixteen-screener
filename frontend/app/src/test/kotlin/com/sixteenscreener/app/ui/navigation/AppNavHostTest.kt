@@ -46,8 +46,10 @@ class AppNavHostTest {
             Column {
                 Text("Settings content")
                 Button(onClick = { navigator.showMain(MainTab.WATCHLIST) }) { Text("Switch profile") }
+                Button(onClick = navigator::openIndicatorSettings) { Text("Open indicators") }
             }
         },
+        indicatorSettings = { Text("Indicator settings content") },
     )
 
     private var hasProfile by mutableStateOf(false)
@@ -179,6 +181,18 @@ class AppNavHostTest {
 
         pressBack()
         composeRule.onNodeWithText("Tab SOURCES").assertExists()
+    }
+
+    @Test
+    fun `indicator settings open from settings and back returns to settings`() {
+        start(hasProfile = true)
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+
+        clickText("Open indicators")
+        composeRule.onNodeWithText("Indicator settings content").assertExists()
+
+        pressBack()
+        composeRule.onNodeWithText("Settings content").assertExists()
     }
 
     @Test

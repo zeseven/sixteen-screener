@@ -1,8 +1,10 @@
 package com.sixteenscreener.app.ui.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -14,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -25,7 +28,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -48,6 +53,7 @@ object SettingsScreenTags {
     const val VERSION = "settings_version"
     const val BACKEND_URL = "settings_backend_url"
     const val SECTION_TITLE = "settings_section_title"
+    const val INDICATORS = "settings_indicators"
 }
 
 /** Settings screen; [onProfileSwitched] is called once another profile has been selected. */
@@ -55,6 +61,7 @@ object SettingsScreenTags {
 fun SettingsScreen(
     onBack: () -> Unit,
     onProfileSwitched: () -> Unit,
+    onOpenIndicatorSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -71,6 +78,7 @@ fun SettingsScreen(
         onBack = onBack,
         onNewProfileNameChange = viewModel::onNewProfileNameChange,
         onSwitchProfile = viewModel::onSwitchProfile,
+        onOpenIndicatorSettings = onOpenIndicatorSettings,
         modifier = modifier,
     )
 }
@@ -81,6 +89,7 @@ fun SettingsContent(
     onBack: () -> Unit,
     onNewProfileNameChange: (String) -> Unit,
     onSwitchProfile: () -> Unit,
+    onOpenIndicatorSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -102,6 +111,9 @@ fun SettingsContent(
                 valueTag = SettingsScreenTags.CURRENT_PROFILE,
             )
             ProfileSwitch(uiState, onNewProfileNameChange, onSwitchProfile)
+            HorizontalDivider()
+            SectionTitle(stringResource(R.string.settings_indicators_section))
+            IndicatorSettingsEntry(onOpenIndicatorSettings)
             HorizontalDivider()
             SectionTitle(stringResource(R.string.settings_app_section))
             InfoItem(stringResource(R.string.settings_version), uiState.appInfo.version, SettingsScreenTags.VERSION)
@@ -153,6 +165,28 @@ private fun ProfileSwitch(
 }
 
 @Composable
+private fun IndicatorSettingsEntry(onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 8.dp)
+            .testTag(SettingsScreenTags.INDICATORS),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = stringResource(R.string.settings_indicators), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = stringResource(R.string.settings_indicators_hint),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null)
+    }
+}
+
+@Composable
 private fun SectionTitle(text: String) {
     Text(
         text = text,
@@ -184,6 +218,7 @@ private fun SettingsContentPreview() {
             onBack = {},
             onNewProfileNameChange = {},
             onSwitchProfile = {},
+            onOpenIndicatorSettings = {},
         )
     }
 }
