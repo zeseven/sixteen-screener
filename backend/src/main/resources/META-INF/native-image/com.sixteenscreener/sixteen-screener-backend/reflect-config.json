@@ -106,6 +106,40 @@
     ]
   },
   {
+    "name": "com.sixteenscreener.adapter.inbound.http.BalanceSheetItemDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.BalanceSheetItemDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.BalanceSheetPeriodDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.BalanceSheetPeriodDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sixteenscreener.adapter.inbound.http.BalanceSheetResponseDto",
     "fields": [
       {
@@ -115,6 +149,23 @@
   },
   {
     "name": "com.sixteenscreener.adapter.inbound.http.BalanceSheetResponseDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.CompanyProfileDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.CompanyProfileDto$Companion",
     "methods": [
       {
         "name": "serializer",
@@ -140,6 +191,40 @@
     ]
   },
   {
+    "name": "com.sixteenscreener.adapter.inbound.http.IndicatorDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.IndicatorDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.MarketDataDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.MarketDataDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sixteenscreener.adapter.inbound.http.PriceAndRatiosResponseDto",
     "fields": [
       {
@@ -149,6 +234,23 @@
   },
   {
     "name": "com.sixteenscreener.adapter.inbound.http.PriceAndRatiosResponseDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.Problem",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.Problem$Companion",
     "methods": [
       {
         "name": "serializer",
@@ -191,6 +293,74 @@
     ]
   },
   {
+    "name": "com.sixteenscreener.adapter.inbound.http.QuoteDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.QuoteDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.RatioDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.RatioDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.RequestLimitDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.RequestLimitDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.SearchItemDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.SearchItemDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sixteenscreener.adapter.inbound.http.SearchResultsDto",
     "fields": [
       {
@@ -200,6 +370,57 @@
   },
   {
     "name": "com.sixteenscreener.adapter.inbound.http.SearchResultsDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.SourceCallOutcomeDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.SourceCallOutcomeDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.SourceDataMetaDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.SourceDataMetaDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.SourceDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.SourceDto$Companion",
     "methods": [
       {
         "name": "serializer",
@@ -233,6 +454,23 @@
     ]
   },
   {
+    "name": "com.sixteenscreener.adapter.inbound.http.WatchlistAddDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.WatchlistAddDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sixteenscreener.adapter.inbound.http.WatchlistDto",
     "fields": [
       {
@@ -242,6 +480,40 @@
   },
   {
     "name": "com.sixteenscreener.adapter.inbound.http.WatchlistDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.WatchlistItemDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.WatchlistItemDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.WatchlistMarketDataDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.WatchlistMarketDataDto$Companion",
     "methods": [
       {
         "name": "serializer",
