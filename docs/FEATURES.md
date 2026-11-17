@@ -128,6 +128,10 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [ ] Filter by user tags
 - [ ] Optional: map source sector names to a fixed list of predefined sectors
 
+### Exchanges screen
+- [ ] Exchanges screen listing every known symbol suffix with its exchange: suffix (e.g. `.V`), short exchange name (e.g. TSXV), full exchange name (e.g. TSX Venture Exchange) and market flag; US exchanges (no suffix) listed as well
+- [ ] Data taken from the backend's static exchange table (full names hardcoded there) or from cached data only; the screen makes no source requests
+
 ### Indicators
 - [ ] Indicator settings stored in Firestore per profile
 - [ ] Indicators calculated on the backend and returned with company data
