@@ -90,6 +90,15 @@ maintained. The result is:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
+The build number (`versionCode`) is the number of commits on `main`'s first-parent line, calculated from git on every
+build; the build fails outside a git checkout. The settings screen shows it with the version and the commit hash, e.g.
+`0.1.0 (build 156, ff90477)`. Build releases from a committed `main`: a build with uncommitted changes is marked
+`-dirty`, and a build from another branch can repeat a number used on `main`. Don't rewrite commits of `main` that were
+already built, as that can repeat or lower build numbers. Raise `versionName` in `app/build.gradle.kts` by hand.
+
+`adb install -r` refuses an APK with a lower build number than the installed one; add `-d` to install an older build
+on purpose.
+
 ## Install over USB
 
 1. On the phone, enable Developer options and USB debugging, then connect it and accept the debugging prompt.

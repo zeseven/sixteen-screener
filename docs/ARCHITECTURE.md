@@ -20,6 +20,7 @@ Dependency injection: Hilt.
 Tests: JUnit4.
 UI language: English only. All user-visible texts are kept in string resources to allow translations later.
 Backend URL: passed to the build only via the `SIXTEEN_BACKEND_URL` environment variable; never saved in a repo file or committed. The build fails with a clear message if it is not set.
+Version: `versionName` is a semantic version maintained by hand in `app/build.gradle.kts`. The build number is the number of commits on the first-parent line of the checked-out commit (`git rev-list --count --first-parent HEAD`), calculated by Gradle on every build and never stored in a file; it is the `versionCode` and, with the short commit hash and a flag for uncommitted changes, compiled into `BuildConfig`. The settings screen shows e.g. `0.1.0 (build 156, ff90477)`, with `-dirty` after the hash for a build with uncommitted changes. Release builds are made from `main` (ADR-077).
 Watchlist filter selections are kept in memory while the app is running and are not stored on the device.
 Data stored on the device (the active profile and the cached watchlist) is excluded from cloud backup and device-to-device transfer.
 The watchlist entries of each profile are stored on the device and shown on start while a fresh watchlist is loaded from the backend; prices and indicators are not stored. Adds and removes made while a load is in flight are kept and replayed on the loaded watchlist, which is loaded again afterwards to match the backend (ADR-076).

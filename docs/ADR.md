@@ -788,3 +788,14 @@ Adds and removes get increasing numbers and go into a change log; a confirmed ch
 The first snapshot replacing a cached list does not reload market data of rows already loaded since the start.
 
 **Consequences:** The watchlist is shown at once on a cold start and stays visible offline. A change during a load costs one extra `GET /watchlist` (no source requests, ADR-057). Until the snapshot arrives, the list may differ from the backend by changes made on other devices.
+
+## ADR-077: Build number from the git commit count
+
+**Date:** 2026-11-17
+**Status:** Accepted
+
+**Context:** `versionCode` was fixed at 1, so every APK looked like the same build to Android, and the settings screen showed only the hand-maintained version name. The build number must increase automatically without the build writing to a file or committing, and must not depend on the machine that builds.
+
+**Decision:** Gradle calculates the build number on every build with `git rev-list --count --first-parent HEAD`: only commits on `main`'s own line count, so commits of squashed or deleted branches are never included and a merge counts once. It is used as `versionCode` and compiled into `BuildConfig` together with the short commit hash and a flag for uncommitted changes; nothing is stored in a file. `versionName` stays a semantic version raised by hand. The settings screen shows `<version> (build <number>, <hash>)`, with `-dirty` after the hash when the working tree had uncommitted changes. The build fails outside a git checkout.
+
+**Consequences:** Any machine builds the same number from the same commit, and the number identifies the code. Releases must be built from `main`; rewriting commits of `main` that were already built, or building another branch, can repeat or lower a number. A CI checkout must fetch the full history. `adb install -r` refuses a lower build number, which guards against installing an older APK by mistake.

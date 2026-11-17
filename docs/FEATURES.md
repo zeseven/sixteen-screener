@@ -106,6 +106,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 ### Settings screen
 - [x] Settings screen accessible via a settings button
 - [x] Switch profile by name (existing profile or a new one)
+- [x] App version with an automatic build number and commit hash shown in the app section
 
 ---
 
