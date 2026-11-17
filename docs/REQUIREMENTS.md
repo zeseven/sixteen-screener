@@ -32,7 +32,7 @@ https://logoapi.sh/ticker/AAPL.svg
 
 ## Application screens
 There are 4 tabs on the main screen of the app:
-- Watchlist. Displays selected companies. There are buttons to add stock and remove any existing one.
+- Watchlist. Displays selected companies. The user can add a stock and remove any existing one.
 Contains filters (drop-down controls): Market (USA/EU/all), sector (finances/technology/etc), user tags.
 - Search. Contains input box for search; searches default source by company ticker or first letters from company name.
 Search is triggered after each letter typed, but no more than 1 request/sec.
