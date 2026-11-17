@@ -28,7 +28,13 @@ class SettingsViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val profileRepository = FakeProfileRepository(ActiveProfile(ProfileId("p1"), "Viktor"))
-    private val appInfo = AppInfo(version = "0.1.0", backendUrl = "https://backend.example")
+    private val appInfo = AppInfo(
+        version = "0.1.0",
+        backendUrl = "https://backend.example",
+        buildNumber = 156,
+        commitHash = "ff90477",
+        isDirty = true,
+    )
 
     private fun viewModel() = SettingsViewModel(profileRepository, appInfo)
 

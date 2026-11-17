@@ -116,7 +116,7 @@ fun SettingsContent(
             IndicatorSettingsEntry(onOpenIndicatorSettings)
             HorizontalDivider()
             SectionTitle(stringResource(R.string.settings_app_section))
-            InfoItem(stringResource(R.string.settings_version), uiState.appInfo.version, SettingsScreenTags.VERSION)
+            InfoItem(stringResource(R.string.settings_version), versionText(uiState.appInfo), SettingsScreenTags.VERSION)
             InfoItem(stringResource(R.string.settings_backend_url), uiState.appInfo.backendUrl, SettingsScreenTags.BACKEND_URL)
         }
     }
@@ -199,6 +199,16 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
+private fun versionText(appInfo: AppInfo): String {
+    val commit = if (appInfo.isDirty) {
+        stringResource(R.string.settings_version_dirty_commit, appInfo.commitHash)
+    } else {
+        appInfo.commitHash
+    }
+    return stringResource(R.string.settings_version_value, appInfo.version, appInfo.buildNumber, commit)
+}
+
+@Composable
 private fun InfoItem(label: String, value: String, valueTag: String) {
     Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
         Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -213,7 +223,13 @@ private fun SettingsContentPreview() {
         SettingsContent(
             uiState = SettingsUiState(
                 currentProfileName = "Viktor",
-                appInfo = AppInfo(version = "0.1.0", backendUrl = "https://backend.example"),
+                appInfo = AppInfo(
+                    version = "0.1.0",
+                    backendUrl = "https://backend.example",
+                    buildNumber = 156,
+                    commitHash = "ff90477",
+                    isDirty = false,
+                ),
             ),
             onBack = {},
             onNewProfileNameChange = {},

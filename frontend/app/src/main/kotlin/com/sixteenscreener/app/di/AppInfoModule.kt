@@ -11,5 +11,11 @@ import dagger.hilt.components.SingletonComponent
 @InstallIn(SingletonComponent::class)
 object AppInfoModule {
     @Provides
-    fun provideAppInfo(@BackendUrl backendUrl: String): AppInfo = AppInfo(version = BuildConfig.VERSION_NAME, backendUrl = backendUrl)
+    fun provideAppInfo(@BackendUrl backendUrl: String): AppInfo = AppInfo(
+        version = BuildConfig.VERSION_NAME,
+        backendUrl = backendUrl,
+        buildNumber = BuildConfig.BUILD_NUMBER,
+        commitHash = BuildConfig.COMMIT,
+        isDirty = BuildConfig.DIRTY,
+    )
 }

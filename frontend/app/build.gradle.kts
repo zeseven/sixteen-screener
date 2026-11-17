@@ -15,6 +15,9 @@ val serviceAccountKeyAssetName = "service-account-key.json"
 
 val serviceAccountKeyFile: File = resolveServiceAccountKeyFile()
 val backendUrl: String = resolveBackendUrl()
+val buildNumber: Int = resolveBuildNumber()
+val commitHash: String = runGit("rev-parse", "--short", "HEAD")
+val isDirtyBuild: Boolean = runGit("status", "--porcelain").isNotEmpty()
 
 fun resolveServiceAccountKeyFile(): File {
     val configuredPath = providers.gradleProperty(serviceAccountKeyProperty)
@@ -53,6 +56,37 @@ fun resolveBackendUrl(): String {
     return configuredUrl.trimEnd('/')
 }
 
+fun runGit(vararg arguments: String): String {
+    val command = listOf("git", *arguments)
+    val execution = providers.exec {
+        commandLine(command)
+        workingDir(layout.projectDirectory)
+        isIgnoreExitValue = true
+    }
+    val exitValue = runCatching { execution.result.get().exitValue }.getOrElse { failure ->
+        throw GradleException(
+            "Cannot run '${command.joinToString(" ")}'. The build number is derived from git, so git must be installed " +
+                "and on the PATH: ${failure.message}",
+            failure,
+        )
+    }
+    if (exitValue != 0) {
+        throw GradleException(
+            "'${command.joinToString(" ")}' failed with exit code $exitValue. The app must be built from a git " +
+                "checkout with at least one commit: ${execution.standardError.asText.get().trim()}",
+        )
+    }
+    return execution.standardOutput.asText.get().trim()
+}
+
+fun resolveBuildNumber(): Int {
+    val commitCount = runGit("rev-list", "--count", "--first-parent", "HEAD")
+    return commitCount.toIntOrNull()?.takeIf { it > 0 }
+        ?: throw GradleException(
+            "Build number must be a positive commit count, but 'git rev-list --count --first-parent HEAD' returned '$commitCount'.",
+        )
+}
+
 abstract class CopyServiceAccountKeyTask : DefaultTask() {
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
@@ -87,10 +121,13 @@ android {
         applicationId = "com.sixteenscreener.app"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
+        versionCode = buildNumber
         versionName = "0.1.0"
         buildConfigField("String", "BACKEND_URL", "\"$backendUrl\"")
         buildConfigField("String", "SERVICE_ACCOUNT_KEY_ASSET", "\"$serviceAccountKeyAssetName\"")
+        buildConfigField("int", "BUILD_NUMBER", "$buildNumber")
+        buildConfigField("String", "COMMIT", "\"$commitHash\"")
+        buildConfigField("boolean", "DIRTY", "$isDirtyBuild")
     }
 
     compileOptions {

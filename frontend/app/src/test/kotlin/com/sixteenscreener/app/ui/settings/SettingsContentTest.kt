@@ -46,11 +46,18 @@ class SettingsContentTest {
         currentProfileName: String? = "Viktor",
         isSwitching: Boolean = false,
         error: ProfileError? = null,
+        isDirty: Boolean = false,
     ) = SettingsUiState(
         currentProfileName = currentProfileName,
         isSwitching = isSwitching,
         error = error,
-        appInfo = AppInfo(version = "0.1.0", backendUrl = "https://backend.example"),
+        appInfo = AppInfo(
+            version = "0.1.0",
+            backendUrl = "https://backend.example",
+            buildNumber = 156,
+            commitHash = "ff90477",
+            isDirty = isDirty,
+        ),
     )
 
     private fun tagged(tag: String) = composeRule.onNodeWithTag(tag, useUnmergedTree = true)
@@ -60,8 +67,15 @@ class SettingsContentTest {
         setContent(state())
 
         tagged(SettingsScreenTags.CURRENT_PROFILE).assertTextEquals("Viktor")
-        tagged(SettingsScreenTags.VERSION).assertTextEquals("0.1.0")
+        tagged(SettingsScreenTags.VERSION).assertTextEquals("0.1.0 (build 156, ff90477)")
         tagged(SettingsScreenTags.BACKEND_URL).assertTextEquals("https://backend.example")
+    }
+
+    @Test
+    fun `dirty build marks the commit hash`() {
+        setContent(state(isDirty = true))
+
+        tagged(SettingsScreenTags.VERSION).assertTextEquals("0.1.0 (build 156, ff90477-dirty)")
     }
 
     @Test

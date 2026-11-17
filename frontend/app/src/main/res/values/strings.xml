@@ -127,6 +127,8 @@
     <string name="settings_switch_profile">Switch profile</string>
     <string name="settings_app_section">App</string>
     <string name="settings_version">Version</string>
+    <string name="settings_version_value">%1$s (build %2$d, %3$s)</string>
+    <string name="settings_version_dirty_commit">%1$s-dirty</string>
     <string name="settings_backend_url">Backend URL</string>
     <string name="settings_indicators_section">Indicators</string>
     <string name="settings_indicators">Indicator settings</string>
