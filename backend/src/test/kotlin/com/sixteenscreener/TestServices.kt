@@ -4,9 +4,11 @@ import com.sixteenscreener.config.AppConfig
 import com.sixteenscreener.config.SourceConfig
 import com.sixteenscreener.config.SourceSecrets
 import com.sixteenscreener.domain.model.Capability
+import com.sixteenscreener.domain.model.ImageFormat
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.RequestLimit
 import com.sixteenscreener.domain.model.SourceId
+import com.sixteenscreener.domain.service.LogoTier
 import com.sixteenscreener.domain.service.RateLimiter
 import com.sixteenscreener.domain.service.SourceCallGuard
 import com.sixteenscreener.domain.service.SourceCallOutcomes
@@ -57,6 +59,8 @@ class TestPorts(
     val symbolDirectory: InMemorySymbolDirectory = InMemorySymbolDirectory(),
     val logoStorage: InMemoryLogoStorage = InMemoryLogoStorage(),
     val logoProvider: FakeLogoProvider = FakeLogoProvider(),
+    val pngLogoStorage: InMemoryLogoStorage = InMemoryLogoStorage(ImageFormat.PNG),
+    val pngLogoProvider: FakeLogoProvider = FakeLogoProvider(SourceId.of("finnhub-logos"), ImageFormat.PNG),
 )
 
 fun testServices(ports: TestPorts = TestPorts(), config: AppConfig = testConfig()): AppServices {
@@ -78,7 +82,12 @@ fun testServices(ports: TestPorts = TestPorts(), config: AppConfig = testConfig(
         marketDataSources = mapOf(ports.marketData.id to ports.marketData),
         balanceSheetSources = (listOf(ports.balanceSheets) + ports.additionalBalanceSheets).associateBy { it.id },
         symbolDirectory = ports.symbolDirectory,
-        logoStorage = ports.logoStorage,
-        logoProvider = ports.logoProvider.takeIf { provider -> config.enabledSources.any { it.id == provider.id } },
+        logoTiers = listOf(
+            LogoTier(ports.logoStorage, ports.logoProvider.enabledIn(config)),
+            LogoTier(ports.pngLogoStorage, ports.pngLogoProvider.enabledIn(config)),
+        ),
     )
 }
+
+private fun FakeLogoProvider.enabledIn(config: AppConfig): FakeLogoProvider? =
+    takeIf { provider -> config.enabledSources.any { it.id == provider.id } }

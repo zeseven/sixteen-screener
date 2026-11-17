@@ -2,7 +2,8 @@ package com.sixteenscreener.adapter.outbound.logoapi
 
 import com.sixteenscreener.adapter.outbound.http.ErrorStatusMapping
 import com.sixteenscreener.adapter.outbound.http.SourceHttpCall
-import com.sixteenscreener.domain.model.ExchangeCode
+import com.sixteenscreener.adapter.outbound.logo.LogoTicker
+import com.sixteenscreener.domain.model.ImageFormat
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
@@ -22,12 +23,14 @@ class LogoApiClient(
     private val maxSizeBytes: Long = DEFAULT_MAX_SIZE_BYTES,
 ) : LogoProvider {
 
+    override val format: ImageFormat = ImageFormat.SVG
+
     private val baseUrl = baseUrl.trimEnd('/')
 
     override suspend fun logo(symbol: Symbol): SourceResult<ByteArray> =
         call.execute(
             request = {
-                url("$baseUrl/ticker/${tickerOf(symbol)}.svg")
+                url("$baseUrl/ticker/${LogoTicker.of(symbol)}.svg")
                 parameter(FALLBACK_PARAMETER, FALLBACK_NOT_FOUND)
             },
             errorStatus = errorStatus,
@@ -55,9 +58,6 @@ class LogoApiClient(
         private val errorStatus = ErrorStatusMapping.overriding(
             NOT_FOUND to { outcome -> SourceResult.NoData(outcome) },
         )
-
-        fun tickerOf(symbol: Symbol): String =
-            if (symbol.exchangeCode == ExchangeCode.US) symbol.ticker else symbol.value
     }
 }
 

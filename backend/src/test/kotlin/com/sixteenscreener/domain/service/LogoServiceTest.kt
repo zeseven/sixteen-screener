@@ -1,5 +1,6 @@
 package com.sixteenscreener.domain.service
 
+import com.sixteenscreener.domain.model.ImageFormat
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.Logo
 import com.sixteenscreener.domain.model.LogoOrigin
@@ -14,6 +15,8 @@ import com.sixteenscreener.fakes.InMemoryLogoStorage
 import com.sixteenscreener.fakes.InMemoryRequestCounterRepository
 import com.sixteenscreener.fakes.InMemorySourceCallOutcomeRepository
 import com.sixteenscreener.fakes.MutableClock
+import com.sixteenscreener.port.outbound.LogoProvider
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -22,22 +25,37 @@ import io.kotest.matchers.shouldBe
 import java.time.Duration
 
 private val logoapi = SourceId.of("logoapi")
+private val finnhubLogos = SourceId.of("finnhub-logos")
 private val aapl = Symbol.of("AAPL")
 private val defaultSvg = "<svg>default</svg>".toByteArray()
 private val appleSvg = "<svg>apple</svg>".toByteArray()
+private val applePng = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x01)
 
-private class LogoFixture(limit: Int = 1000, withProvider: Boolean = true) {
+private class LogoFixture(
+    limit: Int = 1000,
+    withProvider: Boolean = true,
+    withPngProvider: Boolean = true,
+) {
     val clock = MutableClock()
-    val storage = InMemoryLogoStorage()
+    val storage = InMemoryLogoStorage(ImageFormat.SVG)
+    val pngStorage = InMemoryLogoStorage(ImageFormat.PNG)
     val misses = InMemoryLogoMissRepository()
-    val provider = FakeLogoProvider(logoapi)
+    val provider = FakeLogoProvider(logoapi, ImageFormat.SVG)
+    val pngProvider = FakeLogoProvider(finnhubLogos, ImageFormat.PNG)
     val counters = InMemoryRequestCounterRepository()
     val sourceCalls = InMemorySourceCallOutcomeRepository()
     private val limits = listOf(RequestLimit(LimitInterval.DAY, limit))
-    private val limiter = RateLimiter(mapOf(logoapi to limits), counters, clock)
+    private val limiter = RateLimiter(
+        limitsBySource = mapOf(logoapi to limits, finnhubLogos to emptyList()),
+        counters = counters,
+        clock = clock,
+        totalCountedSources = setOf(finnhubLogos),
+    )
     val service = LogoService(
-        storage = storage,
-        provider = provider.takeIf { withProvider },
+        tiers = listOf(
+            LogoTier(storage, provider.takeIf { withProvider }),
+            LogoTier(pngStorage, pngProvider.takeIf { withPngProvider }),
+        ),
         misses = misses,
         guard = SourceCallGuard(limiter),
         outcomes = SourceCallOutcomes(sourceCalls),
@@ -49,162 +67,340 @@ private class LogoFixture(limit: Int = 1000, withProvider: Boolean = true) {
 
     suspend fun used(): Int = counters.usage(logoapi, limits, clock.now()).single().used
 
-    suspend fun lastCall(): SourceCallOutcome? = sourceCalls.findAll(listOf(logoapi))[logoapi]
+    suspend fun totalPngCalls(): Long = counters.totals(listOf(finnhubLogos)).getValue(finnhubLogos)
+
+    suspend fun lastCall(source: SourceId = logoapi): SourceCallOutcome? = sourceCalls.findAll(listOf(source))[source]
+
+    fun noLogoAnywhere() {
+        provider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, clock.now()))
+        pngProvider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, clock.now()))
+    }
 }
 
-private infix fun Logo.shouldBeLogo(expected: Pair<ByteArray, LogoOrigin>) {
-    String(svg) shouldBe String(expected.first)
-    origin shouldBe expected.second
+private infix fun Logo.shouldBeLogo(expected: Triple<ByteArray, ImageFormat, LogoOrigin>) {
+    bytes.toList() shouldBe expected.first.toList()
+    format shouldBe expected.second
+    origin shouldBe expected.third
 }
+
+private fun svg(bytes: ByteArray, origin: LogoOrigin) = Triple(bytes, ImageFormat.SVG, origin)
+
+private fun png(bytes: ByteArray, origin: LogoOrigin) = Triple(bytes, ImageFormat.PNG, origin)
 
 class LogoServiceTest : FunSpec({
 
-    test("bucket hit is returned without asking the source") {
-        val fixture = LogoFixture()
-        fixture.storage.save(aapl, appleSvg)
+    context("step 1: stored SVG") {
+        test("bucket hit is returned without asking any source") {
+            val fixture = LogoFixture()
+            fixture.storage.save(aapl, appleSvg)
+            fixture.pngStorage.save(aapl, applePng)
 
-        fixture.service.logo(aapl) shouldBeLogo (appleSvg to LogoOrigin.STORED)
+            fixture.service.logo(aapl) shouldBeLogo svg(appleSvg, LogoOrigin.STORED)
 
-        fixture.provider.calls.shouldBeEmpty()
-        fixture.used() shouldBe 0
+            fixture.provider.calls.shouldBeEmpty()
+            fixture.pngProvider.calls.shouldBeEmpty()
+            fixture.used() shouldBe 0
+        }
+
+        test("storage read failure moves on to the stored PNG") {
+            val fixture = LogoFixture()
+            fixture.storage.failingReads = true
+            fixture.pngStorage.save(aapl, applePng)
+
+            fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.STORED)
+        }
     }
 
-    test("source hit is stored in the bucket, counted and recorded") {
-        val fixture = LogoFixture()
-        fixture.provider.logos[aapl] = SourceResult.Success(appleSvg, fixture.success)
+    context("step 2: stored PNG") {
+        test("stored PNG is returned as PNG without asking any source") {
+            val fixture = LogoFixture()
+            fixture.pngStorage.save(aapl, applePng)
 
-        fixture.service.logo(aapl) shouldBeLogo (appleSvg to LogoOrigin.DOWNLOADED)
+            fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.STORED)
 
-        String(fixture.storage.find(aapl)!!) shouldBe String(appleSvg)
-        fixture.used() shouldBe 1
-        fixture.lastCall() shouldBe fixture.success
-        fixture.misses.lastMiss(logoapi, aapl).shouldBeNull()
+            fixture.provider.calls.shouldBeEmpty()
+            fixture.pngProvider.calls.shouldBeEmpty()
+        }
+
+        test("PNG storage read failure moves on to logoapi.sh") {
+            val fixture = LogoFixture()
+            fixture.pngStorage.failingReads = true
+            fixture.provider.logos[aapl] = SourceResult.Success(appleSvg, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo svg(appleSvg, LogoOrigin.DOWNLOADED)
+        }
+
+        test("PNG logos are read even when the Finnhub logo source is disabled") {
+            val fixture = LogoFixture(withPngProvider = false)
+            fixture.pngStorage.save(aapl, applePng)
+
+            fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.STORED)
+        }
     }
 
-    test("logo not found in the source: miss recorded, default logo returned") {
-        val fixture = LogoFixture()
-        val notFound = SourceCallOutcome.httpError(404, fixture.clock.now())
-        fixture.provider.logos[aapl] = SourceResult.NoData(notFound)
+    context("step 3: logoapi.sh") {
+        test("source hit is stored in the SVG bucket folder, counted and recorded; Finnhub isn't asked") {
+            val fixture = LogoFixture()
+            fixture.provider.logos[aapl] = SourceResult.Success(appleSvg, fixture.success)
 
-        fixture.service.logo(aapl) shouldBeLogo (defaultSvg to LogoOrigin.DEFAULT_MISSING)
+            fixture.service.logo(aapl) shouldBeLogo svg(appleSvg, LogoOrigin.DOWNLOADED)
 
-        fixture.misses.lastMiss(logoapi, aapl) shouldBe fixture.clock.now()
-        fixture.storage.contains(aapl) shouldBe false
-        fixture.lastCall() shouldBe notFound
+            fixture.storage.find(aapl)!!.toList() shouldBe appleSvg.toList()
+            fixture.pngStorage.contains(aapl) shouldBe false
+            fixture.used() shouldBe 1
+            fixture.lastCall() shouldBe fixture.success
+            fixture.misses.lastMiss(logoapi, aapl).shouldBeNull()
+            fixture.pngProvider.calls.shouldBeEmpty()
+        }
+
+        test("logo not found: logoapi.sh miss recorded and Finnhub asked") {
+            val fixture = LogoFixture()
+            val notFound = SourceCallOutcome.httpError(404, fixture.clock.now())
+            fixture.provider.logos[aapl] = SourceResult.NoData(notFound)
+            fixture.pngProvider.logos[aapl] = SourceResult.Success(applePng, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.DOWNLOADED)
+
+            fixture.misses.lastMiss(logoapi, aapl) shouldBe fixture.clock.now()
+            fixture.misses.lastMiss(finnhubLogos, aapl).shouldBeNull()
+            fixture.storage.contains(aapl) shouldBe false
+            fixture.lastCall() shouldBe notFound
+        }
+
+        test("recorded miss younger than 14 days: logoapi.sh skipped without a call") {
+            val fixture = LogoFixture()
+            fixture.misses.recordMiss(logoapi, aapl, fixture.clock.now())
+            fixture.clock.advanceBy(Duration.ofDays(14).minusSeconds(1))
+            fixture.pngProvider.logos[aapl] = SourceResult.Success(applePng, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.DOWNLOADED)
+
+            fixture.provider.calls.shouldBeEmpty()
+            fixture.used() shouldBe 0
+        }
+
+        test("expired miss: logoapi.sh is asked again") {
+            val fixture = LogoFixture()
+            fixture.misses.recordMiss(logoapi, aapl, fixture.clock.now())
+            fixture.clock.advanceBy(Duration.ofDays(14))
+            fixture.provider.logos[aapl] = SourceResult.Success(appleSvg, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo svg(appleSvg, LogoOrigin.DOWNLOADED)
+
+            fixture.provider.calls shouldContainExactly listOf(aapl)
+        }
+
+        test("a miss recorded for Finnhub logos doesn't skip logoapi.sh") {
+            val fixture = LogoFixture()
+            fixture.misses.recordMiss(finnhubLogos, aapl, fixture.clock.now())
+            fixture.provider.logos[aapl] = SourceResult.Success(appleSvg, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo svg(appleSvg, LogoOrigin.DOWNLOADED)
+        }
+
+        test("limit reached: no call, no miss, Finnhub asked") {
+            val fixture = LogoFixture(limit = 0)
+            fixture.pngProvider.logos[aapl] = SourceResult.Success(applePng, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.DOWNLOADED)
+
+            fixture.provider.calls.shouldBeEmpty()
+            fixture.misses.lastMiss(logoapi, aapl).shouldBeNull()
+            fixture.lastCall().shouldBeNull()
+        }
+
+        test("source answering 429: counters saturated, outcome recorded, no miss") {
+            val fixture = LogoFixture()
+            val tooMany = SourceCallOutcome.httpError(429, fixture.clock.now())
+            fixture.provider.logos[aapl] = SourceResult.LimitReached(tooMany)
+            fixture.pngProvider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, fixture.clock.now()))
+
+            fixture.service.logo(aapl).origin shouldBe LogoOrigin.DEFAULT_UNAVAILABLE
+
+            fixture.used() shouldBe 1000
+            fixture.lastCall() shouldBe tooMany
+            fixture.misses.lastMiss(logoapi, aapl).shouldBeNull()
+        }
+
+        test("timeout: outcome recorded, no miss, Finnhub asked") {
+            val fixture = LogoFixture()
+            val timeout = SourceCallOutcome.timeout(fixture.clock.now())
+            fixture.provider.logos[aapl] = SourceResult.SourceError(timeout)
+            fixture.pngProvider.logos[aapl] = SourceResult.Success(applePng, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.DOWNLOADED)
+
+            fixture.lastCall() shouldBe timeout
+            fixture.misses.lastMiss(logoapi, aapl).shouldBeNull()
+        }
+
+        test("source not supporting the symbol counts as a failure, not as a miss") {
+            val fixture = LogoFixture()
+            fixture.provider.logos[aapl] = SourceResult.NotSupported(SourceCallOutcome.httpError(403, fixture.clock.now()))
+            fixture.pngProvider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, fixture.clock.now()))
+
+            fixture.service.logo(aapl).origin shouldBe LogoOrigin.DEFAULT_UNAVAILABLE
+
+            fixture.misses.lastMiss(logoapi, aapl).shouldBeNull()
+        }
+
+        test("a throwing source moves on to Finnhub") {
+            val fixture = LogoFixture()
+            val throwing = object : LogoProvider by fixture.provider {
+                override suspend fun logo(symbol: Symbol): SourceResult<ByteArray> = error("boom")
+            }
+            val service = LogoService(
+                tiers = listOf(LogoTier(fixture.storage, throwing), LogoTier(fixture.pngStorage, fixture.pngProvider)),
+                misses = fixture.misses,
+                guard = SourceCallGuard(RateLimiter(mapOf(logoapi to emptyList(), finnhubLogos to emptyList()), fixture.counters, fixture.clock)),
+                outcomes = SourceCallOutcomes(fixture.sourceCalls),
+                clock = fixture.clock,
+                defaultLogo = defaultSvg,
+            )
+            fixture.pngProvider.logos[aapl] = SourceResult.Success(applePng, fixture.success)
+
+            service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.DOWNLOADED)
+        }
+
+        test("storage write failure still returns the downloaded logo") {
+            val fixture = LogoFixture()
+            fixture.storage.failingWrites = true
+            fixture.provider.logos[aapl] = SourceResult.Success(appleSvg, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo svg(appleSvg, LogoOrigin.DOWNLOADED)
+        }
     }
 
-    test("non-SVG response (no data from the provider) is recorded as a miss") {
-        val fixture = LogoFixture()
-        fixture.provider.logos[aapl] = SourceResult.NoData(fixture.success)
+    context("step 4: Finnhub PNG") {
+        test("source hit is stored in the PNG bucket folder, returned as PNG, recorded and counted in the total") {
+            val fixture = LogoFixture()
+            fixture.provider.logos[aapl] = SourceResult.NoData(fixture.success)
+            fixture.pngProvider.logos[aapl] = SourceResult.Success(applePng, fixture.success)
 
-        fixture.service.logo(aapl).origin shouldBe LogoOrigin.DEFAULT_MISSING
+            fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.DOWNLOADED)
 
-        fixture.misses.lastMiss(logoapi, aapl) shouldBe fixture.clock.now()
+            fixture.pngStorage.find(aapl)!!.toList() shouldBe applePng.toList()
+            fixture.storage.contains(aapl) shouldBe false
+            fixture.lastCall(finnhubLogos) shouldBe fixture.success
+            fixture.totalPngCalls() shouldBe 1L
+            fixture.used() shouldBe 1
+        }
+
+        test("the next request returns the stored PNG without asking any source") {
+            val fixture = LogoFixture()
+            fixture.provider.logos[aapl] = SourceResult.NoData(fixture.success)
+            fixture.pngProvider.logos[aapl] = SourceResult.Success(applePng, fixture.success)
+            fixture.service.logo(aapl)
+
+            fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.STORED)
+
+            fixture.provider.calls shouldContainExactly listOf(aapl)
+            fixture.pngProvider.calls shouldContainExactly listOf(aapl)
+            fixture.totalPngCalls() shouldBe 1L
+        }
+
+        test("logo not found: Finnhub logos miss recorded") {
+            val fixture = LogoFixture()
+            fixture.noLogoAnywhere()
+
+            fixture.service.logo(aapl)
+
+            fixture.misses.lastMiss(finnhubLogos, aapl) shouldBe fixture.clock.now()
+            fixture.pngStorage.contains(aapl) shouldBe false
+        }
+
+        test("recent Finnhub logos miss: no call and not counted") {
+            val fixture = LogoFixture()
+            fixture.provider.logos[aapl] = SourceResult.NoData(fixture.success)
+            fixture.misses.recordMiss(finnhubLogos, aapl, fixture.clock.now())
+
+            fixture.service.logo(aapl) shouldBeLogo svg(defaultSvg, LogoOrigin.DEFAULT_MISSING)
+
+            fixture.pngProvider.calls.shouldBeEmpty()
+            fixture.totalPngCalls() shouldBe 0L
+        }
+
+        test("PNG storage write failure still returns the downloaded logo") {
+            val fixture = LogoFixture()
+            fixture.pngStorage.failingWrites = true
+            fixture.provider.logos[aapl] = SourceResult.NoData(fixture.success)
+            fixture.pngProvider.logos[aapl] = SourceResult.Success(applePng, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.DOWNLOADED)
+        }
     }
 
-    test("recorded miss younger than 14 days: default logo without a call") {
-        val fixture = LogoFixture()
-        fixture.misses.recordMiss(logoapi, aapl, fixture.clock.now())
-        fixture.clock.advanceBy(Duration.ofDays(14).minusSeconds(1))
+    context("step 5: default logo") {
+        test("all sources report misses: default SVG that is not temporary") {
+            val fixture = LogoFixture()
+            fixture.noLogoAnywhere()
 
-        fixture.service.logo(aapl) shouldBeLogo (defaultSvg to LogoOrigin.DEFAULT_MISSING)
+            val logo = fixture.service.logo(aapl)
 
-        fixture.provider.calls.shouldBeEmpty()
-        fixture.used() shouldBe 0
+            logo shouldBeLogo svg(defaultSvg, LogoOrigin.DEFAULT_MISSING)
+            logo.isMissing shouldBe true
+            logo.isTemporary shouldBe false
+        }
+
+        test("all sources skipped by recent misses: default logo as missing") {
+            val fixture = LogoFixture()
+            fixture.misses.recordMiss(logoapi, aapl, fixture.clock.now())
+            fixture.misses.recordMiss(finnhubLogos, aapl, fixture.clock.now())
+
+            fixture.service.logo(aapl) shouldBeLogo svg(defaultSvg, LogoOrigin.DEFAULT_MISSING)
+
+            fixture.provider.calls.shouldBeEmpty()
+            fixture.pngProvider.calls.shouldBeEmpty()
+        }
+
+        test("a miss and a failing Finnhub call: temporary default logo") {
+            val fixture = LogoFixture()
+            fixture.provider.logos[aapl] = SourceResult.NoData(fixture.success)
+            fixture.pngProvider.logos[aapl] = SourceResult.SourceError(SourceCallOutcome.timeout(fixture.clock.now()))
+
+            val logo = fixture.service.logo(aapl)
+
+            logo shouldBeLogo svg(defaultSvg, LogoOrigin.DEFAULT_UNAVAILABLE)
+            logo.isTemporary shouldBe true
+            fixture.misses.lastMiss(finnhubLogos, aapl).shouldBeNull()
+        }
+
+        test("a failing stored logo read with misses from every source: temporary default logo") {
+            val fixture = LogoFixture()
+            fixture.storage.failingReads = true
+            fixture.noLogoAnywhere()
+
+            fixture.service.logo(aapl).origin shouldBe LogoOrigin.DEFAULT_UNAVAILABLE
+        }
+
+        test("miss repository failures: the sources are asked and the default logo returned as missing") {
+            val fixture = LogoFixture()
+            fixture.misses.failing = true
+            fixture.noLogoAnywhere()
+
+            fixture.service.logo(aapl).origin shouldBe LogoOrigin.DEFAULT_MISSING
+
+            fixture.provider.calls shouldContainExactly listOf(aapl)
+            fixture.pngProvider.calls shouldContainExactly listOf(aapl)
+        }
+
+        test("only the Finnhub logo source enabled and missing: default logo as missing") {
+            val fixture = LogoFixture(withProvider = false)
+            fixture.pngProvider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, fixture.clock.now()))
+
+            fixture.service.logo(aapl).origin shouldBe LogoOrigin.DEFAULT_MISSING
+        }
+
+        test("no logo source configured: temporary default logo") {
+            val fixture = LogoFixture(withProvider = false, withPngProvider = false)
+
+            fixture.service.logo(aapl) shouldBeLogo svg(defaultSvg, LogoOrigin.DEFAULT_UNAVAILABLE)
+        }
     }
 
-    test("a miss recorded for another logo source doesn't skip the source") {
-        val fixture = LogoFixture()
-        fixture.misses.recordMiss(SourceId.of("finnhub-logos"), aapl, fixture.clock.now())
-        fixture.provider.logos[aapl] = SourceResult.Success(appleSvg, fixture.success)
-
-        fixture.service.logo(aapl) shouldBeLogo (appleSvg to LogoOrigin.DOWNLOADED)
-    }
-
-    test("expired miss: the source is asked again") {
-        val fixture = LogoFixture()
-        fixture.misses.recordMiss(logoapi, aapl, fixture.clock.now())
-        fixture.clock.advanceBy(Duration.ofDays(14))
-        fixture.provider.logos[aapl] = SourceResult.Success(appleSvg, fixture.success)
-
-        fixture.service.logo(aapl) shouldBeLogo (appleSvg to LogoOrigin.DOWNLOADED)
-
-        fixture.provider.calls shouldContainExactly listOf(aapl)
-    }
-
-    test("limit reached: temporary default logo, no call, no miss") {
-        val fixture = LogoFixture(limit = 0)
-
-        val logo = fixture.service.logo(aapl)
-
-        logo shouldBeLogo (defaultSvg to LogoOrigin.DEFAULT_UNAVAILABLE)
-        logo.isTemporary shouldBe true
-        fixture.provider.calls.shouldBeEmpty()
-        fixture.misses.lastMiss(logoapi, aapl).shouldBeNull()
-        fixture.lastCall().shouldBeNull()
-    }
-
-    test("source answering 429: temporary default logo, counters saturated, outcome recorded") {
-        val fixture = LogoFixture()
-        val tooMany = SourceCallOutcome.httpError(429, fixture.clock.now())
-        fixture.provider.logos[aapl] = SourceResult.LimitReached(tooMany)
-
-        fixture.service.logo(aapl).origin shouldBe LogoOrigin.DEFAULT_UNAVAILABLE
-
-        fixture.used() shouldBe 1000
-        fixture.lastCall() shouldBe tooMany
-        fixture.misses.lastMiss(logoapi, aapl).shouldBeNull()
-    }
-
-    test("timeout: temporary default logo, outcome recorded, no miss") {
-        val fixture = LogoFixture()
-        val timeout = SourceCallOutcome.timeout(fixture.clock.now())
-        fixture.provider.logos[aapl] = SourceResult.SourceError(timeout)
-
-        fixture.service.logo(aapl).origin shouldBe LogoOrigin.DEFAULT_UNAVAILABLE
-
-        fixture.lastCall() shouldBe timeout
-        fixture.misses.lastMiss(logoapi, aapl).shouldBeNull()
-    }
-
-    test("source not supporting the symbol: temporary default logo without a miss") {
-        val fixture = LogoFixture()
-        fixture.provider.logos[aapl] = SourceResult.NotSupported(SourceCallOutcome.httpError(403, fixture.clock.now()))
-
-        fixture.service.logo(aapl).origin shouldBe LogoOrigin.DEFAULT_UNAVAILABLE
-
-        fixture.misses.lastMiss(logoapi, aapl).shouldBeNull()
-    }
-
-    test("storage write failure still returns the downloaded logo") {
-        val fixture = LogoFixture()
-        fixture.storage.failingWrites = true
-        fixture.provider.logos[aapl] = SourceResult.Success(appleSvg, fixture.success)
-
-        fixture.service.logo(aapl) shouldBeLogo (appleSvg to LogoOrigin.DOWNLOADED)
-    }
-
-    test("storage read failure falls back to the source") {
-        val fixture = LogoFixture()
-        fixture.storage.failingReads = true
-        fixture.provider.logos[aapl] = SourceResult.Success(appleSvg, fixture.success)
-
-        fixture.service.logo(aapl) shouldBeLogo (appleSvg to LogoOrigin.DOWNLOADED)
-    }
-
-    test("miss repository failures: the source is asked and the default logo returned") {
-        val fixture = LogoFixture()
-        fixture.misses.failing = true
-        fixture.provider.logos[aapl] = SourceResult.NoData(fixture.success)
-
-        fixture.service.logo(aapl).origin shouldBe LogoOrigin.DEFAULT_MISSING
-
-        fixture.provider.calls shouldContainExactly listOf(aapl)
-    }
-
-    test("no logo source configured: temporary default logo") {
-        val fixture = LogoFixture(withProvider = false)
-
-        fixture.service.logo(aapl) shouldBeLogo (defaultSvg to LogoOrigin.DEFAULT_UNAVAILABLE)
+    test("a source must provide the format its storage keeps") {
+        shouldThrow<IllegalArgumentException> {
+            LogoTier(InMemoryLogoStorage(ImageFormat.SVG), FakeLogoProvider(finnhubLogos, ImageFormat.PNG))
+        }
     }
 })

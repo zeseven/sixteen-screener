@@ -1,5 +1,6 @@
 package com.sixteenscreener.fakes
 
+import com.sixteenscreener.domain.model.ImageFormat
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.port.outbound.LogoMissRepository
@@ -7,7 +8,7 @@ import com.sixteenscreener.port.outbound.LogoStorage
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
-class InMemoryLogoStorage : LogoStorage {
+class InMemoryLogoStorage(override val format: ImageFormat = ImageFormat.SVG) : LogoStorage {
     private val logos = ConcurrentHashMap<Symbol, ByteArray>()
 
     var failingReads: Boolean = false
@@ -18,9 +19,9 @@ class InMemoryLogoStorage : LogoStorage {
         return logos[symbol]?.copyOf()
     }
 
-    override suspend fun save(symbol: Symbol, svg: ByteArray) {
+    override suspend fun save(symbol: Symbol, image: ByteArray) {
         check(!failingWrites) { "Storage unavailable" }
-        logos[symbol] = svg.copyOf()
+        logos[symbol] = image.copyOf()
     }
 
     fun contains(symbol: Symbol): Boolean = logos.containsKey(symbol)

@@ -1,14 +1,19 @@
 package com.sixteenscreener.port.outbound
 
+import com.sixteenscreener.domain.model.ImageFormat
 import com.sixteenscreener.domain.model.Symbol
 
 /**
- * Storage of cached company logos (`logos/{symbol}.svg` in the GCS bucket).
+ * Storage of cached company logos of one image format in the GCS bucket
+ * (`logos/{symbol}.svg` for SVG, `finnhub-logos/{symbol}.png` for PNG).
  */
 interface LogoStorage {
-    /** Stored SVG logo of [symbol], or null when none is stored. */
+    /** Image format of the stored logos. */
+    val format: ImageFormat
+
+    /** Stored logo of [symbol] in [format], or null when none is stored. */
     suspend fun find(symbol: Symbol): ByteArray?
 
-    /** Stores the SVG logo [svg] of [symbol], replacing a previously stored one. */
-    suspend fun save(symbol: Symbol, svg: ByteArray)
+    /** Stores the logo [image] of [symbol] in [format], replacing a previously stored one. */
+    suspend fun save(symbol: Symbol, image: ByteArray)
 }

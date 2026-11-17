@@ -3,6 +3,7 @@ package com.sixteenscreener.adapter.outbound.logoapi
 import com.sixteenscreener.Fixtures
 import com.sixteenscreener.adapter.outbound.http.SourceHttpCall
 import com.sixteenscreener.adapter.outbound.http.SourceHttpClient
+import com.sixteenscreener.adapter.outbound.logo.LogoTicker
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceCallResult
 import com.sixteenscreener.domain.model.SourceId
@@ -85,7 +86,7 @@ class LogoApiClientTest : FunSpec({
             "SAP.DE" to "SAP.DE",
             "SHEL.L" to "SHEL.L",
         ) { (symbol, ticker) ->
-            LogoApiClient.tickerOf(Symbol.of(symbol)) shouldBe ticker
+            LogoTicker.of(Symbol.of(symbol)) shouldBe ticker
         }
     }
 

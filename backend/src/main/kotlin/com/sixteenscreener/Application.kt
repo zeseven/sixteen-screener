@@ -5,6 +5,7 @@ import com.sixteenscreener.adapter.inbound.http.configureRouting
 import com.sixteenscreener.adapter.inbound.http.configureSerialization
 import com.sixteenscreener.adapter.inbound.http.configureStatusPages
 import com.sixteenscreener.adapter.outbound.finnhub.FinnhubClient
+import com.sixteenscreener.adapter.outbound.finnhublogos.FinnhubLogoClient
 import com.sixteenscreener.adapter.outbound.firestore.FirestoreClientFactory
 import com.sixteenscreener.adapter.outbound.firestore.FirestoreCompanyCache
 import com.sixteenscreener.adapter.outbound.firestore.FirestoreLogoMissRepository
@@ -15,6 +16,7 @@ import com.sixteenscreener.adapter.outbound.firestore.FirestoreSourceCallOutcome
 import com.sixteenscreener.adapter.outbound.gcs.GcsClientFactory
 import com.sixteenscreener.adapter.outbound.gcs.GcsExchangeDirectoryStore
 import com.sixteenscreener.adapter.outbound.gcs.GcsLogoStorage
+import com.sixteenscreener.adapter.outbound.gcs.GcsPaths
 import com.sixteenscreener.adapter.outbound.http.SourceHttpCall
 import com.sixteenscreener.adapter.outbound.logoapi.LogoApiClient
 import com.sixteenscreener.adapter.outbound.http.SourceHttpClient
@@ -25,6 +27,7 @@ import com.sixteenscreener.config.AppConfig
 import com.sixteenscreener.config.AppConfigLoader
 import com.sixteenscreener.config.AppConfigLoader.SEC_EDGAR_FILES_BASE_URL
 import com.sixteenscreener.config.InvalidConfigurationException
+import com.sixteenscreener.domain.model.ImageFormat
 import com.sixteenscreener.domain.model.SourceDescription
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.service.CompanyDataService
@@ -32,6 +35,7 @@ import com.sixteenscreener.domain.service.CompanyIdentityResolver
 import com.sixteenscreener.domain.service.ExchangeDirectoryService
 import com.sixteenscreener.domain.service.FreshnessPolicy
 import com.sixteenscreener.domain.service.LogoService
+import com.sixteenscreener.domain.service.LogoTier
 import com.sixteenscreener.domain.service.MarketResolver
 import com.sixteenscreener.domain.service.NoSymbolDirectory
 import com.sixteenscreener.domain.service.ProfileService
@@ -54,8 +58,6 @@ import com.sixteenscreener.port.outbound.BalanceSheetSource
 import com.sixteenscreener.port.outbound.Clock
 import com.sixteenscreener.port.outbound.CompanyCache
 import com.sixteenscreener.port.outbound.LogoMissRepository
-import com.sixteenscreener.port.outbound.LogoProvider
-import com.sixteenscreener.port.outbound.LogoStorage
 import com.sixteenscreener.port.outbound.MarketDataSource
 import com.sixteenscreener.port.outbound.ProfileRepository
 import com.sixteenscreener.port.outbound.SecCikRepository
@@ -81,8 +83,7 @@ class AppServices(
     val marketDataSources: Map<SourceId, MarketDataSource>,
     val balanceSheetSources: Map<SourceId, BalanceSheetSource>,
     val symbolDirectory: SymbolDirectory,
-    val logoStorage: LogoStorage,
-    val logoProvider: LogoProvider?,
+    val logoTiers: List<LogoTier>,
     val defaultLogo: ByteArray = bundledDefaultLogo(),
     private val resources: List<AutoCloseable> = emptyList(),
 ) : AutoCloseable {
@@ -139,8 +140,7 @@ class AppServices(
     )
 
     val logoUseCase: LogoUseCase = LogoService(
-        storage = logoStorage,
-        provider = logoProvider,
+        tiers = logoTiers,
         misses = logoMisses,
         guard = sourceCallGuard,
         outcomes = sourceCallOutcomes,
@@ -182,6 +182,7 @@ fun wireServices(config: AppConfig): AppServices {
     )
     val sourceCallOutcomes = SourceCallOutcomes(FirestoreSourceCallOutcomeRepository(firestore))
     val sourceCallGuard = SourceCallGuard(rateLimiter)
+    val companyCache = FirestoreCompanyCache(firestore)
     val finnhub = finnhubClient(config, httpClient, clock)
     val secEdgar = secEdgarClient(config, httpClient, FirestoreSecCikRepository(firestore), rateLimiter, clock)
     val symbolDirectory = finnhub?.let { source ->
@@ -197,7 +198,7 @@ fun wireServices(config: AppConfig): AppServices {
         config = config,
         clock = clock,
         profiles = FirestoreProfileRepository(firestore),
-        companyCache = FirestoreCompanyCache(firestore),
+        companyCache = companyCache,
         logoMisses = FirestoreLogoMissRepository(firestore),
         rateLimiter = rateLimiter,
         sourceCallOutcomes = sourceCallOutcomes,
@@ -205,8 +206,16 @@ fun wireServices(config: AppConfig): AppServices {
         marketDataSources = listOfNotNull<MarketDataSource>(finnhub).associateBy { it.id },
         balanceSheetSources = listOfNotNull<BalanceSheetSource>(finnhub, secEdgar).associateBy { it.id },
         symbolDirectory = symbolDirectory,
-        logoStorage = GcsLogoStorage(storage, config.logoBucket),
-        logoProvider = logoApiClient(config, httpClient, clock),
+        logoTiers = listOf(
+            LogoTier(
+                storage = GcsLogoStorage(storage, config.logoBucket, GcsPaths.LOGOS, ImageFormat.SVG),
+                provider = logoApiClient(config, httpClient, clock),
+            ),
+            LogoTier(
+                storage = GcsLogoStorage(storage, config.logoBucket, GcsPaths.FINNHUB_LOGOS, ImageFormat.PNG),
+                provider = finnhubLogoClient(config, httpClient, companyCache, clock),
+            ),
+        ),
         resources = listOf(httpClient, storage, firestore),
     )
 }
@@ -252,6 +261,22 @@ private fun logoApiClient(config: AppConfig, httpClient: HttpClient, clock: Cloc
         LogoApiClient(id = source.id, baseUrl = source.baseUrl, call = SourceHttpCall(httpClient, source.timeout, clock))
     }
 
+private fun finnhubLogoClient(
+    config: AppConfig,
+    httpClient: HttpClient,
+    companyCache: CompanyCache,
+    clock: Clock,
+): FinnhubLogoClient? =
+    config.enabledSources.firstOrNull { it.id == FINNHUB_LOGOS }?.let { source ->
+        FinnhubLogoClient(
+            id = source.id,
+            baseUrl = source.baseUrl,
+            call = SourceHttpCall(httpClient, source.timeout, clock),
+            profiles = companyCache,
+            profileSource = FINNHUB,
+        )
+    }
+
 fun bundledDefaultLogo(): ByteArray =
     checkNotNull(AppServices::class.java.getResource(DEFAULT_LOGO_RESOURCE)) { "Default logo resource missing" }.readBytes()
 
@@ -260,6 +285,7 @@ private const val DEFAULT_LOGO_RESOURCE = "/default-logo.svg"
 private val FINNHUB = SourceId.of("finnhub")
 private val SEC_EDGAR = SourceId.of("sec-edgar")
 private val LOGOAPI = SourceId.of("logoapi")
+private val FINNHUB_LOGOS = SourceId.of("finnhub-logos")
 
 fun Application.module(services: AppServices) {
     configureCallLogging()

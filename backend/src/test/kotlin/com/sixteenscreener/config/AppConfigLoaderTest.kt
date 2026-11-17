@@ -62,7 +62,7 @@ class AppConfigLoaderTest : FunSpec({
         config.gcpProjectId shouldBe "test-project"
         config.logoBucket shouldBe "test-bucket"
         config.defaultSource shouldBe SourceId.of("finnhub")
-        config.sources.map { it.id.value } shouldContainExactly listOf("finnhub", "sec-edgar", "logoapi")
+        config.sources.map { it.id.value } shouldContainExactly listOf("finnhub", "sec-edgar", "logoapi", "finnhub-logos")
         config.secrets.finnhubApiKey shouldBe "finnhub-key"
         config.secrets.secEdgarUserAgent shouldBe "Sixteen Screener test@example.com"
 
@@ -78,6 +78,17 @@ class AppConfigLoaderTest : FunSpec({
         finnhub.timeout shouldBe 5.seconds
 
         config.source(SourceId.of("logoapi"))!!.limits shouldContainExactly listOf(RequestLimit(LimitInterval.DAY, 1000))
+
+        val finnhubLogos = config.source(SourceId.of("finnhub-logos"))!!
+        finnhubLogos.name shouldBe "Finnhub logos"
+        finnhubLogos.enabled shouldBe true
+        finnhubLogos.baseUrl shouldBe "https://static2.finnhub.io/file/publicdatany/finnhubimage/stock_logo"
+        finnhubLogos.capabilities shouldBe setOf(Capability.LOGO)
+        finnhubLogos.selectableAsDefault shouldBe false
+        finnhubLogos.limits shouldBe emptyList()
+        finnhubLogos.countTotalCalls shouldBe true
+        finnhubLogos.timeout shouldBe 5.seconds
+        config.totalCountedSources shouldBe setOf(SourceId.of("finnhub-logos"))
 
         val secEdgar = config.source(SourceId.of("sec-edgar"))!!
         secEdgar.baseUrl shouldBe "https://data.sec.gov"

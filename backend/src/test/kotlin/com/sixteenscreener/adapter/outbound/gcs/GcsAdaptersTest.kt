@@ -6,6 +6,7 @@ import com.google.cloud.storage.contrib.nio.testing.LocalStorageHelper
 import com.sixteenscreener.contract.exchangeDirectoryStoreContract
 import com.sixteenscreener.contract.logoStorageContract
 import com.sixteenscreener.domain.model.ExchangeCode
+import com.sixteenscreener.domain.model.ImageFormat
 import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.Symbol
@@ -38,16 +39,42 @@ class GcsExchangeDirectoryStoreTest : FunSpec({
 })
 
 class GcsLogoStorageTest : FunSpec({
-    include(logoStorageContract { GcsLogoStorage(LocalStorageHelper.getOptions().service, BUCKET) })
+    include(
+        logoStorageContract {
+            GcsLogoStorage(LocalStorageHelper.getOptions().service, BUCKET, GcsPaths.LOGOS, ImageFormat.SVG)
+        },
+    )
 
-    test("logo is stored as SVG under logos/{symbol}.svg") {
+    test("SVG logo is stored under logos/{symbol}.svg") {
         val storage = LocalStorageHelper.getOptions().service
 
-        GcsLogoStorage(storage, BUCKET).save(Symbol.of("SAP.DE"), "<svg/>".toByteArray())
+        GcsLogoStorage(storage, BUCKET, GcsPaths.LOGOS, ImageFormat.SVG).save(Symbol.of("SAP.DE"), "<svg/>".toByteArray())
 
         val blob = storage.get(BlobId.of(BUCKET, "logos/SAP.DE.svg"))
         blob.contentType shouldBe "image/svg+xml"
         blob.getContent().decodeToString() shouldBe "<svg/>"
+    }
+
+    test("PNG logo is stored under finnhub-logos/{symbol}.png") {
+        val storage = LocalStorageHelper.getOptions().service
+        val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00)
+
+        GcsLogoStorage(storage, BUCKET, GcsPaths.FINNHUB_LOGOS, ImageFormat.PNG).save(Symbol.of("BRK.B"), png)
+
+        val blob = storage.get(BlobId.of(BUCKET, "finnhub-logos/BRK.B.png"))
+        blob.contentType shouldBe "image/png"
+        blob.getContent() shouldBe png
+    }
+
+    test("SVG and PNG storages in the same bucket don't see each other's logos") {
+        val storage = LocalStorageHelper.getOptions().service
+        val svgLogos = GcsLogoStorage(storage, BUCKET, GcsPaths.LOGOS, ImageFormat.SVG)
+        val pngLogos = GcsLogoStorage(storage, BUCKET, GcsPaths.FINNHUB_LOGOS, ImageFormat.PNG)
+
+        pngLogos.save(Symbol.of("RY.TO"), byteArrayOf(1, 2, 3))
+
+        svgLogos.find(Symbol.of("RY.TO")) shouldBe null
+        pngLogos.find(Symbol.of("RY.TO")) shouldBe byteArrayOf(1, 2, 3)
     }
 })
 

@@ -7,6 +7,7 @@ import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.Quote
 import com.sixteenscreener.domain.model.Ratios
 import com.sixteenscreener.domain.model.SearchHit
+import com.sixteenscreener.domain.model.ImageFormat
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
@@ -57,7 +58,10 @@ class FakeBalanceSheetSource(override val id: SourceId) : BalanceSheetSource {
     }
 }
 
-class FakeLogoProvider(override val id: SourceId = SourceId.of("logoapi")) : LogoProvider {
+class FakeLogoProvider(
+    override val id: SourceId = SourceId.of("logoapi"),
+    override val format: ImageFormat = ImageFormat.SVG,
+) : LogoProvider {
     val logos = ConcurrentHashMap<Symbol, SourceResult<ByteArray>>()
     val calls: MutableList<Symbol> = CopyOnWriteArrayList()
 
