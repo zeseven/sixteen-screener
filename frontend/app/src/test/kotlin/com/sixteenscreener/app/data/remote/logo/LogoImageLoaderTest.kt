@@ -90,4 +90,24 @@ class LogoImageLoaderTest {
         assertTrue("Expected success but was $result", result is SuccessResult)
         assertEquals(32 to 32, (result as SuccessResult).image.let { it.width to it.height })
     }
+
+    private suspend fun loadTwiceFromDiskOrNetwork(cacheControl: String): Int {
+        repeat(2) { server.enqueue(LogoImages.svgResponse(10, 10).newBuilder().setHeader("Cache-Control", cacheControl).build()) }
+
+        assertTrue(imageLoader.execute(request("/logos/CACHED")) is SuccessResult)
+        imageLoader.memoryCache?.clear()
+        assertTrue(imageLoader.execute(request("/logos/CACHED")) is SuccessResult)
+
+        return server.requestCount
+    }
+
+    @Test
+    fun `logo within its max-age is served from the disk cache`() = runTest {
+        assertEquals(1, loadTwiceFromDiskOrNetwork("public, max-age=2592000"))
+    }
+
+    @Test
+    fun `logo past its max-age is downloaded again`() = runTest {
+        assertEquals(2, loadTwiceFromDiskOrNetwork("public, max-age=0"))
+    }
 }
