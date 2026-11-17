@@ -1,5 +1,6 @@
 package com.sixteenscreener.port.outbound
 
+import com.sixteenscreener.domain.model.IndicatorSetting
 import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ProfileName
@@ -69,4 +70,15 @@ interface ProfileRepository {
      * setting `updatedAt` to [at].
      */
     suspend fun removeFromWatchlist(id: ProfileId, symbol: Symbol, at: Instant): WatchlistUpdate
+
+    /**
+     * Applies [change] to the indicator settings of profile [id] in one transaction (ADR-072). The result is stored, with
+     * `updatedAt` set to [at], only when it differs from the stored settings. [change] may be called more than once and
+     * must have no side effects. Returns the profile after the change, or null when it doesn't exist.
+     */
+    suspend fun changeIndicatorSettings(
+        id: ProfileId,
+        at: Instant,
+        change: (List<IndicatorSetting>) -> List<IndicatorSetting>,
+    ): Profile?
 }

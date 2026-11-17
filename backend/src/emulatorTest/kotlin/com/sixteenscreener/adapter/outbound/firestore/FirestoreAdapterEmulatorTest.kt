@@ -1,8 +1,10 @@
 package com.sixteenscreener.adapter.outbound.firestore
 
+import com.google.cloud.firestore.FieldValue
 import com.google.cloud.firestore.Firestore
 import com.sixteenscreener.contract.CompanyCacheUnderTest
 import com.sixteenscreener.contract.companyCacheContract
+import com.sixteenscreener.contract.indicatorDefaultsRepositoryContract
 import com.sixteenscreener.contract.logoMissRepositoryContract
 import com.sixteenscreener.contract.profileCandidate
 import com.sixteenscreener.contract.profileRepositoryContract
@@ -14,14 +16,19 @@ import com.sixteenscreener.contract.sourceCallOutcomeRepositoryContract
 import com.sixteenscreener.domain.model.CacheEntry
 import com.sixteenscreener.domain.model.CacheKey
 import com.sixteenscreener.domain.model.DataType
+import com.sixteenscreener.domain.model.IndicatorLevel
+import com.sixteenscreener.domain.model.IndicatorScale
+import com.sixteenscreener.domain.model.IndicatorSetting
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.ProfileName
 import com.sixteenscreener.domain.model.Quote
 import com.sixteenscreener.domain.model.QuoteHistoryEntry
+import com.sixteenscreener.domain.model.RatioCode
 import com.sixteenscreener.domain.model.RequestLimit
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.service.IndicatorDefaults
 import com.sixteenscreener.watchlistEntry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
@@ -52,7 +59,8 @@ class FirestoreProfileRepositoryEmulatorTest : FunSpec({
         document["name"] shouldBe "Zoë"
         document["watchlist"] shouldBe emptyList<String>()
         document["defaultSource"].shouldBeNull()
-        document.keys shouldBe setOf("name", "defaultSource", "watchlist", "createdAt", "updatedAt")
+        document["indicatorSettings"] shouldBe emptyList<String>()
+        document.keys shouldBe setOf("name", "defaultSource", "watchlist", "createdAt", "updatedAt", "indicatorSettings")
     }
 
     test("stores watchlist entries as maps of symbol, name, sector and tags") {
@@ -110,6 +118,114 @@ class FirestoreProfileRepositoryEmulatorTest : FunSpec({
             watchlistEntry("MSFT", tags = listOf("ok")),
             watchlistEntry("IBM"),
         )
+    }
+    test("stores indicator settings as maps of ratio code, switch, thresholds and levels") {
+        val firestore = emulator.reset()
+        val repository = FirestoreProfileRepository(firestore)
+        val profile = repository.getOrCreate(profileCandidate("Dan")).profile
+
+        repository.changeIndicatorSettings(profile.id, Instant.now()) { listOf(IndicatorDefaults.of(RatioCode.PE).setting) }
+
+        firestore.document(FirestoreCollections.PROFILES, profile.id.toString())["indicatorSettings"] shouldBe listOf(
+            mapOf(
+                "ratioCode" to "PE",
+                "enabled" to true,
+                "thresholds" to listOf(15.0, 25.0, 40.0),
+                "levels" to listOf("GOOD", "NEUTRAL", "WARNING", "BAD"),
+                "belowZeroLevel" to "BAD",
+            ),
+        )
+    }
+
+    test("profile without the indicator settings field has no settings") {
+        val firestore = emulator.reset()
+        val repository = FirestoreProfileRepository(firestore)
+        val profile = repository.getOrCreate(profileCandidate("Eli")).profile
+        firestore.collection(FirestoreCollections.PROFILES).document(profile.id.toString())
+            .update("indicatorSettings", FieldValue.delete()).await()
+
+        repository.findById(profile.id)?.indicatorSettings shouldBe emptyList()
+    }
+
+    test("skips indicator settings of an unexpected shape and reads integer thresholds") {
+        val firestore = emulator.reset()
+        val repository = FirestoreProfileRepository(firestore)
+        val profile = repository.getOrCreate(profileCandidate("Fay")).profile
+        val valid = mapOf(
+            "ratioCode" to "ROE",
+            "enabled" to false,
+            "thresholds" to listOf(5L, 10L, 20.5),
+            "levels" to listOf("BAD", "WARNING", "NEUTRAL", "GOOD"),
+            "belowZeroLevel" to "BAD",
+        )
+        firestore.collection(FirestoreCollections.PROFILES).document(profile.id.toString()).update(
+            "indicatorSettings",
+            listOf(
+                "PE",
+                valid + ("ratioCode" to "UNKNOWN"),
+                valid + ("enabled" to "yes"),
+                valid + ("thresholds" to listOf(1L, "2", 3L)),
+                valid + ("levels" to listOf("BAD", "UGLY", "NEUTRAL", "GOOD")),
+                valid - "belowZeroLevel",
+                valid,
+            ),
+        ).await()
+
+        repository.findById(profile.id)?.indicatorSettings shouldBe listOf(
+            IndicatorSetting(
+                ratioCode = RatioCode.ROE,
+                enabled = false,
+                thresholds = listOf(5.0, 10.0, 20.5),
+                levels = listOf(IndicatorLevel.BAD, IndicatorLevel.WARNING, IndicatorLevel.NEUTRAL, IndicatorLevel.GOOD),
+                belowZeroLevel = IndicatorLevel.BAD,
+            ),
+        )
+    }
+})
+
+class FirestoreIndicatorDefaultsRepositoryEmulatorTest : FunSpec({
+    val emulator = FirestoreEmulator()
+    afterSpec { emulator.close() }
+
+    include(indicatorDefaultsRepositoryContract { FirestoreIndicatorDefaultsRepository(emulator.reset()) })
+
+    test("creates the config/indicatorDefaults document with one map per ratio") {
+        val firestore = emulator.reset()
+
+        FirestoreIndicatorDefaultsRepository(firestore).getOrCreate(IndicatorDefaults.all)
+
+        val document = firestore.document(FirestoreCollections.CONFIG, "indicatorDefaults")
+        document.keys shouldBe setOf("ratios")
+        val ratios = document.getValue("ratios") as List<*>
+        ratios.size shouldBe 31
+        ratios.first() shouldBe mapOf(
+            "ratioCode" to "PE",
+            "enabled" to true,
+            "thresholds" to listOf(15.0, 25.0, 40.0),
+            "levels" to listOf("GOOD", "NEUTRAL", "WARNING", "BAD"),
+            "belowZeroLevel" to "BAD",
+            "scaleMax" to 60.0,
+            "step" to 1.0,
+        )
+    }
+
+    test("skips stored defaults of an unexpected shape and keeps the document unchanged") {
+        val firestore = emulator.reset()
+        val pe = IndicatorSettingCodec.encodeDefault(IndicatorDefaults.of(RatioCode.PE))
+        val stored = listOf(pe + ("ratioCode" to "UNKNOWN"), pe - "scaleMax", pe + ("step" to "1"), pe + ("scaleMax" to 80L))
+        firestore.collection(FirestoreCollections.CONFIG).document("indicatorDefaults").set(mapOf("ratios" to stored)).await()
+
+        val defaults = FirestoreIndicatorDefaultsRepository(firestore).getOrCreate(IndicatorDefaults.all)
+
+        defaults shouldBe listOf(IndicatorDefaults.of(RatioCode.PE).copy(scale = IndicatorScale(80.0, 1.0)))
+        (firestore.document(FirestoreCollections.CONFIG, "indicatorDefaults").getValue("ratios") as List<*>).size shouldBe 4
+    }
+
+    test("a document without ratios gives no defaults") {
+        val firestore = emulator.reset()
+        firestore.collection(FirestoreCollections.CONFIG).document("indicatorDefaults").set(mapOf("note" to "empty")).await()
+
+        FirestoreIndicatorDefaultsRepository(firestore).getOrCreate(IndicatorDefaults.all) shouldBe emptyList()
     }
 })
 

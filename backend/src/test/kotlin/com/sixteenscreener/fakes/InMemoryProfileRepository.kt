@@ -1,5 +1,6 @@
 package com.sixteenscreener.fakes
 
+import com.sixteenscreener.domain.model.IndicatorSetting
 import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.Symbol
@@ -65,6 +66,21 @@ class InMemoryProfileRepository : ProfileRepository {
 
     override suspend fun removeFromWatchlist(id: ProfileId, symbol: Symbol, at: Instant): WatchlistUpdate =
         update(id) { profile -> profile.copy(watchlist = profile.watchlist.filterNot { it.symbol == symbol }, updatedAt = at) }
+
+    var indicatorSettingWrites: Int = 0
+        private set
+
+    override suspend fun changeIndicatorSettings(
+        id: ProfileId,
+        at: Instant,
+        change: (List<IndicatorSetting>) -> List<IndicatorSetting>,
+    ): Profile? = mutex.withLock {
+        val profile = profiles[id] ?: return@withLock null
+        val settings = change(profile.indicatorSettings)
+        if (settings == profile.indicatorSettings) return@withLock profile
+        indicatorSettingWrites++
+        profile.copy(indicatorSettings = settings, updatedAt = at).also { profiles[id] = it }
+    }
 
     fun save(profile: Profile) {
         profiles[profile.id] = profile

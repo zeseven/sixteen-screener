@@ -24,6 +24,7 @@ object FirestoreCollections {
     const val SOURCE_CALLS = "sourceCalls"
     const val LOGO_MISSES = "logoMisses"
     const val SEC_CIK = "secCik"
+    const val CONFIG = "config"
 }
 
 object FirestoreClientFactory {

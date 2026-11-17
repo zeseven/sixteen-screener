@@ -3,6 +3,7 @@ package com.sixteenscreener.fakes
 import com.sixteenscreener.contract.CompanyCacheUnderTest
 import com.sixteenscreener.contract.companyCacheContract
 import com.sixteenscreener.contract.exchangeDirectoryStoreContract
+import com.sixteenscreener.contract.indicatorDefaultsRepositoryContract
 import com.sixteenscreener.contract.logoMissRepositoryContract
 import com.sixteenscreener.contract.logoStorageContract
 import com.sixteenscreener.contract.profileRepositoryContract
@@ -50,4 +51,8 @@ class InMemoryLogoStorageTest : FunSpec({
 
 class InMemorySecCikRepositoryTest : FunSpec({
     include(secCikRepositoryContract { InMemorySecCikRepository() })
+})
+
+class InMemoryIndicatorDefaultsRepositoryTest : FunSpec({
+    include(indicatorDefaultsRepositoryContract { InMemoryIndicatorDefaultsRepository() })
 })

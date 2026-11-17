@@ -1,15 +1,20 @@
 package com.sixteenscreener.contract
 
+import com.sixteenscreener.domain.model.IndicatorLevel
+import com.sixteenscreener.domain.model.IndicatorSetting
 import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ProfileName
+import com.sixteenscreener.domain.model.RatioCode
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.service.IndicatorDefaults
 import com.sixteenscreener.port.outbound.ProfileRepository
 import com.sixteenscreener.port.outbound.WatchlistUpdate
 import com.sixteenscreener.watchlistEntry
 import io.kotest.core.spec.style.funSpec
 import io.kotest.datatest.withData
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldBeNull
@@ -240,5 +245,90 @@ fun profileRepositoryContract(newRepository: suspend () -> ProfileRepository) = 
         repository.updateWatchlistCompany(ProfileId.random(), Symbol.of("AAPL"), "Apple Inc", "Technology", CREATED_AT) shouldBe
             WatchlistUpdate.ProfileNotFound
         repository.removeFromWatchlist(ProfileId.random(), Symbol.of("AAPL"), CREATED_AT) shouldBe WatchlistUpdate.ProfileNotFound
+    }
+
+    test("a new profile has no indicator settings") {
+        val repository = newRepository()
+        val profile = repository.getOrCreate(profileCandidate("Ivy")).profile
+
+        repository.findById(profile.id)?.indicatorSettings.shouldBeEmpty()
+    }
+
+    test("changed indicator settings are stored in order with updatedAt") {
+        val repository = newRepository()
+        val id = repository.getOrCreate(profileCandidate("Jack")).profile.id
+        val at = CREATED_AT.plusSeconds(60)
+        val settings = IndicatorDefaults.all.map { it.setting }.reversed()
+
+        val changed = repository.changeIndicatorSettings(id, at) { stored ->
+            stored.shouldBeEmpty()
+            settings
+        }
+
+        changed?.indicatorSettings shouldBe settings
+        changed?.updatedAt shouldBe at
+        repository.findById(id) shouldBe changed
+    }
+
+    test("indicator settings keep all their values") {
+        val repository = newRepository()
+        val id = repository.getOrCreate(profileCandidate("Kim")).profile.id
+        val setting = IndicatorSetting(
+            ratioCode = RatioCode.LT_DEBT_TO_EQUITY,
+            enabled = true,
+            thresholds = listOf(0.0, 0.25, 3.0),
+            levels = listOf(IndicatorLevel.WARNING, IndicatorLevel.GOOD, IndicatorLevel.NEUTRAL, IndicatorLevel.BAD),
+            belowZeroLevel = IndicatorLevel.GOOD,
+        )
+
+        repository.changeIndicatorSettings(id, CREATED_AT) { listOf(setting) }
+
+        repository.findById(id)?.indicatorSettings shouldContainExactly listOf(setting)
+    }
+
+    test("unchanged indicator settings are not written") {
+        val repository = newRepository()
+        val id = repository.getOrCreate(profileCandidate("Liam")).profile.id
+        val settings = IndicatorDefaults.all.map { it.setting }
+        repository.changeIndicatorSettings(id, CREATED_AT.plusSeconds(60)) { settings }
+
+        val unchanged = repository.changeIndicatorSettings(id, CREATED_AT.plusSeconds(120)) { stored -> stored }
+
+        unchanged?.updatedAt shouldBe CREATED_AT.plusSeconds(60)
+        repository.findById(id)?.updatedAt shouldBe CREATED_AT.plusSeconds(60)
+    }
+
+    test("indicator settings of an unknown profile are not changed") {
+        newRepository().changeIndicatorSettings(ProfileId.random(), CREATED_AT) { it }.shouldBeNull()
+    }
+
+    test("watchlist changes keep the indicator settings") {
+        val repository = newRepository()
+        val id = repository.getOrCreate(profileCandidate("Mia")).profile.id
+        val settings = IndicatorDefaults.all.map { it.setting }
+        repository.changeIndicatorSettings(id, CREATED_AT) { settings }
+
+        repository.addToWatchlist(id, watchlistEntry("AAPL"), CREATED_AT.plusSeconds(1))
+        repository.removeFromWatchlist(id, Symbol.of("AAPL"), CREATED_AT.plusSeconds(2))
+
+        repository.findById(id)?.indicatorSettings shouldBe settings
+    }
+
+    test("concurrent completions of the indicator settings keep every added ratio") {
+        val repository = newRepository()
+        val id = repository.getOrCreate(profileCandidate("Noah")).profile.id
+        val defaults = IndicatorDefaults.all.map { it.setting }
+
+        coroutineScope {
+            defaults.chunked(8).map { chunk ->
+                async {
+                    repository.changeIndicatorSettings(id, CREATED_AT) { stored ->
+                        defaults.filter { setting -> setting in stored || setting in chunk }
+                    }
+                }
+            }.awaitAll()
+        }
+
+        repository.findById(id)?.indicatorSettings shouldBe defaults
     }
 }

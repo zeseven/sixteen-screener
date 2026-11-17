@@ -2,6 +2,7 @@ package com.sixteenscreener.adapter.outbound.firestore
 
 import com.google.cloud.firestore.DocumentSnapshot
 import com.google.cloud.firestore.Firestore
+import com.sixteenscreener.domain.model.IndicatorSetting
 import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ProfileName
@@ -65,6 +66,19 @@ class FirestoreProfileRepository(private val firestore: Firestore) : ProfileRepo
     override suspend fun removeFromWatchlist(id: ProfileId, symbol: Symbol, at: Instant): WatchlistUpdate =
         changeWatchlist(id, at) { watchlist -> watchlist.filterNot { it.symbol == symbol } }
 
+    override suspend fun changeIndicatorSettings(
+        id: ProfileId,
+        at: Instant,
+        change: (List<IndicatorSetting>) -> List<IndicatorSetting>,
+    ): Profile? = firestore.transaction { tx ->
+        val ref = profiles.document(id.toString())
+        val profile = tx.get(ref).get().toProfileOrNull() ?: return@transaction null
+        val settings = change(profile.indicatorSettings)
+        if (settings == profile.indicatorSettings) return@transaction profile
+        tx.update(ref, mapOf(INDICATOR_SETTINGS to settings.map(IndicatorSettingCodec::encode), UPDATED_AT to at.toTimestamp()))
+        profile.copy(indicatorSettings = settings, updatedAt = at)
+    }
+
     private suspend fun changeWatchlist(
         id: ProfileId,
         at: Instant,
@@ -83,6 +97,7 @@ class FirestoreProfileRepository(private val firestore: Firestore) : ProfileRepo
         WATCHLIST to watchlist.map { it.toMap() },
         CREATED_AT to createdAt.toTimestamp(),
         UPDATED_AT to updatedAt.toTimestamp(),
+        INDICATOR_SETTINGS to indicatorSettings.map(IndicatorSettingCodec::encode),
     )
 
     private fun WatchlistEntry.toMap(): FirestoreMap = mapOf(
@@ -102,6 +117,7 @@ class FirestoreProfileRepository(private val firestore: Firestore) : ProfileRepo
             watchlist = watchlist.mapNotNull(::watchlistEntryOrNull),
             createdAt = requiredInstant(CREATED_AT),
             updatedAt = requiredInstant(UPDATED_AT),
+            indicatorSettings = (get(INDICATOR_SETTINGS) as? List<*>).orEmpty().mapNotNull(IndicatorSettingCodec::decodeOrNull),
         )
     }
 
@@ -126,6 +142,7 @@ class FirestoreProfileRepository(private val firestore: Firestore) : ProfileRepo
         private const val TAGS = "tags"
         private const val CREATED_AT = "createdAt"
         private const val UPDATED_AT = "updatedAt"
+        private const val INDICATOR_SETTINGS = "indicatorSettings"
 
         fun nameDocumentId(name: ProfileName): String =
             MessageDigest.getInstance("SHA-256")

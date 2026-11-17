@@ -65,6 +65,7 @@ value class ProfileName private constructor(val value: String) {
  * @property watchlist watchlist entries in insertion order
  * @property createdAt creation time
  * @property updatedAt last modification time
+ * @property indicatorSettings indicator settings of the profile in settings order; empty until first read (ADR-072)
  */
 data class Profile(
     val id: ProfileId,
@@ -73,6 +74,7 @@ data class Profile(
     val watchlist: List<WatchlistEntry>,
     val createdAt: Instant,
     val updatedAt: Instant,
+    val indicatorSettings: List<IndicatorSetting> = emptyList(),
 ) {
     /** Symbols of the watchlist in insertion order. */
     val watchlistSymbols: List<Symbol> get() = watchlist.map { it.symbol }
