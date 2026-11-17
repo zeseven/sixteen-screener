@@ -166,4 +166,18 @@
     <string name="detail_add_failed">Cannot add to the watchlist: %1$s</string>
     <string name="detail_remove_failed">Cannot remove from the watchlist: %1$s</string>
     <string name="navigate_back">Back</string>
+    <string name="dialog_ok">OK</string>
+    <string name="dialog_cancel">Cancel</string>
+
+    <string name="interval_bar_threshold">%1$s threshold %2$d</string>
+    <string name="interval_bar_below_zero">%1$s below 0</string>
+    <string name="interval_bar_range">%1$s from %2$s to %3$s</string>
+    <string name="interval_bar_from">%1$s from %2$s</string>
+    <string name="interval_bar_change_color">Change color</string>
+    <string name="interval_bar_increase">Increase</string>
+    <string name="interval_bar_decrease">Decrease</string>
+    <string name="interval_bar_enter_value">Enter exact value</string>
+    <string name="interval_bar_value_label">Value from %1$s to %2$s</string>
+    <string name="interval_bar_value_not_a_number">Enter a number</string>
+    <string name="interval_bar_value_out_of_range">Enter a value from %1$s to %2$s</string>
 </resources>

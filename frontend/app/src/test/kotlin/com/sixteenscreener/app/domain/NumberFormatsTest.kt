@@ -82,6 +82,22 @@ class NumberFormatsTest {
     }
 
     @Test
+    fun `threshold shows the decimals of the step`() {
+        assertEquals("25", NumberFormats.threshold(25.0, 1.0))
+        assertEquals("25.0", NumberFormats.threshold(25.0, 0.5))
+        assertEquals("12.5", NumberFormats.threshold(12.5, 0.5))
+        assertEquals("0.30", NumberFormats.threshold(0.3, 0.05))
+        assertEquals("100", NumberFormats.threshold(100.0, 5.0))
+    }
+
+    @Test
+    fun `threshold keeps the precision of a value that is not a multiple of the step`() {
+        assertEquals("2.25", NumberFormats.threshold(2.25, 1.0))
+        assertEquals("12.37", NumberFormats.threshold(12.37, 0.5))
+        assertEquals("0.1235", NumberFormats.threshold(0.123456, 0.1))
+    }
+
+    @Test
     fun `integer groups thousands`() {
         assertEquals("164,000", NumberFormats.integer(164_000))
     }

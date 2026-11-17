@@ -14,6 +14,7 @@ object NumberFormats {
     const val MISSING = "-"
 
     private const val THOUSAND = 1_000.0
+    private const val MAX_THRESHOLD_FRACTION_DIGITS = 4
     private val SCALES = listOf("" to 1.0, "K" to 1e3, "M" to 1e6, "B" to 1e9, "T" to 1e12)
 
     /** Price with 2 decimals followed by [currency], e.g. `1,234.50 USD`. */
@@ -25,6 +26,20 @@ object NumberFormats {
     /** Value with up to [maxFractionDigits] decimals, e.g. a ratio. */
     fun decimal(value: Double?, maxFractionDigits: Int = 2): String =
         value?.let { pattern("#,##0." + "#".repeat(maxFractionDigits)).format(roundedSigned(it, maxFractionDigits)) } ?: MISSING
+
+    /**
+     * Indicator threshold with the decimals of its [step] (`12.5` with step `0.5`, `25.0` with step `0.5`, `25` with step `1`),
+     * extended up to [MAX_THRESHOLD_FRACTION_DIGITS] decimals for a value that is not a multiple of the step.
+     */
+    fun threshold(value: Double, step: Double): String {
+        val stepDigits = fractionDigits(step).coerceAtMost(MAX_THRESHOLD_FRACTION_DIGITS)
+        val extraDigits = (MAX_THRESHOLD_FRACTION_DIGITS - stepDigits).coerceAtLeast(0)
+        val fraction = "0".repeat(stepDigits) + "#".repeat(extraDigits)
+        return pattern(if (fraction.isEmpty()) "0" else "0.$fraction").format(roundedSigned(value, MAX_THRESHOLD_FRACTION_DIGITS))
+    }
+
+    private fun fractionDigits(value: Double): Int =
+        BigDecimal.valueOf(value).stripTrailingZeros().scale().coerceAtLeast(0)
 
     /** Whole number with grouping, e.g. a number of employees. */
     fun integer(value: Long?): String = value?.let { pattern("#,##0").format(it) } ?: MISSING
