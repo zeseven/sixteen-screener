@@ -78,7 +78,7 @@ class LogoServiceTest : FunSpec({
         String(fixture.storage.find(aapl)!!) shouldBe String(appleSvg)
         fixture.used() shouldBe 1
         fixture.lastCall() shouldBe fixture.success
-        fixture.misses.lastMiss(aapl).shouldBeNull()
+        fixture.misses.lastMiss(logoapi, aapl).shouldBeNull()
     }
 
     test("logo not found in the source: miss recorded, default logo returned") {
@@ -88,7 +88,7 @@ class LogoServiceTest : FunSpec({
 
         fixture.service.logo(aapl) shouldBeLogo (defaultSvg to LogoOrigin.DEFAULT_MISSING)
 
-        fixture.misses.lastMiss(aapl) shouldBe fixture.clock.now()
+        fixture.misses.lastMiss(logoapi, aapl) shouldBe fixture.clock.now()
         fixture.storage.contains(aapl) shouldBe false
         fixture.lastCall() shouldBe notFound
     }
@@ -99,12 +99,12 @@ class LogoServiceTest : FunSpec({
 
         fixture.service.logo(aapl).origin shouldBe LogoOrigin.DEFAULT_MISSING
 
-        fixture.misses.lastMiss(aapl) shouldBe fixture.clock.now()
+        fixture.misses.lastMiss(logoapi, aapl) shouldBe fixture.clock.now()
     }
 
     test("recorded miss younger than 14 days: default logo without a call") {
         val fixture = LogoFixture()
-        fixture.misses.recordMiss(aapl, fixture.clock.now())
+        fixture.misses.recordMiss(logoapi, aapl, fixture.clock.now())
         fixture.clock.advanceBy(Duration.ofDays(14).minusSeconds(1))
 
         fixture.service.logo(aapl) shouldBeLogo (defaultSvg to LogoOrigin.DEFAULT_MISSING)
@@ -113,9 +113,17 @@ class LogoServiceTest : FunSpec({
         fixture.used() shouldBe 0
     }
 
+    test("a miss recorded for another logo source doesn't skip the source") {
+        val fixture = LogoFixture()
+        fixture.misses.recordMiss(SourceId.of("finnhub-logos"), aapl, fixture.clock.now())
+        fixture.provider.logos[aapl] = SourceResult.Success(appleSvg, fixture.success)
+
+        fixture.service.logo(aapl) shouldBeLogo (appleSvg to LogoOrigin.DOWNLOADED)
+    }
+
     test("expired miss: the source is asked again") {
         val fixture = LogoFixture()
-        fixture.misses.recordMiss(aapl, fixture.clock.now())
+        fixture.misses.recordMiss(logoapi, aapl, fixture.clock.now())
         fixture.clock.advanceBy(Duration.ofDays(14))
         fixture.provider.logos[aapl] = SourceResult.Success(appleSvg, fixture.success)
 
@@ -132,7 +140,7 @@ class LogoServiceTest : FunSpec({
         logo shouldBeLogo (defaultSvg to LogoOrigin.DEFAULT_UNAVAILABLE)
         logo.isTemporary shouldBe true
         fixture.provider.calls.shouldBeEmpty()
-        fixture.misses.lastMiss(aapl).shouldBeNull()
+        fixture.misses.lastMiss(logoapi, aapl).shouldBeNull()
         fixture.lastCall().shouldBeNull()
     }
 
@@ -145,7 +153,7 @@ class LogoServiceTest : FunSpec({
 
         fixture.used() shouldBe 1000
         fixture.lastCall() shouldBe tooMany
-        fixture.misses.lastMiss(aapl).shouldBeNull()
+        fixture.misses.lastMiss(logoapi, aapl).shouldBeNull()
     }
 
     test("timeout: temporary default logo, outcome recorded, no miss") {
@@ -156,7 +164,7 @@ class LogoServiceTest : FunSpec({
         fixture.service.logo(aapl).origin shouldBe LogoOrigin.DEFAULT_UNAVAILABLE
 
         fixture.lastCall() shouldBe timeout
-        fixture.misses.lastMiss(aapl).shouldBeNull()
+        fixture.misses.lastMiss(logoapi, aapl).shouldBeNull()
     }
 
     test("source not supporting the symbol: temporary default logo without a miss") {
@@ -165,7 +173,7 @@ class LogoServiceTest : FunSpec({
 
         fixture.service.logo(aapl).origin shouldBe LogoOrigin.DEFAULT_UNAVAILABLE
 
-        fixture.misses.lastMiss(aapl).shouldBeNull()
+        fixture.misses.lastMiss(logoapi, aapl).shouldBeNull()
     }
 
     test("storage write failure still returns the downloaded logo") {

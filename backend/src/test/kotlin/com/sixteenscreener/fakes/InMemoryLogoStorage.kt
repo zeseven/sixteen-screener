@@ -1,5 +1,6 @@
 package com.sixteenscreener.fakes
 
+import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.port.outbound.LogoMissRepository
 import com.sixteenscreener.port.outbound.LogoStorage
@@ -26,17 +27,17 @@ class InMemoryLogoStorage : LogoStorage {
 }
 
 class InMemoryLogoMissRepository : LogoMissRepository {
-    private val misses = ConcurrentHashMap<Symbol, Instant>()
+    private val misses = ConcurrentHashMap<Pair<SourceId, Symbol>, Instant>()
 
     var failing: Boolean = false
 
-    override suspend fun lastMiss(symbol: Symbol): Instant? {
+    override suspend fun lastMiss(source: SourceId, symbol: Symbol): Instant? {
         check(!failing) { "Repository unavailable" }
-        return misses[symbol]
+        return misses[source to symbol]
     }
 
-    override suspend fun recordMiss(symbol: Symbol, checkedAt: Instant) {
+    override suspend fun recordMiss(source: SourceId, symbol: Symbol, checkedAt: Instant) {
         check(!failing) { "Repository unavailable" }
-        misses[symbol] = checkedAt
+        misses[source to symbol] = checkedAt
     }
 }

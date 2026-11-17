@@ -84,7 +84,7 @@ class LogoRoutesTest : FunSpec({
 
             client.get("/logos/AAPL").shouldBeSvg(defaultLogo, "public, max-age=2592000")
 
-            ports.logoMisses.lastMiss(aapl) shouldBe ports.clock.now()
+            ports.logoMisses.lastMiss(logoapi, aapl) shouldBe ports.clock.now()
         }
     }
 

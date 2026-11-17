@@ -252,13 +252,23 @@ class FirestoreLogoMissRepositoryEmulatorTest : FunSpec({
 
     include(logoMissRepositoryContract { FirestoreLogoMissRepository(emulator.reset()) })
 
+    test("a symbol-only miss document of the old layout is ignored") {
+        val firestore = emulator.reset()
+        firestore.collection(FirestoreCollections.LOGO_MISSES).document("AAPL")
+            .set(mapOf("checkedAt" to Instant.parse("2026-11-14T12:00:00Z").toTimestamp())).await()
+
+        FirestoreLogoMissRepository(firestore).lastMiss(SourceId.of("logoapi"), Symbol.of("AAPL")).shouldBeNull()
+    }
+
     test("logo misses expire 14 days after the check") {
         val firestore = emulator.reset()
         val checkedAt = Instant.parse("2026-11-14T12:00:00Z")
 
-        FirestoreLogoMissRepository(firestore).recordMiss(Symbol.of("SAP.DE"), checkedAt)
+        FirestoreLogoMissRepository(firestore).recordMiss(SourceId.of("logoapi"), Symbol.of("SAP.DE"), checkedAt)
 
-        firestore.document(FirestoreCollections.LOGO_MISSES, "SAP.DE") shouldBe mapOf(
+        firestore.document(FirestoreCollections.LOGO_MISSES, "logoapi__SAP.DE") shouldBe mapOf(
+            "source" to "logoapi",
+            "symbol" to "SAP.DE",
             "checkedAt" to checkedAt.toTimestamp(),
             "expireAt" to checkedAt.plus(Duration.ofDays(14)).toTimestamp(),
         )

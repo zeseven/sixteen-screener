@@ -34,4 +34,9 @@ class FirestoreDocumentIdsTest : FunSpec({
         FirestoreRequestCounterRepository.documentId(finnhub, LimitInterval.MINUTE, Instant.parse("2026-11-14T12:01:00Z")) shouldBe
             "finnhub__MINUTE__2026-11-14T12:01:00Z"
     }
+
+    test("logo miss document ID combines the logo source and the symbol") {
+        FirestoreLogoMissRepository.documentId(SourceId.of("finnhub-logos"), Symbol.of("BRK.B")) shouldBe
+            "finnhub-logos__BRK.B"
+    }
 })

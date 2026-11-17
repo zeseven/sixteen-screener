@@ -28,7 +28,7 @@ class LogoService(
         guarded("read the stored logo of '$symbol'") { storage.find(symbol) }
             ?.let { return Logo(it, LogoOrigin.STORED) }
         val source = provider ?: return defaultLogo(LogoOrigin.DEFAULT_UNAVAILABLE)
-        if (isRecentMiss(symbol)) return defaultLogo(LogoOrigin.DEFAULT_MISSING)
+        if (isRecentMiss(source, symbol)) return defaultLogo(LogoOrigin.DEFAULT_MISSING)
         val result = outcomes.recording { recorder -> guard.single(source.id, recorder) { source.logo(symbol) } }
         return when (result) {
             is SourceResult.Success -> {
@@ -36,7 +36,7 @@ class LogoService(
                 Logo(result.data, LogoOrigin.DOWNLOADED)
             }
             is SourceResult.NoData -> {
-                guarded("record the missing logo of '$symbol'") { misses.recordMiss(symbol, clock.now()) }
+                guarded("record the missing logo of '$symbol'") { misses.recordMiss(source.id, symbol, clock.now()) }
                 defaultLogo(LogoOrigin.DEFAULT_MISSING)
             }
             is SourceResult.NotSupported, is SourceResult.LimitReached, is SourceResult.SourceError ->
@@ -44,8 +44,8 @@ class LogoService(
         }
     }
 
-    private suspend fun isRecentMiss(symbol: Symbol): Boolean {
-        val lastMiss = guarded("read the missing logo record of '$symbol'") { misses.lastMiss(symbol) } ?: return false
+    private suspend fun isRecentMiss(source: LogoProvider, symbol: Symbol): Boolean {
+        val lastMiss = guarded("read the missing logo record of '$symbol'") { misses.lastMiss(source.id, symbol) } ?: return false
         return clock.now() < lastMiss.plus(missTtl)
     }
 
