@@ -177,9 +177,17 @@ class CompanyRoutesTest : FunSpec({
                 val ratioItems = body.getValue("ratios").jsonArray.map { it.jsonObject }
                 ratioItems.map { it["code"] } shouldContainExactly RatioCode.entries.map { JsonPrimitive(it.name) }
                 ratioItems.map { it["name"] } shouldContainExactly RatioCode.entries.map { JsonPrimitive(it.displayName) }
+                ratioItems.map { it["unit"] } shouldContainExactly RatioCode.entries.map { JsonPrimitive(it.unit.name) }
                 ratioItems.first() shouldBe JsonObject(
-                    mapOf("code" to JsonPrimitive("PE"), "name" to JsonPrimitive("P/E"), "value" to JsonPrimitive(30.5)),
+                    mapOf(
+                        "code" to JsonPrimitive("PE"),
+                        "name" to JsonPrimitive("P/E"),
+                        "unit" to JsonPrimitive("RATIO"),
+                        "value" to JsonPrimitive(30.5),
+                    ),
                 )
+                ratioItems.first { it["code"] == JsonPrimitive("ROE") }["unit"] shouldBe JsonPrimitive("PERCENT")
+                ratioItems.last()["unit"] shouldBe JsonPrimitive("CURRENCY")
                 ratioItems.last()["value"] shouldBe JsonNull
                 ports.marketData.calls shouldContainExactlyInAnyOrder listOf("quote:AAPL", "ratios:AAPL")
             }

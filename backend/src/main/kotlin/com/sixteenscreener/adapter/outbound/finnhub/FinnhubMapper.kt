@@ -9,6 +9,7 @@ import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.Quote
 import com.sixteenscreener.domain.model.Ratio
 import com.sixteenscreener.domain.model.RatioCode
+import com.sixteenscreener.domain.model.RatioUnit
 import com.sixteenscreener.domain.model.Ratios
 import com.sixteenscreener.domain.model.SearchHit
 import com.sixteenscreener.domain.model.Symbol
@@ -25,18 +26,39 @@ internal object FinnhubMapper {
     private const val ANNUAL_QUARTER = 0
 
     val metricKeys: Map<RatioCode, List<String>> = mapOf(
-        RatioCode.PE to listOf("peTTM", "peBasicExclExtraTTM", "peExclExtraTTM", "peAnnual"),
+        RatioCode.PE to listOf("peTTM", "peAnnual"),
         RatioCode.PB to listOf("pb", "pbQuarterly", "pbAnnual"),
         RatioCode.PS to listOf("psTTM", "psAnnual"),
         RatioCode.EV_EBITDA to listOf("evEbitdaTTM", "evEbitdaAnnual"),
+        RatioCode.EV_REVENUE to listOf("evRevenueTTM"),
+        RatioCode.PCF to listOf("pcfShareTTM", "pcfShareAnnual"),
+        RatioCode.PFCF to listOf("pfcfShareTTM", "pfcfShareAnnual"),
+        RatioCode.PEG to listOf("pegTTM"),
         RatioCode.ROE to listOf("roeTTM", "roeRfy"),
         RatioCode.ROA to listOf("roaTTM", "roaRfy"),
+        RatioCode.ROI to listOf("roiTTM", "roiAnnual"),
+        RatioCode.GROSS_MARGIN to listOf("grossMarginTTM", "grossMarginAnnual"),
+        RatioCode.OPERATING_MARGIN to listOf("operatingMarginTTM", "operatingMarginAnnual"),
+        RatioCode.PRETAX_MARGIN to listOf("pretaxMarginTTM", "pretaxMarginAnnual"),
         RatioCode.NET_MARGIN to listOf("netProfitMarginTTM", "netProfitMarginAnnual"),
-        RatioCode.DEBT_TO_EQUITY to listOf("totalDebt/totalEquityQuarterly", "totalDebt/totalEquityAnnual"),
+        RatioCode.REVENUE_GROWTH to listOf("revenueGrowthTTMYoy"),
+        RatioCode.REVENUE_GROWTH_5Y to listOf("revenueGrowth5Y"),
+        RatioCode.EPS_GROWTH to listOf("epsGrowthTTMYoy"),
+        RatioCode.EPS_GROWTH_5Y to listOf("epsGrowth5Y"),
+        RatioCode.DIVIDEND_GROWTH_5Y to listOf("dividendGrowthRate5Y"),
         RatioCode.CURRENT_RATIO to listOf("currentRatioQuarterly", "currentRatioAnnual"),
+        RatioCode.QUICK_RATIO to listOf("quickRatioQuarterly", "quickRatioAnnual"),
+        RatioCode.DEBT_TO_EQUITY to listOf("totalDebt/totalEquityQuarterly", "totalDebt/totalEquityAnnual"),
+        RatioCode.LT_DEBT_TO_EQUITY to listOf("longTermDebt/equityQuarterly", "longTermDebt/equityAnnual"),
+        RatioCode.INTEREST_COVERAGE to listOf("netInterestCoverageTTM", "netInterestCoverageAnnual"),
+        RatioCode.ASSET_TURNOVER to listOf("assetTurnoverTTM", "assetTurnoverAnnual"),
+        RatioCode.INVENTORY_TURNOVER to listOf("inventoryTurnoverTTM", "inventoryTurnoverAnnual"),
+        RatioCode.RECEIVABLES_TURNOVER to listOf("receivablesTurnoverTTM", "receivablesTurnoverAnnual"),
         RatioCode.DIVIDEND_YIELD to listOf("currentDividendYieldTTM", "dividendYieldIndicatedAnnual"),
-        RatioCode.EPS to listOf("epsTTM", "epsExclExtraItemsTTM", "epsBasicExclExtraItemsTTM"),
+        RatioCode.PAYOUT_RATIO to listOf("payoutRatioTTM", "payoutRatioAnnual"),
         RatioCode.BETA to listOf("beta"),
+        RatioCode.EPS to listOf("epsTTM", "epsExclExtraItemsTTM", "epsBasicExclExtraItemsTTM"),
+        RatioCode.BOOK_VALUE_PER_SHARE to listOf("bookValuePerShareQuarterly", "bookValuePerShareAnnual"),
     )
 
     fun searchHits(response: SearchResponseDto): List<SearchHit> =
@@ -51,11 +73,13 @@ internal object FinnhubMapper {
         return Quote(price = price, currency = currency)
     }
 
-    fun ratios(response: BasicFinancialsDto): Ratios? {
+    fun ratios(response: BasicFinancialsDto, requested: Symbol): Ratios? {
         val metric = response.metric?.takeIf { it.isNotEmpty() } ?: return null
+        val perShareValid = response.symbol.nullIfBlank()?.equals(requested.value, ignoreCase = true) ?: true
         return Ratios(
             RatioCode.entries.map { code ->
-                Ratio(code, metricKeys.getValue(code).firstNotNullOfOrNull { key -> metric.number(key) })
+                val usable = perShareValid || code.unit != RatioUnit.CURRENCY
+                Ratio(code, if (usable) metricKeys.getValue(code).firstNotNullOfOrNull { metric.number(it) } else null)
             },
         )
     }

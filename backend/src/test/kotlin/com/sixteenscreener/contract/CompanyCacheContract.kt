@@ -12,7 +12,6 @@ import com.sixteenscreener.domain.model.PreviousPrice
 import com.sixteenscreener.domain.model.Quote
 import com.sixteenscreener.domain.model.QuoteHistoryEntry
 import com.sixteenscreener.domain.model.QuoteRecord
-import com.sixteenscreener.domain.model.Ratio
 import com.sixteenscreener.domain.model.RatioCode
 import com.sixteenscreener.domain.model.Ratios
 import com.sixteenscreener.domain.model.SourceId
@@ -34,7 +33,7 @@ interface CompanyCacheUnderTest {
     suspend fun history(source: SourceId, symbol: Symbol): List<QuoteHistoryEntry>
 }
 
-val sampleRatios = Ratios(listOf(Ratio(RatioCode.PE, 30.5), Ratio(RatioCode.EPS, null), Ratio(RatioCode.BETA, 1.0)))
+val sampleRatios = Ratios.of(mapOf(RatioCode.PE to 30.5, RatioCode.EPS to null, RatioCode.BETA to 1.0))
 
 val sampleBalanceSheet = BalanceSheet(
     listOf(
@@ -105,9 +104,9 @@ fun companyCacheContract(newCache: suspend () -> CompanyCacheUnderTest) = funSpe
         val key = CacheKey(finnhub, apple, DataType.RATIOS)
         cache.put(key, CacheEntry(sampleRatios, fetchedAt))
 
-        cache.put(key, CacheEntry(Ratios(emptyList()), fetchedAt.plusSeconds(3600)))
+        cache.put(key, CacheEntry(Ratios.of(emptyMap()), fetchedAt.plusSeconds(3600)))
 
-        cache.get(key) shouldBe CacheEntry(Ratios(emptyList()), fetchedAt.plusSeconds(3600))
+        cache.get(key) shouldBe CacheEntry(Ratios.of(emptyMap()), fetchedAt.plusSeconds(3600))
     }
 
     test("entries are kept per source, symbol and data type") {

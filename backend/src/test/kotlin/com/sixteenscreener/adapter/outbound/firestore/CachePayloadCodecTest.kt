@@ -7,7 +7,6 @@ import com.sixteenscreener.domain.model.BalanceSheet
 import com.sixteenscreener.domain.model.CompanyProfile
 import com.sixteenscreener.domain.model.DataType
 import com.sixteenscreener.domain.model.Quote
-import com.sixteenscreener.domain.model.Ratio
 import com.sixteenscreener.domain.model.RatioCode
 import com.sixteenscreener.domain.model.Ratios
 import io.kotest.assertions.throwables.shouldThrow
@@ -70,14 +69,29 @@ class CachePayloadCodecTest : FunSpec({
         CachePayloadCodec.decodeQuote(mapOf("price" to 10L, "currency" to "EUR")) shouldBe Quote(10.0, "EUR")
     }
 
-    test("unknown ratio codes are skipped") {
+    test("unknown ratio codes are skipped and missing codes decode to null values") {
         val payload = mapOf("items" to listOf(mapOf("code" to "UNKNOWN", "value" to 1.0), mapOf("code" to "PE", "value" to 2.0)))
 
-        CachePayloadCodec.decode(DataType.RATIOS, payload) shouldBe Ratios(listOf(Ratio(RatioCode.PE, 2.0)))
+        CachePayloadCodec.decode(DataType.RATIOS, payload) shouldBe Ratios.of(mapOf(RatioCode.PE to 2.0))
+    }
+
+    test("ratios cached with the first 12 codes decode to all codes in display order") {
+        val legacyCodes = listOf(
+            "PE", "PB", "PS", "EV_EBITDA", "ROE", "ROA", "NET_MARGIN", "DEBT_TO_EQUITY", "CURRENT_RATIO",
+            "DIVIDEND_YIELD", "EPS", "BETA",
+        )
+        val payload = mapOf("items" to legacyCodes.mapIndexed { index, code -> mapOf("code" to code, "value" to index.toDouble()) })
+
+        val ratios = CachePayloadCodec.decode(DataType.RATIOS, payload)
+
+        ratios.items.map { it.code } shouldBe RatioCode.entries
+        ratios.items.filter { it.value != null }.map { it.code.name }.toSet() shouldBe legacyCodes.toSet()
+        ratios.valueOf(RatioCode.BETA) shouldBe 11.0
+        ratios.valueOf(RatioCode.ROI) shouldBe null
     }
 
     test("empty payloads decode to empty data") {
-        CachePayloadCodec.decode(DataType.RATIOS, emptyMap()) shouldBe Ratios(emptyList())
+        CachePayloadCodec.decode(DataType.RATIOS, emptyMap()) shouldBe Ratios.of(emptyMap())
         CachePayloadCodec.decode(DataType.BALANCE_SHEET, emptyMap()) shouldBe BalanceSheet(emptyList())
         CachePayloadCodec.decode(DataType.COMPANY_PROFILE, emptyMap()) shouldBe
             CompanyProfile(null, null, null, null, null, null, null, null, null, null, null)

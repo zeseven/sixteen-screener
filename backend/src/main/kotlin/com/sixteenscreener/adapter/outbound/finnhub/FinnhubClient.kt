@@ -55,7 +55,7 @@ class FinnhubClient(
 
     override suspend fun ratios(symbol: Symbol): SourceResult<Ratios> =
         get("/stock/metric", "symbol" to symbol.value, "metric" to "all") { response ->
-            FinnhubMapper.ratios(response.body())
+            FinnhubMapper.ratios(response.body(), symbol)
         }
 
     override suspend fun companyProfile(symbol: Symbol): SourceResult<CompanyProfile> =

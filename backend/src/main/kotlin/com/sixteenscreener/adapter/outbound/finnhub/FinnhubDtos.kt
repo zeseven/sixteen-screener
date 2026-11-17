@@ -26,6 +26,7 @@ internal data class QuoteDto(
 @Serializable
 internal data class BasicFinancialsDto(
     val metric: JsonObject? = null,
+    val symbol: String? = null,
 )
 
 @Serializable

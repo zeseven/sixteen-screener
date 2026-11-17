@@ -23,6 +23,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandler
@@ -152,18 +153,39 @@ class FinnhubClientTest : FunSpec({
             result shouldBe SourceResult.Success(
                 Ratios(
                     listOf(
-                        Ratio(RatioCode.PE, 34.6693),
-                        Ratio(RatioCode.PB, 51.4949),
-                        Ratio(RatioCode.PS, 8.2981),
-                        Ratio(RatioCode.EV_EBITDA, 24.8761),
-                        Ratio(RatioCode.ROE, 160.5833),
-                        Ratio(RatioCode.ROA, 29.5583),
-                        Ratio(RatioCode.NET_MARGIN, 24.3),
-                        Ratio(RatioCode.DEBT_TO_EQUITY, 1.5408),
-                        Ratio(RatioCode.CURRENT_RATIO, 0.868),
-                        Ratio(RatioCode.DIVIDEND_YIELD, 0.4473),
-                        Ratio(RatioCode.EPS, 6.5915),
-                        Ratio(RatioCode.BETA, 1.2381),
+                        Ratio(RatioCode.PE, 38.8243),
+                        Ratio(RatioCode.PB, 45.7799),
+                        Ratio(RatioCode.PS, 10.7169),
+                        Ratio(RatioCode.EV_EBITDA, 30.1798),
+                        Ratio(RatioCode.EV_REVENUE, 10.8084),
+                        Ratio(RatioCode.PCF, 35.3667),
+                        Ratio(RatioCode.PFCF, 37.7169),
+                        Ratio(RatioCode.PEG, 3.06221),
+                        Ratio(RatioCode.ROE, 127.61),
+                        Ratio(RatioCode.ROA, 34.37),
+                        Ratio(RatioCode.ROI, 70.12),
+                        Ratio(RatioCode.GROSS_MARGIN, 48.79),
+                        Ratio(RatioCode.OPERATING_MARGIN, 33.01),
+                        Ratio(RatioCode.PRETAX_MARGIN, 33.26),
+                        Ratio(RatioCode.NET_MARGIN, 27.6),
+                        Ratio(RatioCode.REVENUE_GROWTH, 15.06),
+                        Ratio(RatioCode.REVENUE_GROWTH_5Y, 5.53),
+                        Ratio(RatioCode.EPS_GROWTH, 20.31),
+                        Ratio(RatioCode.EPS_GROWTH_5Y, 9.85),
+                        Ratio(RatioCode.DIVIDEND_GROWTH_5Y, 4.37),
+                        Ratio(RatioCode.CURRENT_RATIO, 1.0232),
+                        Ratio(RatioCode.QUICK_RATIO, 0.9376),
+                        Ratio(RatioCode.DEBT_TO_EQUITY, 0.7147),
+                        Ratio(RatioCode.LT_DEBT_TO_EQUITY, 0.6085),
+                        Ratio(RatioCode.INTEREST_COVERAGE, 622.5082),
+                        Ratio(RatioCode.ASSET_TURNOVER, 1.2452),
+                        Ratio(RatioCode.INVENTORY_TURNOVER, 24.2097),
+                        Ratio(RatioCode.RECEIVABLES_TURNOVER, 11.4562),
+                        Ratio(RatioCode.DIVIDEND_YIELD, 0.3064),
+                        Ratio(RatioCode.PAYOUT_RATIO, 11.89),
+                        Ratio(RatioCode.BETA, 1.0822072),
+                        Ratio(RatioCode.EPS, 8.974499999999999),
+                        Ratio(RatioCode.BOOK_VALUE_PER_SHARE, 7.7134),
                     ),
                 ),
                 finnhub.success,
@@ -171,28 +193,101 @@ class FinnhubClientTest : FunSpec({
             finnhub.single().shouldTarget("/stock/metric", "symbol" to "AAPL", "metric" to "all")
         }
 
+        test("bank without current ratio, turnover, gross margin and EV values keeps them null") {
+            val ratios = fixture("metric-jpm.json").client.ratios(Symbol.of("JPM")).valuesByCode()
+
+            ratios.filterValues { it == null }.keys.toList() shouldContainExactly listOf(
+                RatioCode.EV_EBITDA,
+                RatioCode.EV_REVENUE,
+                RatioCode.PCF,
+                RatioCode.GROSS_MARGIN,
+                RatioCode.CURRENT_RATIO,
+                RatioCode.QUICK_RATIO,
+                RatioCode.INTEREST_COVERAGE,
+                RatioCode.ASSET_TURNOVER,
+                RatioCode.INVENTORY_TURNOVER,
+                RatioCode.RECEIVABLES_TURNOVER,
+            )
+            ratios.getValue(RatioCode.PE) shouldBe 13.7767
+            ratios.getValue(RatioCode.ROA) shouldBe 1.3599999999999999
+            ratios.getValue(RatioCode.EPS) shouldBe 24.373
+            ratios.getValue(RatioCode.BOOK_VALUE_PER_SHARE) shouldBe 140.2199
+        }
+
+        test("company with losses has no P/E, negative margins and returns and a negative EPS") {
+            val ratios = fixture("metric-rivn.json").client.ratios(Symbol.of("RIVN")).valuesByCode()
+
+            ratios.getValue(RatioCode.PE).shouldBeNull()
+            ratios.getValue(RatioCode.PCF).shouldBeNull()
+            ratios.getValue(RatioCode.PFCF).shouldBeNull()
+            ratios.getValue(RatioCode.EPS_GROWTH).shouldBeNull()
+            ratios.getValue(RatioCode.DIVIDEND_YIELD).shouldBeNull()
+            ratios.getValue(RatioCode.EPS) shouldBe -2.252
+            ratios.getValue(RatioCode.ROE) shouldBe -60.160000000000004
+            ratios.getValue(RatioCode.OPERATING_MARGIN) shouldBe -52.95
+            ratios.getValue(RatioCode.PRETAX_MARGIN) shouldBe -45.76
+            ratios.getValue(RatioCode.NET_MARGIN) shouldBe -45.88
+            ratios.getValue(RatioCode.INTEREST_COVERAGE) shouldBe -179.3077
+            ratios.getValue(RatioCode.PB) shouldBe 3.1034
+        }
+
+        test("annual values are used when TTM and quarterly values are absent") {
+            val ratios = fixture("metric-mcd.json").client.ratios(Symbol.of("MCD")).valuesByCode()
+
+            ratios.getValue(RatioCode.PB) shouldBe 302.903
+            ratios.getValue(RatioCode.DEBT_TO_EQUITY) shouldBe 40.6406
+            ratios.getValue(RatioCode.LT_DEBT_TO_EQUITY) shouldBe 40.6406
+            ratios.getValue(RatioCode.BOOK_VALUE_PER_SHARE) shouldBe 0.75
+        }
+
+        test("per share values are dropped when the response is for another symbol") {
+            val finnhub = fixture("metric-brk-b.json")
+
+            val ratios = finnhub.client.ratios(Symbol.of("BRK.B")).valuesByCode()
+
+            ratios.getValue(RatioCode.EPS).shouldBeNull()
+            ratios.getValue(RatioCode.BOOK_VALUE_PER_SHARE).shouldBeNull()
+            ratios.getValue(RatioCode.PE) shouldBe 14.688
+            ratios.getValue(RatioCode.PB) shouldBe 1.6844
+            ratios.getValue(RatioCode.BETA) shouldBe 0.105902575
+            finnhub.single().shouldTarget("/stock/metric", "symbol" to "BRK.B", "metric" to "all")
+        }
+
+        test("per share values are kept when the response symbol differs only in case or is absent") {
+            val withoutSymbol = MockFinnhub(body = """{"metric": {"epsTTM": 1.5, "bookValuePerShareAnnual": 2.5}}""")
+            val lowerCase = MockFinnhub(body = """{"metric": {"epsTTM": 1.5}, "symbol": "brk.b"}""")
+
+            withoutSymbol.client.ratios(Symbol.of("BRK.B")).valuesByCode().getValue(RatioCode.EPS) shouldBe 1.5
+            withoutSymbol.client.ratios(Symbol.of("BRK.B")).valuesByCode()
+                .getValue(RatioCode.BOOK_VALUE_PER_SHARE) shouldBe 2.5
+            lowerCase.client.ratios(Symbol.of("BRK.B")).valuesByCode().getValue(RatioCode.EPS) shouldBe 1.5
+        }
+
         test("missing metric keys fall back to alternatives or a null value") {
             val finnhub = fixture("metric-sap-de-partial.json")
 
-            val ratios = finnhub.client.ratios(sapDe).shouldBeInstanceOf<SourceResult.Success<Ratios>>()
-                .data.items.associate { it.code to it.value }
+            val ratios = finnhub.client.ratios(sapDe).valuesByCode()
 
             ratios.keys.toList() shouldContainExactly RatioCode.entries
-            ratios shouldBe mapOf(
-                RatioCode.PE to 48.1203,
+            ratios.filterValues { it != null } shouldBe mapOf(
                 RatioCode.PB to 7.6614,
                 RatioCode.PS to 7.9052,
-                RatioCode.EV_EBITDA to null,
                 RatioCode.ROE to 15.9921,
-                RatioCode.ROA to null,
                 RatioCode.NET_MARGIN to 9.8114,
-                RatioCode.DEBT_TO_EQUITY to null,
                 RatioCode.CURRENT_RATIO to 1.1203,
-                RatioCode.DIVIDEND_YIELD to null,
-                RatioCode.EPS to 4.8183,
                 RatioCode.BETA to 0.9871,
+                RatioCode.EPS to 4.8183,
             )
             finnhub.single().shouldTarget("/stock/metric", "symbol" to "SAP.DE", "metric" to "all")
+        }
+
+        test("non-finite, string and boolean values are skipped") {
+            val finnhub = MockFinnhub(body = """{"metric": {"peTTM": "12.5", "peAnnual": true, "pb": 1e999, "pbAnnual": 2.5}}""")
+
+            val ratios = finnhub.client.ratios(aapl).valuesByCode()
+
+            ratios.getValue(RatioCode.PE).shouldBeNull()
+            ratios.getValue(RatioCode.PB) shouldBe 2.5
         }
 
         test("empty metric object is no data") {
@@ -419,3 +514,6 @@ class FinnhubClientTest : FunSpec({
         }
     }
 })
+
+private fun SourceResult<Ratios>.valuesByCode(): Map<RatioCode, Double?> =
+    shouldBeInstanceOf<SourceResult.Success<Ratios>>().data.items.associate { it.code to it.value }

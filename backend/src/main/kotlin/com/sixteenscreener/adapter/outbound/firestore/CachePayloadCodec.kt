@@ -7,7 +7,6 @@ import com.sixteenscreener.domain.model.CompanyProfile
 import com.sixteenscreener.domain.model.DataType
 import com.sixteenscreener.domain.model.FiscalPeriod
 import com.sixteenscreener.domain.model.Quote
-import com.sixteenscreener.domain.model.Ratio
 import com.sixteenscreener.domain.model.RatioCode
 import com.sixteenscreener.domain.model.Ratios
 import java.time.LocalDate
@@ -37,10 +36,10 @@ object CachePayloadCodec {
         mapOf("items" to ratios.items.map { mapOf("code" to it.code.name, "value" to it.value) })
 
     private fun decodeRatios(payload: FirestoreMap): Ratios =
-        Ratios(
-            payload.maps("items").mapNotNull { item ->
-                enumValueOrNull<RatioCode>(item.string("code"))?.let { Ratio(it, item.doubleOrNull("value")) }
-            },
+        Ratios.of(
+            payload.maps("items")
+                .mapNotNull { item -> RatioCode.parseOrNull(item.string("code"))?.let { it to item.doubleOrNull("value") } }
+                .toMap(),
         )
 
     private fun encodeBalanceSheet(balanceSheet: BalanceSheet): FirestoreMap =
@@ -106,6 +105,4 @@ object CachePayloadCodec {
             description = payload.stringOrNull("description"),
             logoUrl = payload.stringOrNull("logoUrl"),
         )
-
-    private inline fun <reified E : Enum<E>> enumValueOrNull(raw: String): E? = enumValues<E>().firstOrNull { it.name == raw }
 }

@@ -25,6 +25,7 @@ data class SourceDataMetaDto(
 data class RatioDto(
     val code: String,
     val name: String,
+    val unit: String,
     val value: Double?,
 )
 
@@ -90,7 +91,7 @@ private fun metaOf(source: SourceId, status: DataStatus, fetchedAt: Instant?) =
 
 private fun SourceData<*>.toMetaDto() = metaOf(source, status, fetchedAt)
 
-private fun Ratio.toDto() = RatioDto(code = code.name, name = name, value = value)
+private fun Ratio.toDto() = RatioDto(code = code.name, name = name, unit = unit.name, value = value)
 
 private fun BalanceSheetItem.toDto() = BalanceSheetItemDto(concept = concept, label = label, value = value, unit = unit)
 
