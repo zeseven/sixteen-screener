@@ -137,16 +137,16 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Text filter above the table: case-insensitive match in any field except the flag, done in memory without backend calls
 
 ### Indicators
-- [ ] Curated set of 33 Finnhub ratios (31 usable as indicators, EPS and book value per share on the detailed screen only), TTM or quarterly values with annual fallback
-- [ ] P/E calculated as price / EPS for indicators when Finnhub returns no P/E and the EPS is negative
-- [ ] Default indicator settings for all 31 ratios in Firestore (`config/indicatorDefaults`), created from code when missing; only P/E, ROA and ROE switched on
-- [ ] Indicator settings stored per profile, copied from the defaults on first access; ratios missing in the profile added from the defaults on read
-- [ ] Settings per ratio: on/off, three thresholds, a level per interval (green, yellow, neutral, red) and a level for values below 0; fixed scale maximum and step per ratio
-- [ ] Indicators calculated on the backend and returned in display order with watchlist market data and on the price and ratios tab
-- [ ] Watchlist ratios refreshed when older than 1 day; separate status for indicators (orange only when the ratios failed to load)
-- [ ] Company row: up to 3 indicators (short names) under each other to the right of the price, `...` after the third when there are more; no calculation in the app
-- [ ] Detailed screen: ratios colored by their indicator level; `, %` appended to names of percent ratios
-- [ ] Indicator settings page opened from the settings screen: ratios grouped by category, a checkbox and an interval bar per ratio (draggable thresholds, tap to change an interval color, long press for an exact value)
+- [x] Curated set of 33 Finnhub ratios (31 usable as indicators, EPS and book value per share on the detailed screen only), TTM or quarterly values with annual fallback
+- [x] P/E calculated as price / EPS for indicators when Finnhub returns no P/E and the EPS is negative
+- [x] Default indicator settings for all 31 ratios in Firestore (`config/indicatorDefaults`), created from code when missing; only P/E, ROA and ROE switched on
+- [x] Indicator settings stored per profile, copied from the defaults on first access; ratios missing in the profile added from the defaults on read
+- [x] Settings per ratio: on/off, three thresholds, a level per interval (green, yellow, neutral, red) and a level for values below 0; fixed scale maximum and step per ratio
+- [x] Indicators calculated on the backend and returned in display order with watchlist market data and on the price and ratios tab
+- [x] Watchlist ratios refreshed when older than 1 day; separate status for indicators (orange only when the ratios failed to load)
+- [x] Company row: up to 3 indicators (short names) under each other to the right of the price, `...` after the third when there are more; no calculation in the app
+- [x] Detailed screen: ratios colored by their indicator level; `, %` appended to names of percent ratios
+- [x] Indicator settings page opened from the settings screen: ratios grouped by category, a checkbox and an interval bar per ratio (draggable thresholds, tap to change an interval color, long press for an exact value)
 
 ### Profiles
 - [ ] Per-profile user tags stored in Firestore
