@@ -175,6 +175,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [ ] Integration tests for each source client against recorded responses
 - [ ] End-to-end smoke test of the deployed backend
 - [ ] Documentation (READMEs, SETUP.md files, OpenAPI spec) up to date with the implementation
+- [ ] "New version available" notice: the release step uploads the APK with its build metadata (`output-metadata.json`, holding `versionCode` and `versionName`) to a GCS bucket, the backend reads the latest build from there and returns it to the app, and the app compares it with its own build number
 
 ---
 
