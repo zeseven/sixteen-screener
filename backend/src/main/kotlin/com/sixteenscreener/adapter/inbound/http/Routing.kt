@@ -13,5 +13,6 @@ fun Application.configureRouting(services: AppServices) {
         sourceRoutes(services.sourcesUseCase)
         logoRoutes(services.logoUseCase)
         exchangeRoutes(services.exchangesUseCase)
+        indicatorRoutes(services.indicatorSettingsUseCase)
     }
 }

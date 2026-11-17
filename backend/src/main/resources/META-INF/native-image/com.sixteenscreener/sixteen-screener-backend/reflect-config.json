@@ -242,6 +242,74 @@
     ]
   },
   {
+    "name": "com.sixteenscreener.adapter.inbound.http.IndicatorSettingDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.IndicatorSettingDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.IndicatorSettingValuesDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.IndicatorSettingValuesDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.IndicatorSettingsDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.IndicatorSettingsDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.IndicatorSettingsUpdateDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.IndicatorSettingsUpdateDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sixteenscreener.adapter.inbound.http.MarketDataDto",
     "fields": [
       {

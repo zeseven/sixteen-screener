@@ -16,6 +16,7 @@ import com.sixteenscreener.fakes.FakeBalanceSheetSource
 import com.sixteenscreener.fakes.FakeLogoProvider
 import com.sixteenscreener.fakes.FakeMarketDataSource
 import com.sixteenscreener.fakes.InMemoryCompanyCache
+import com.sixteenscreener.fakes.InMemoryIndicatorDefaultsRepository
 import com.sixteenscreener.fakes.InMemoryLogoMissRepository
 import com.sixteenscreener.fakes.InMemoryLogoStorage
 import com.sixteenscreener.fakes.InMemoryProfileRepository
@@ -49,6 +50,7 @@ fun testConfig(): AppConfig = AppConfig(
 class TestPorts(
     val clock: MutableClock = MutableClock(),
     val profiles: InMemoryProfileRepository = InMemoryProfileRepository(),
+    val indicatorDefaults: InMemoryIndicatorDefaultsRepository = InMemoryIndicatorDefaultsRepository(),
     val companyCache: InMemoryCompanyCache = InMemoryCompanyCache(),
     val logoMisses: InMemoryLogoMissRepository = InMemoryLogoMissRepository(),
     val requestCounters: InMemoryRequestCounterRepository = InMemoryRequestCounterRepository(),
@@ -74,6 +76,7 @@ fun testServices(ports: TestPorts = TestPorts(), config: AppConfig = testConfig(
         config = config,
         clock = ports.clock,
         profiles = ports.profiles,
+        indicatorDefaults = ports.indicatorDefaults,
         companyCache = ports.companyCache,
         logoMisses = ports.logoMisses,
         rateLimiter = rateLimiter,

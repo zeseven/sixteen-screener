@@ -8,6 +8,7 @@ import com.sixteenscreener.adapter.outbound.finnhub.FinnhubClient
 import com.sixteenscreener.adapter.outbound.finnhublogos.FinnhubLogoClient
 import com.sixteenscreener.adapter.outbound.firestore.FirestoreClientFactory
 import com.sixteenscreener.adapter.outbound.firestore.FirestoreCompanyCache
+import com.sixteenscreener.adapter.outbound.firestore.FirestoreIndicatorDefaultsRepository
 import com.sixteenscreener.adapter.outbound.firestore.FirestoreLogoMissRepository
 import com.sixteenscreener.adapter.outbound.firestore.FirestoreProfileRepository
 import com.sixteenscreener.adapter.outbound.firestore.FirestoreRequestCounterRepository
@@ -35,6 +36,7 @@ import com.sixteenscreener.domain.service.CompanyIdentityResolver
 import com.sixteenscreener.domain.service.ExchangeDirectoryService
 import com.sixteenscreener.domain.service.ExchangeService
 import com.sixteenscreener.domain.service.FreshnessPolicy
+import com.sixteenscreener.domain.service.IndicatorSettingsService
 import com.sixteenscreener.domain.service.LogoService
 import com.sixteenscreener.domain.service.LogoTier
 import com.sixteenscreener.domain.service.MarketResolver
@@ -51,6 +53,7 @@ import com.sixteenscreener.domain.service.WatchlistCompanySync
 import com.sixteenscreener.domain.service.WatchlistService
 import com.sixteenscreener.port.inbound.CompanyDataUseCase
 import com.sixteenscreener.port.inbound.ExchangesUseCase
+import com.sixteenscreener.port.inbound.IndicatorSettingsUseCase
 import com.sixteenscreener.port.inbound.LogoUseCase
 import com.sixteenscreener.port.inbound.ProfileUseCase
 import com.sixteenscreener.port.inbound.SearchUseCase
@@ -59,6 +62,7 @@ import com.sixteenscreener.port.inbound.WatchlistUseCase
 import com.sixteenscreener.port.outbound.BalanceSheetSource
 import com.sixteenscreener.port.outbound.Clock
 import com.sixteenscreener.port.outbound.CompanyCache
+import com.sixteenscreener.port.outbound.IndicatorDefaultsRepository
 import com.sixteenscreener.port.outbound.LogoMissRepository
 import com.sixteenscreener.port.outbound.MarketDataSource
 import com.sixteenscreener.port.outbound.ProfileRepository
@@ -77,6 +81,7 @@ class AppServices(
     val config: AppConfig,
     val clock: Clock,
     val profiles: ProfileRepository,
+    val indicatorDefaults: IndicatorDefaultsRepository,
     val companyCache: CompanyCache,
     val logoMisses: LogoMissRepository,
     val rateLimiter: RateLimiter,
@@ -143,6 +148,10 @@ class AppServices(
 
     val exchangesUseCase: ExchangesUseCase = ExchangeService(marketResolver)
 
+    val indicatorSettings = IndicatorSettingsService(profiles, indicatorDefaults, clock)
+
+    val indicatorSettingsUseCase: IndicatorSettingsUseCase get() = indicatorSettings
+
     val logoUseCase: LogoUseCase = LogoService(
         tiers = logoTiers,
         misses = logoMisses,
@@ -202,6 +211,7 @@ fun wireServices(config: AppConfig): AppServices {
         config = config,
         clock = clock,
         profiles = FirestoreProfileRepository(firestore),
+        indicatorDefaults = FirestoreIndicatorDefaultsRepository(firestore),
         companyCache = companyCache,
         logoMisses = FirestoreLogoMissRepository(firestore),
         rateLimiter = rateLimiter,
