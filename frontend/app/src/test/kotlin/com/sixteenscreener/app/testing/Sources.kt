@@ -29,6 +29,7 @@ object Sources {
         isDefault: Boolean = false,
         limits: List<RequestLimit> = listOf(limit()),
         lastCall: SourceCallOutcome? = null,
+        totalCalls: Long? = null,
     ) = Source(
         id = SourceId(id),
         name = name,
@@ -37,5 +38,6 @@ object Sources {
         isDefault = isDefault,
         limits = limits,
         lastCall = lastCall,
+        totalCalls = totalCalls,
     )
 }

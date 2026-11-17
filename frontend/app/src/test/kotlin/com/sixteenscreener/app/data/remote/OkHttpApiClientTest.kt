@@ -546,13 +546,13 @@ class OkHttpApiClientTest {
     }
 
     @Test
-    fun `getSources parses limits and last call outcomes`() = runTest {
+    fun `getSources parses limits, last call outcomes and total calls`() = runTest {
         enqueueFixture("sources.json")
 
         val sources = client.getSources(profileId).value()
 
         assertEquals("/profiles/${profileId.value}/sources", server.takeRequest().pathAndQuery())
-        assertEquals(listOf("finnhub", "sec-edgar", "logoapi"), sources.map { it.id.value })
+        assertEquals(listOf("finnhub", "sec-edgar", "logoapi", "finnhub-logos"), sources.map { it.id.value })
         val finnhub = sources[0]
         assertEquals("Finnhub", finnhub.name)
         assertTrue(finnhub.isDefault)
@@ -574,6 +574,13 @@ class OkHttpApiClientTest {
         assertEquals(LimitUnit.UNIQUE_SYMBOLS, logoApi.limits[1].unit)
         assertNull(logoApi.limits[0].resetsAt)
         assertEquals(SourceCallOutcome(CallResult.TIMEOUT, null, Instant.parse("2026-11-14T11:00:00Z")), logoApi.lastCall)
+        assertNull(finnhub.totalCalls)
+        assertNull(logoApi.totalCalls)
+        val finnhubLogos = sources[3]
+        assertEquals("Finnhub logos", finnhubLogos.name)
+        assertEquals(emptyList<RequestLimit>(), finnhubLogos.limits)
+        assertEquals(SourceCallOutcome(CallResult.SUCCESS, null, Instant.parse("2026-11-14T11:05:00Z")), finnhubLogos.lastCall)
+        assertEquals(5_000_000_000L, finnhubLogos.totalCalls)
     }
 
     @Test

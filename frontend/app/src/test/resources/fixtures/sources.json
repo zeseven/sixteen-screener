@@ -32,7 +32,18 @@
         { "interval": "HOUR", "unit": "REQUESTS", "limit": 500, "used": 0 },
         { "interval": "MONTH", "unit": "UNIQUE_SYMBOLS", "limit": 5000, "used": 41, "resetsAt": "2026-12-01T00:00:00Z" }
       ],
-      "lastCall": { "result": "TIMEOUT", "at": "2026-11-14T11:00:00Z" }
+      "lastCall": { "result": "TIMEOUT", "at": "2026-11-14T11:00:00Z" },
+      "totalCalls": null
+    },
+    {
+      "id": "finnhub-logos",
+      "name": "Finnhub logos",
+      "capabilities": ["LOGO"],
+      "selectableAsDefault": false,
+      "isDefault": false,
+      "limits": [],
+      "lastCall": { "result": "SUCCESS", "at": "2026-11-14T11:05:00Z" },
+      "totalCalls": 5000000000
     }
   ]
 }

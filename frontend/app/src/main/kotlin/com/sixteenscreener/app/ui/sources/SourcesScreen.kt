@@ -60,6 +60,7 @@ object SourcesScreenTags {
     const val DEFAULT_MARKER = "source_default_marker"
     const val CONNECTION_INDICATOR = "source_connection_indicator"
     const val LIMIT = "source_limit"
+    const val TOTAL_CALLS = "source_total_calls"
 }
 
 /** Sources tab; reloads the sources when shown. */
@@ -149,10 +150,10 @@ fun SourceCard(source: Source, modifier: Modifier = Modifier) {
             capabilitiesText(source.capabilities)?.let {
                 Text(text = it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (source.limits.isEmpty()) {
+            source.limits.forEach { LimitText(it) }
+            source.totalCalls?.let { TotalCallsText(it) }
+            if (source.limits.isEmpty() && source.totalCalls == null) {
                 Text(text = stringResource(R.string.source_no_limits), style = MaterialTheme.typography.bodyMedium)
-            } else {
-                source.limits.forEach { LimitText(it) }
             }
         }
     }
@@ -231,6 +232,15 @@ private fun LimitText(limit: RequestLimit) {
     )
 }
 
+@Composable
+private fun TotalCallsText(totalCalls: Long) {
+    Text(
+        text = stringResource(R.string.source_total_calls, totalCalls),
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.testTag(SourcesScreenTags.TOTAL_CALLS),
+    )
+}
+
 private fun intervalName(interval: LimitInterval): Int = when (interval) {
     LimitInterval.MINUTE -> R.string.limit_per_minute
     LimitInterval.HOUR -> R.string.limit_per_hour
@@ -254,6 +264,16 @@ private fun SourcesContentPreview() {
                         isDefault = true,
                         limits = listOf(RequestLimit(LimitInterval.MINUTE, LimitUnit.REQUESTS, 60, 12, Instant.now().plusSeconds(30))),
                         lastCall = SourceCallOutcome(CallResult.HTTP_ERROR, 429, Instant.now()),
+                    ),
+                    Source(
+                        id = SourceId("finnhub-logos"),
+                        name = "Finnhub logos",
+                        capabilities = listOf(Capability.LOGO),
+                        selectableAsDefault = false,
+                        isDefault = false,
+                        limits = emptyList(),
+                        lastCall = SourceCallOutcome(CallResult.TIMEOUT, null, Instant.now()),
+                        totalCalls = 1234,
                     ),
                 ),
             ),

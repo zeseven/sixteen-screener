@@ -64,6 +64,7 @@
     <string name="source_default">Default</string>
     <string name="source_capabilities">Provides: %1$s</string>
     <string name="source_no_limits">No request limits</string>
+    <string name="source_total_calls">Total: %1$d</string>
     <string name="source_limit_usage">%1$d / %2$d %3$s</string>
     <string name="source_limit_usage_symbols">%1$d / %2$d symbols %3$s</string>
     <string name="source_limit_reached">%1$s, limit reached</string>

@@ -60,4 +60,6 @@ data class Source(
     val limits: List<RequestLimit>,
     /** Outcome of the last call, `null` if the source has not been called yet. */
     val lastCall: SourceCallOutcome?,
+    /** Calls to the source since the counter was introduced, `null` if the source has no total counter. */
+    val totalCalls: Long? = null,
 )

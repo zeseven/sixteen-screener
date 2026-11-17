@@ -101,6 +101,39 @@ class SourcesContentTest {
     }
 
     @Test
+    fun `total calls are shown after the limits`() {
+        setSources(source(limits = listOf(limit(LimitInterval.MINUTE, limit = 60, used = 12)), totalCalls = 1234))
+
+        composeRule.onNodeWithTag(SourcesScreenTags.LIMIT, useUnmergedTree = true).assertTextEquals("12 / 60 per minute")
+        composeRule.onNodeWithTag(SourcesScreenTags.TOTAL_CALLS, useUnmergedTree = true).assertTextEquals("Total: 1234")
+    }
+
+    @Test
+    fun `source with only a total counter shows the total instead of no limits`() {
+        setSources(source(id = "finnhub-logos", name = "Finnhub logos", limits = emptyList(), totalCalls = 1234))
+
+        composeRule.onNodeWithText("Finnhub logos").assertExists()
+        composeRule.onNodeWithTag(SourcesScreenTags.TOTAL_CALLS, useUnmergedTree = true).assertTextEquals("Total: 1234")
+        composeRule.onNodeWithTag(SourcesScreenTags.LIMIT, useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText("No request limits").assertDoesNotExist()
+    }
+
+    @Test
+    fun `source without a total counter shows no total`() {
+        setSources(source(totalCalls = null))
+
+        composeRule.onNodeWithTag(SourcesScreenTags.TOTAL_CALLS, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `source with only a total counter keeps its connection indicator`() {
+        setSources(source(limits = emptyList(), totalCalls = 0, lastCall = outcome(CallResult.HTTP_ERROR, 404)))
+
+        indicator().assertTextEquals("404").assertContentDescriptionEquals("Last call failed with HTTP status 404")
+        composeRule.onNodeWithTag(SourcesScreenTags.TOTAL_CALLS, useUnmergedTree = true).assertTextEquals("Total: 0")
+    }
+
+    @Test
     fun `never called source has no connection indicator`() {
         setSources(source(lastCall = null))
 
