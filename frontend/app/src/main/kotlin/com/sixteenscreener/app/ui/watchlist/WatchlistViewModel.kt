@@ -47,7 +47,7 @@ data class WatchlistUiState(
     val companies: List<WatchlistItem> = emptyList(),
     /** Market data of the rows that have been requested at least once. */
     val marketData: Map<Symbol, RowMarketData> = emptyMap(),
-    /** Whether the watchlist has been loaded for the active profile. */
+    /** Whether the watchlist of the active profile is known, from the device or from the backend. */
     val isLoaded: Boolean = false,
     /** Whether the loaded watchlist has any company, regardless of the filter. */
     val hasCompanies: Boolean = false,
@@ -61,10 +61,12 @@ data class WatchlistUiState(
 )
 
 /**
- * Watchlist tab: loads the watchlist when shown, filters it in memory (filters are not persisted, ADR-045) and removes companies
- * optimistically with undo. A profile change resets the screen and loads the new profile's watchlist.
+ * Watchlist tab: shows the watchlist stored on the device and loads it from the backend when shown (ADR-076), filters it in memory
+ * (filters are not persisted, ADR-045) and removes companies optimistically with undo. A profile change resets the screen and loads the
+ * new profile's watchlist.
  * Market data is loaded only for the displayed rows plus a buffer (ADR-055, ADR-058): each row once per loaded watchlist when it comes
- * into view, and all of them again when a filter changes. A failed load is shown on its rows; they are retried when next in view.
+ * into view, and all of them again when a filter changes. Rows loaded while the stored list was shown are not loaded again when the
+ * first backend snapshot replaces it. A failed load is shown on its rows; they are retried when next in view.
  */
 @OptIn(FlowPreview::class)
 @HiltViewModel
@@ -94,6 +96,7 @@ class WatchlistViewModel @Inject constructor(
     private val loadCount = MutableStateFlow(0)
     private var rowRefreshTracker = RowRefreshTracker()
     private var lastRowRefreshFilter: WatchlistFilter? = null
+    private var isCachedListShown = false
 
     val uiState: StateFlow<WatchlistUiState> =
         combine(
@@ -120,6 +123,9 @@ class WatchlistViewModel @Inject constructor(
     init {
         profileRepository.onActiveProfileChange(viewModelScope) { resetForNewProfile() }
         viewModelScope.launch {
+            watchlistRepository.isWatchlistCached.collect { cached -> if (cached) isCachedListShown = true }
+        }
+        viewModelScope.launch {
             combine(
                 uiState.map { it.filter to it.companies.map(WatchlistItem::symbol) }.distinctUntilChanged(),
                 visibleRows.filterNotNull(),
@@ -142,8 +148,12 @@ class WatchlistViewModel @Inject constructor(
         refreshJob = viewModelScope.launch {
             when (val result = watchlistRepository.refresh()) {
                 is ApiResult.Success -> {
-                    rowRefreshTracker.refreshed.clear()
-                    loadCount.update { it + 1 }
+                    if (isCachedListShown) {
+                        isCachedListShown = false
+                    } else {
+                        rowRefreshTracker.refreshed.clear()
+                        loadCount.update { it + 1 }
+                    }
                     filter.update { it.reconciledWith(result.value) }
                     screenState.update { it.copy(isRefreshing = false, loadError = null) }
                 }
@@ -200,6 +210,7 @@ class WatchlistViewModel @Inject constructor(
         refreshJob?.cancel()
         rowRefreshTracker = RowRefreshTracker()
         lastRowRefreshFilter = null
+        isCachedListShown = false
         filter.value = WatchlistFilter()
         screenState.value = ScreenState()
         refresh()

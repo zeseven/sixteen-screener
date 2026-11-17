@@ -9,6 +9,7 @@ import com.sixteenscreener.app.domain.model.ProfileId
 import com.sixteenscreener.app.testing.Companies.item
 import com.sixteenscreener.app.testing.FakeApiClient
 import com.sixteenscreener.app.testing.FakeProfileRepository
+import com.sixteenscreener.app.testing.FakeWatchlistStore
 import com.sixteenscreener.app.testing.MainDispatcherRule
 import com.sixteenscreener.app.ui.profile.ProfileError
 import com.sixteenscreener.app.ui.watchlist.WatchlistViewModel
@@ -143,7 +144,8 @@ class SettingsViewModelTest {
         val annaWatchlist = listOf(item("SAP.DE", name = "SAP SE"))
         apiClient.getWatchlist = { profileId -> ApiResult.Success(if (profileId == ProfileId("p1")) viewerWatchlist else annaWatchlist) }
         profileRepository.selectResult = { ApiResult.Success(ActiveProfile(ProfileId("p2"), "Anna")) }
-        val watchlistViewModel = WatchlistViewModel(DefaultWatchlistRepository(apiClient, profileRepository, backgroundScope), profileRepository)
+        val watchlistRepository = DefaultWatchlistRepository(apiClient, profileRepository, FakeWatchlistStore(), backgroundScope)
+        val watchlistViewModel = WatchlistViewModel(watchlistRepository, profileRepository)
         watchlistViewModel.refresh()
         val viewModel = viewModel()
 

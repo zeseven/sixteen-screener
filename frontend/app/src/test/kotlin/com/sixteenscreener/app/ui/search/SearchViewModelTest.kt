@@ -16,6 +16,7 @@ import com.sixteenscreener.app.testing.Companies.item
 import com.sixteenscreener.app.testing.Companies.searchItem
 import com.sixteenscreener.app.testing.FakeApiClient
 import com.sixteenscreener.app.testing.FakeProfileRepository
+import com.sixteenscreener.app.testing.FakeWatchlistStore
 import com.sixteenscreener.app.testing.MainDispatcherRule
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -48,7 +49,7 @@ class SearchViewModelTest {
     private lateinit var watchlistRepository: DefaultWatchlistRepository
 
     private fun TestScope.viewModel(): SearchViewModel {
-        watchlistRepository = DefaultWatchlistRepository(apiClient, profileRepository, backgroundScope)
+        watchlistRepository = DefaultWatchlistRepository(apiClient, profileRepository, FakeWatchlistStore(), backgroundScope)
         return SearchViewModel(DefaultSearchRepository(apiClient, profileRepository), watchlistRepository, profileRepository)
     }
 

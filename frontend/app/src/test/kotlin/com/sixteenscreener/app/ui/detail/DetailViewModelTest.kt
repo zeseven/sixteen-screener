@@ -21,6 +21,7 @@ import com.sixteenscreener.app.testing.CompanyData.item
 import com.sixteenscreener.app.testing.CompanyData.period
 import com.sixteenscreener.app.testing.FakeApiClient
 import com.sixteenscreener.app.testing.FakeProfileRepository
+import com.sixteenscreener.app.testing.FakeWatchlistStore
 import com.sixteenscreener.app.testing.MainDispatcherRule
 import com.sixteenscreener.app.testing.Sources.source
 import com.sixteenscreener.app.ui.navigation.DetailRoute
@@ -61,7 +62,7 @@ class DetailViewModelTest {
     }
 
     private fun TestScope.viewModel(route: DetailRoute = DetailRoute(apple.symbol, apple)): DetailViewModel {
-        watchlistRepository = DefaultWatchlistRepository(apiClient, profileRepository, backgroundScope)
+        watchlistRepository = DefaultWatchlistRepository(apiClient, profileRepository, FakeWatchlistStore(), backgroundScope)
         return DetailViewModel(
             route = route,
             companyRepository = DefaultCompanyRepository(apiClient, profileRepository),

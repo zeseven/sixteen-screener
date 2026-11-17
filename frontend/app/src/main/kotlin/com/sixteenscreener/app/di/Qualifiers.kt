@@ -31,3 +31,8 @@ annotation class AuthenticatedHttpClient
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class ApplicationScope
+
+/** DataStore holding the watchlist of each profile, separate from the settings file. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class WatchlistCache

@@ -17,12 +17,14 @@ import com.sixteenscreener.app.testing.Companies.marketData
 import com.sixteenscreener.app.testing.Companies.quote
 import com.sixteenscreener.app.testing.FakeApiClient
 import com.sixteenscreener.app.testing.FakeProfileRepository
+import com.sixteenscreener.app.testing.FakeWatchlistStore
 import com.sixteenscreener.app.testing.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -39,6 +41,7 @@ class WatchlistViewModelTest {
 
     private val apiClient = FakeApiClient()
     private val profileRepository = FakeProfileRepository(ActiveProfile(ProfileId("p1"), "Viktor"))
+    private val store = FakeWatchlistStore()
 
     private val apple = item("AAPL", market = Market.US, sector = "Technology")
     private val sap = item("SAP.DE", name = "SAP SE", market = Market.EU, sector = "Technology")
@@ -46,7 +49,7 @@ class WatchlistViewModelTest {
     private val unknownMarket = item("7203.T", name = "Toyota", market = null, sector = null)
 
     private fun TestScope.viewModel(): WatchlistViewModel =
-        WatchlistViewModel(DefaultWatchlistRepository(apiClient, profileRepository, backgroundScope), profileRepository)
+        WatchlistViewModel(DefaultWatchlistRepository(apiClient, profileRepository, store, backgroundScope), profileRepository)
 
     private var stubbedWatchlist = emptyList<WatchlistItem>()
 
@@ -588,5 +591,99 @@ class WatchlistViewModelTest {
         viewModel.onSectorSelected("Energy")
 
         assertEquals(listOf(shell), viewModel.state.companies)
+    }
+
+    private fun storeCache(vararg companies: WatchlistItem) {
+        store.stored[ProfileId("p1")] = companies.toList()
+    }
+
+    @Test
+    fun `cached watchlist is shown as loaded while the backend load runs`() = runTest {
+        storeCache(apple, sap)
+        val response = CompletableDeferred<ApiResult<List<WatchlistItem>>>()
+        apiClient.getWatchlist = { response.await() }
+        val viewModel = viewModel()
+        runCurrent()
+
+        viewModel.refresh()
+
+        assertTrue(viewModel.state.isLoaded)
+        assertTrue(viewModel.state.isRefreshing)
+        assertEquals(listOf(apple, sap), viewModel.state.companies)
+        response.complete(ApiResult.Success(listOf(sap)))
+        assertFalse(viewModel.state.isRefreshing)
+        assertEquals(listOf(sap), viewModel.state.companies)
+    }
+
+    @Test
+    fun `failed load keeps the cached watchlist with an error message`() = runTest {
+        storeCache(apple)
+        val failure = ApiError.Network(isTimeout = true)
+        apiClient.getWatchlist = { ApiResult.Failure(failure) }
+        val viewModel = viewModel()
+        runCurrent()
+
+        viewModel.refresh()
+
+        assertTrue(viewModel.state.isLoaded)
+        assertEquals(listOf(apple), viewModel.state.companies)
+        assertEquals(WatchlistMessage.LoadFailed(failure), viewModel.state.message)
+        assertFalse(viewModel.state.isRefreshing)
+    }
+
+    @Test
+    fun `first load replacing the cached watchlist does not load the market data of the rows again`() = runTest {
+        storeCache(*rows(20).toTypedArray())
+        stubbedWatchlist = rows(20)
+        val response = CompletableDeferred<ApiResult<List<WatchlistItem>>>()
+        apiClient.getWatchlist = { response.await() }
+        stubRowRefresh()
+        val viewModel = viewModel()
+        runCurrent()
+
+        viewModel.refresh()
+        showRows(viewModel, 0, 4)
+        response.complete(ApiResult.Success(rows(20)))
+        advanceUntilIdle()
+
+        assertEquals(listOf(symbols(0..9)), refreshRequests)
+        assertEquals(1.0, viewModel.priceOf(0))
+    }
+
+    @Test
+    fun `reload after the cached watchlist was replaced refreshes the displayed rows again`() = runTest {
+        storeCache(*rows(20).toTypedArray())
+        stubWatchlist(*rows(20).toTypedArray())
+        stubRowRefresh()
+        val viewModel = viewModel()
+        runCurrent()
+        viewModel.refresh()
+        showRows(viewModel, 0, 4)
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals(listOf(symbols(0..9), symbols(0..9)), refreshRequests)
+    }
+
+    @Test
+    fun `follow-up load of the repository updates the list without a refresh of the screen`() = runTest {
+        stubWatchlist(apple, sap)
+        apiClient.removeFromWatchlist = { _, _ -> ApiResult.Success(Unit) }
+        val viewModel = viewModel()
+        viewModel.refresh()
+        val slowLoad = CompletableDeferred<ApiResult<List<WatchlistItem>>>()
+        var loads = 0
+        apiClient.getWatchlist = { if (++loads == 1) slowLoad.await() else ApiResult.Success(listOf(shell)) }
+
+        viewModel.refresh()
+        viewModel.onRemove(sap)
+        advanceUntilIdle()
+        slowLoad.complete(ApiResult.Success(listOf(apple, sap)))
+        runCurrent()
+
+        assertEquals(listOf(shell), viewModel.state.companies)
+        assertEquals(listOf("Energy"), viewModel.state.sectors)
+        assertFalse(viewModel.state.isRefreshing)
     }
 }
