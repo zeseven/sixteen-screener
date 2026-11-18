@@ -1,0 +1,280 @@
+{
+  "General": {
+    "Code": "AAPL",
+    "Type": "Common Stock",
+    "Name": "Apple Inc.",
+    "Exchange": "NASDAQ",
+    "OperatingMIC": "XNAS",
+    "CurrencyCode": "USD",
+    "CurrencyName": "US Dollar",
+    "CurrencySymbol": "$",
+    "CountryName": "USA",
+    "CountryISO": "US",
+    "OpenFigi": "BBG000B9XRY4",
+    "ISIN": null,
+    "LEI": "HWUPKR0MPOU8FGXBT394",
+    "PrimaryTicker": "AAPL.US",
+    "CUSIP": null,
+    "CIK": "0000320193",
+    "EmployerIdNumber": "94-2404110",
+    "FiscalYearEnd": "September",
+    "IPODate": "1980-12-12",
+    "InternationalDomestic": "International/Domestic",
+    "Sector": "Technology",
+    "Industry": "Consumer Electronics",
+    "GicSector": "Information Technology",
+    "GicGroup": "Technology Hardware & Equipment",
+    "GicIndustry": "Technology Hardware, Storage & Peripherals",
+    "GicSubIndustry": "Technology Hardware, Storage & Peripherals",
+    "HomeCategory": "Domestic",
+    "IsDelisted": false,
+    "Description": "Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories. The company offers iPhone, a line of smartphones; Mac, a line of personal computers; iPad, a line of multi-purpose tablets; and wearables, home, and accessories, including Apple Watch, AirPods, Beats products, Apple Vision Pro, Apple TV 4K, HomePod, and Apple HomeView, as well as Apple branded and third-party accessories. It also provides advertising services comprising third-party licensing arrangements and own advertising platforms; AppleCare and cloud services; and payment services, including Apple Card and Apple Pay. In addition, the company operates App Store that allow customers to discover and download applications and digital content, such as books, music, video, games, and podcasts. Further, it provides digital content through subscription-based services, including Apple Arcade, a game service; Apple Fitness+, a personalized fitness service; Apple Music, which offers users a curated listening experience; Apple News+, a news and magazine service; and Apple TV, which offers original content and live sports. The company sells its products and resells third-party products through its retail and online stores, and direct sales force; its services through its various service platforms; and third-party cellular network carriers and other resellers. It serves consumer, small and mid-sized business, education, enterprise, and government markets. The company operates in North and South America, European countries, India, the Middle East, Africa, China mainland, Hong Kong, Taiwan, Japan, Australia, New Zealand, and rest of Asia. The company was formerly known as Apple Computer, Inc. and changed its name to Apple Inc. in January 2007. Apple Inc. was founded in 1976 and is headquartered in Cupertino, California.",
+    "Address": "One Apple Park Way, Cupertino, CA, United States, 95014",
+    "AddressData": {
+      "Street": "One Apple Park Way",
+      "City": "Cupertino",
+      "State": "CA",
+      "Country": "United States",
+      "ZIP": "95014"
+    },
+    "Listings": {
+      "0": {
+        "Code": "0R2V",
+        "Exchange": "LSE",
+        "Name": "Apple Inc."
+      },
+      "1": {
+        "Code": "AAPL",
+        "Exchange": "BA",
+        "Name": "Apple Inc DRC"
+      },
+      "2": {
+        "Code": "AAPL34",
+        "Exchange": "SA",
+        "Name": "Apple Inc"
+      }
+    },
+    "Officers": {
+      "0": {
+        "Name": "Mr. Kevan  Parekh",
+        "Title": "Senior VP & CFO",
+        "YearBorn": "1972"
+      },
+      "1": {
+        "Name": "Mr. Sabih  Khan",
+        "Title": "Senior VP & Chief Operating Officer",
+        "YearBorn": "1967"
+      },
+      "2": {
+        "Name": "Ms. Deirdre  O'Brien",
+        "Title": "Senior Vice President of Retail & People",
+        "YearBorn": "1967"
+      },
+      "3": {
+        "Name": "Ms. Katherine L. Adams",
+        "Title": "Secretary",
+        "YearBorn": "1964"
+      },
+      "4": {
+        "Name": "Mr. John  Ternus",
+        "Title": "CEO & Director",
+        "YearBorn": "1976"
+      },
+      "5": {
+        "Name": "Mr. Ben  Borders",
+        "Title": "Principal Accounting Officer",
+        "YearBorn": "1981"
+      },
+      "6": {
+        "Name": "Suhasini  Chandramouli",
+        "Title": "Director of Investor Relations",
+        "YearBorn": "NA"
+      },
+      "7": {
+        "Name": "Ms. Jennifer G. Newstead J.D.",
+        "Title": "Senior VP of Government Affairs & General Counsel",
+        "YearBorn": "1970"
+      },
+      "8": {
+        "Name": "Ms. Kristin Huguet Quayle",
+        "Title": "Vice President of Worldwide Communications",
+        "YearBorn": "NA"
+      },
+      "9": {
+        "Name": "Mr. Greg  Joswiak",
+        "Title": "Senior Vice President of Worldwide Marketing",
+        "YearBorn": "NA"
+      }
+    },
+    "Phone": "(408) 996-1010",
+    "WebURL": "https://www.apple.com",
+    "LogoURL": "/img/logos/US/aapl.png",
+    "FullTimeEmployees": 167000,
+    "UpdatedAt": "2026-11-18"
+  },
+  "Highlights": {
+    "MarketCapitalization": 5114019971072,
+    "MarketCapitalizationMln": 5114019.9711,
+    "EBITDA": 171486003200,
+    "PERatio": 39.1882,
+    "PEGRatio": 2.8488,
+    "WallStreetTargetPrice": 345.6313,
+    "BookValue": 7.713,
+    "DividendShare": 1.06,
+    "DividendYield": 0.003,
+    "EarningsShare": 8.98,
+    "EPSEstimateCurrentYear": 8.832,
+    "EPSEstimateNextYear": 10.5794,
+    "EPSEstimateNextQuarter": 2.8966,
+    "EPSEstimateCurrentQuarter": 2.9149,
+    "MostRecentQuarter": "2026-09-30",
+    "ProfitMargin": 0.276,
+    "OperatingMarginTTM": 0.3301,
+    "ReturnOnAssetsTTM": 0.2587,
+    "ReturnOnEquityTTM": 1.4226,
+    "RevenueTTM": 478833999872,
+    "RevenuePerShareTTM": 32.658,
+    "QuarterlyRevenueGrowthYOY": 0.117,
+    "GrossProfitTTM": 233602007040,
+    "DilutedEpsTTM": 8.98,
+    "QuarterlyEarningsGrowthYOY": 0.141
+  },
+  "Valuation": {
+    "TrailingPE": 39.1882,
+    "ForwardPE": 36.9004,
+    "PriceSalesTTM": 10.6802,
+    "PriceBookMRQ": 45.7358,
+    "EnterpriseValue": 5150052165960,
+    "EnterpriseValueRevenue": 10.7554,
+    "EnterpriseValueEbitda": 30.0319
+  },
+  "SharesStats": {
+    "SharesOutstanding": 14532182000,
+    "SharesFloat": 14507041325,
+    "PercentInsiders": 1.687,
+    "PercentInstitutions": 66.377,
+    "SharesShort": 144791472,
+    "SharesShortPriorMonth": 131591865,
+    "ShortRatio": 3.59,
+    "ShortPercentOutstanding": null,
+    "ShortPercentFloat": 0.01
+  },
+  "Technicals": {
+    "Beta": 1.089,
+    "52WeekHigh": 360.83,
+    "52WeekLow": 242.5749,
+    "50DayMA": 339.6926,
+    "200DayMA": 301.7194,
+    "SharesShort": 144791472,
+    "SharesShortPriorMonth": 131591865,
+    "ShortRatio": 3.59,
+    "ShortPercent": 0.01
+  },
+  "SplitsDividends": {
+    "ForwardAnnualDividendRate": 1.08,
+    "ForwardAnnualDividendYield": 0.0031,
+    "PayoutRatio": 0.12,
+    "DividendDate": "2026-11-16",
+    "ExDividendDate": "2026-11-12",
+    "LastSplitFactor": "4:1",
+    "LastSplitDate": "2020-08-31",
+    "NumberDividendsByYear": {
+      "0": {
+        "Year": 1987,
+        "Count": 3
+      },
+      "1": {
+        "Year": 1988,
+        "Count": 4
+      },
+      "2": {
+        "Year": 1989,
+        "Count": 4
+      },
+      "3": {
+        "Year": 1990,
+        "Count": 4
+      },
+      "4": {
+        "Year": 1991,
+        "Count": 4
+      },
+      "5": {
+        "Year": 1992,
+        "Count": 4
+      },
+      "6": {
+        "Year": 1993,
+        "Count": 4
+      },
+      "7": {
+        "Year": 1994,
+        "Count": 4
+      },
+      "8": {
+        "Year": 1995,
+        "Count": 4
+      },
+      "9": {
+        "Year": 2012,
+        "Count": 2
+      },
+      "10": {
+        "Year": 2013,
+        "Count": 4
+      },
+      "11": {
+        "Year": 2014,
+        "Count": 4
+      },
+      "12": {
+        "Year": 2015,
+        "Count": 4
+      },
+      "13": {
+        "Year": 2016,
+        "Count": 4
+      },
+      "14": {
+        "Year": 2017,
+        "Count": 4
+      },
+      "15": {
+        "Year": 2018,
+        "Count": 4
+      },
+      "16": {
+        "Year": 2019,
+        "Count": 4
+      },
+      "17": {
+        "Year": 2020,
+        "Count": 4
+      },
+      "18": {
+        "Year": 2021,
+        "Count": 4
+      },
+      "19": {
+        "Year": 2022,
+        "Count": 4
+      },
+      "20": {
+        "Year": 2023,
+        "Count": 4
+      },
+      "21": {
+        "Year": 2024,
+        "Count": 4
+      },
+      "22": {
+        "Year": 2025,
+        "Count": 4
+      },
+      "23": {
+        "Year": 2026,
+        "Count": 4
+      }
+    }
+  }
+}

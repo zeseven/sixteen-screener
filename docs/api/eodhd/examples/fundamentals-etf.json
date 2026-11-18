@@ -1,0 +1,20 @@
+{
+  "General": {
+    "Code": "VTI",
+    "Type": "ETF",
+    "Name": "Vanguard Total Stock Market Index Fund ETF Shares",
+    "Exchange": "NYSE ARCA",
+    "OperatingMIC": "XNYS",
+    "CurrencyCode": "USD",
+    "CurrencyName": "US Dollar",
+    "CurrencySymbol": "$",
+    "CountryName": "USA",
+    "CountryISO": "US",
+    "OpenFigi": "BBG000HR9779",
+    "Description": "The fund manager employs an indexing investment approach designed to track the performance of the CRSP U.S. Total Market Index (the \"Target Index\"), which represents 100% of the investable U.S. stock market, as determined by the index provider. Under normal circumstances, the fund invests at least 80% of its net assets, plus the amount of any borrowings for investment purposes, in the stocks that make up the target index.",
+    "Category": "US Equity",
+    "UpdatedAt": "2026-11-18"
+  },
+  "ETF_Data::Expense_Ratio": "NA",
+  "ETF_Data::Yield": 1.06
+}

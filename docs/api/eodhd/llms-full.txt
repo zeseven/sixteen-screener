@@ -1,0 +1,3270 @@
+# EODHD APIs — Complete Reference
+
+> Financial market data REST API by Unicorn Data Services (Lyon, France). 150,000+ tickers across 60+ exchanges, 30+ years of history. 100+ API endpoints. End-of-day prices, real-time WebSocket streaming (US and Europe), intraday bars, tick data, company fundamentals, SEC filings (10-K/10-Q/8-K/Form 4), technical indicators, financial news with sentiment, options with Greeks, ESG, risk analytics, macro and economic data, interest rates, credit and sovereign risk, sanctions, commodities, real estate, congressional trades, and more. Data from 100+ sources including Nasdaq Cloud API, Cboe Europe Equities, ASX, and Quotemedia, VWAP aggregated. Official Deutsche Borse market data distributor. OpenAPI 3.1.0 specification available.
+
+---
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Authentication](#authentication)
+3. [Symbol Format](#symbol-format)
+4. [Supported Exchanges](#supported-exchanges)
+5. [Rate Limits & API Call Costs](#rate-limits)
+6. [Subscription Plans](#subscription-plans)
+7. [Price Data](#price-data)
+8. [Fundamentals](#fundamentals)
+9. [Dividends & Splits](#dividends--splits)
+10. [Technical Analysis](#technical-analysis)
+11. [News & Sentiment](#news--sentiment)
+12. [Calendars & Corporate Events](#calendars)
+13. [Economic Data](#economic-data)
+13a. [Interest Rates & Funding Stress](#interest-rates--funding-stress)
+13b. [Credit & Sovereign Risk](#credit--sovereign-risk)
+13c. [Commodities](#commodities)
+13d. [Real Estate](#real-estate)
+13e. [SEC Filings](#sec-filings)
+13f. [SEC Company Analytics](#sec-company-analytics)
+13g. [Congressional Trades](#congressional-trades)
+13h. [Sanctions (OFAC)](#sanctions-ofac)
+13i. [ASX Corporate Actions](#asx-corporate-actions)
+14. [Exchange & Symbol Data](#exchange--symbol-data)
+15. [Options (Marketplace)](#options)
+16. [Indices (Marketplace)](#indices)
+17. [Logos](#logos)
+18. [ESG (Marketplace — Investverte)](#esg)
+19. [Risk Analytics (Marketplace — PRAAMS)](#praams)
+20. [Trading Hours (Marketplace — TradingHours)](#trading-hours)
+21. [Tick Data](#tick-data)
+22. [CBOE Indices](#cboe)
+23. [US Treasury Rates](#treasury)
+24. [WebSocket Real-Time](#websocket)
+25. [Account](#account)
+26. [Error Handling](#error-handling)
+27. [SDKs & Integrations](#sdks)
+28. [AI Integrations](#ai-integrations)
+29. [Data Update Times](#update-times)
+30. [Data Coverage Details](#data-coverage)
+31. [Edge Cases & Gotchas](#gotchas)
+32. [Versioning](#versioning)
+33. [Common Code Patterns](#code-patterns)
+
+---
+
+## Overview
+
+EODHD (End of Day Historical Data) is a financial market data provider by Unicorn Data Services, headquartered in Lyon, France. Founded in 2017, the company delivers financial data APIs. The REST API provides:
+
+- **Historical prices** (EOD, intraday, real-time, tick-level) for stocks, ETFs, mutual funds, indices, forex, crypto, bonds
+- **Company fundamentals** including financial statements, valuation, earnings, holders, officers, identifiers (CUSIP, ISIN, FIGI, LEI, CIK)
+- **Technical indicators** (SMA, EMA, RSI, MACD, Bollinger Bands, and 15+ more)
+- **Financial news** with AI sentiment analysis
+- **Corporate event calendars** (earnings, dividends, splits, IPOs, trends)
+- **Macroeconomic data** (GDP, inflation, unemployment, interest rates) from 1960
+- **SEC filings** parsed into structured JSON: 10-K, 10-Q, 8-K, Form 4 insider filings, company financials/ratios/growth/TTM/segments
+- **Interest rates & credit**: central bank policy rates, SOFR/SONIA/ESTR reference rates, funding-stress spreads, US Treasury curves, sovereign ratings/CDS/risk premiums, corporate distress index, HQM yield curve
+- **Alternative datasets**: OFAC sanctions (entities, vessels), US congressional trades (STOCK Act), FRED commodities (oil, gas, metals, agriculture), BIS real-estate price indices, ASX corporate actions
+- **Options data** with full Greeks for 6,000+ US tickers
+- **ESG scores** from Investverte (AI-powered)
+- **Risk analytics** from PRAAMS (120,000+ instruments)
+- **WebSocket streaming** for real-time US and European stocks (trades, quotes, 1-minute bars, trading status), forex, and crypto (<50ms latency)
+- **ID mapping** between CUSIP, ISIN, FIGI, LEI, CIK and ticker symbols
+
+**Data coverage**: 150,000+ tickers (50,000+ US alone), 20,000+ ETFs, 68,000+ European mutual funds, 600+ indices, 1,100+ forex pairs, 2,000+ cryptocurrencies, 117 government bonds across 60+ exchanges. 30+ years of historical data. Sourced from 100+ providers (Nasdaq Cloud API for US, Cboe Europe Equities for Europe, ASX for Australia, Quotemedia for Canada) using VWAP aggregation. Official authorized distributor of Deutsche Borse market data (Xetra Ultra Level 1 and Regional German Exchanges).
+
+**Base URL**: `https://eodhd.com/api`
+
+**Non-secure alternative**: `http://nonsecure.eodhd.com/api` (for MATLAB/R clients that have HTTPS issues)
+
+**Protocols**: HTTPS (recommended), HTTP available
+
+**Response formats**: JSON (recommended, use `fmt=json`), CSV (default for many endpoints)
+
+**Total endpoints**: 100+ (88 in the OpenAPI spec plus SEC filings/analytics, congressional trades, ASX corporate actions and the real-time history endpoint; see the sections below)
+
+**OpenAPI spec**: OpenAPI 3.1.0 — [Swagger UI](https://eodhd.com/financial-apis-blog/introducing-interactive-openapi-documentation-swagger-ui-redoc), [Redoc](https://eodhistoricaldata.github.io/api-docs/redoc.html), [Raw spec on GitHub](https://eodhistoricaldata.github.io/api-docs/)
+
+**Support**: 24/7 live human support via web chat and email. B2B clients get a dedicated account manager. Email: support@eodhistoricaldata.com. Trustpilot 4.7/5 rating.
+
+**Legal entity**: Unicorn Data Services, 2017-2026.
+
+**This file last verified against the live API**: 2026-09-28 (every endpoint and example below was executed).
+
+---
+
+## Authentication
+**Docs:** [Register / Get API Key](https://eodhd.com/register)
+
+
+All REST endpoints accept the API key in either of two ways (both verified 2026-09-28):
+
+```
+# 1. Query parameter (works everywhere, used in most examples)
+?api_token=YOUR_API_KEY
+
+# 2. Authorization header (keeps the key out of URLs and logs)
+Authorization: Bearer YOUR_API_KEY
+```
+
+If both are present, the query parameter wins. The MCP server v2 additionally supports OAuth 2.1 (see AI Integrations).
+
+### Getting Your API Key
+
+1. Sign up at https://eodhd.com/register
+2. Find your token in Settings > API section
+3. Token format: alphanumeric with dots (e.g., `15d35814de0491.03453438`)
+4. Login supported via Google and GitHub
+
+### Demo Key
+
+Use `api_token=demo` for testing. Limited to these tickers:
+- Stocks: `AAPL.US`, `MSFT.US`, `TSLA.US`, `AMZN.US`
+- ETF: `VTI.US`
+- Mutual Fund: `SWPPX.US`
+- Forex: `EURUSD.FOREX`
+- Crypto: `BTC-USD.CC`
+
+**Note:** The demo key does NOT work for the Search API, the Screener, Macro Indicators, bulk endpoints or any other symbol — those return `403 Forbidden`. Use a real key for them.
+
+### Important
+
+- Supported: `api_token` query parameter or `Authorization: Bearer <token>` header. NOT supported: `X-API-Key`, `X-API-Token`, `Authorization: Token`, HTTP Basic Auth (all return `401 Unauthenticated`)
+- A missing or invalid token returns **HTTP 401** with plain-text body `Unauthenticated`. A valid token without entitlement (wrong plan, demo key on a non-demo symbol) returns **HTTP 403** `Forbidden`
+- Store the key in environment variables: `export EODHD_API_TOKEN="your_key_here"`
+- Never embed in client-side code (no CORS support)
+- Can be regenerated on user dashboard
+
+### Example
+
+```bash
+# query parameter
+curl "https://eodhd.com/api/eod/AAPL.US?api_token=YOUR_KEY&fmt=json"
+
+# Authorization header
+curl -H "Authorization: Bearer YOUR_KEY" "https://eodhd.com/api/eod/AAPL.US?fmt=json"
+```
+
+```python
+import os, requests
+
+API_TOKEN = os.environ["EODHD_API_TOKEN"]
+url = "https://eodhd.com/api/eod/AAPL.US?fmt=json"
+data = requests.get(url, headers={"Authorization": f"Bearer {API_TOKEN}"}).json()
+```
+
+### Checking Token Status
+
+```bash
+curl "https://eodhd.com/api/user?api_token=YOUR_KEY&fmt=json"
+```
+
+(`/internal-user` is an alias with the same response.) Returns account details including `apiRequests` (used today), `dailyRateLimit`, `subscriptionMode`, `availableDataFeeds`, and marketplace subscription info.
+
+---
+
+## Symbol Format
+
+All symbols use the format: `{TICKER}.{EXCHANGE_CODE}`
+
+### Quick Reference
+
+| Asset Type | Format | Example | Notes |
+|---|---|---|---|
+| US Stock | `{TICKER}.US` | `AAPL.US` | All US exchanges consolidated (NYSE, NASDAQ, ARCA, OTC) |
+| US Class Shares | `{TICKER}-{CLASS}.US` | `BRK-B.US` | Hyphen, not dot |
+| European Stock | `{TICKER}.{EXCHANGE}` | `BMW.XETRA`, `BP.LSE`, `AI.PA` | |
+| Hong Kong Stock | `{NNNN}.HK` | `0700.HK` | 4-digit with leading zeros |
+| Shanghai Stock | `{NNNNNN}.SHG` | `600519.SHG` | 6-digit |
+| Shenzhen Stock | `{NNNNNN}.SHE` | `000001.SHE` | 6-digit |
+| Canadian Stock | `{TICKER}.TO` | `SHOP.TO`, `RY.TO` | |
+| ETF | `{TICKER}.{EXCHANGE}` | `SPY.US`, `VWCE.XETRA` | Same as stocks |
+| Mutual Fund | `{TICKER}.US` or `.EUFUND` | `SWPPX.US` | European funds use EUFUND exchange |
+| Forex | `{BASE}{QUOTE}.FOREX` | `EURUSD.FOREX` | NO separator between currencies |
+| Single Currency | `{CODE}.FOREX` | `EUR.FOREX` | Single currency rate |
+| Crypto | `{CRYPTO}-{QUOTE}.CC` | `BTC-USD.CC` | HYPHEN separator required |
+| Government Bond | `{CODE}.GBOND` | `US10Y.GBOND`, `DE10Y.GBOND` | |
+| Index | `{CODE}.INDX` | `GSPC.INDX`, `DJI.INDX` | |
+| Money Market | `{CODE}.MONEY` | `EURIBOR3M.MONEY`, `SOFR.MONEY` | Reference rates |
+
+### Common Mistakes
+
+| Wrong | Correct | Why |
+|---|---|---|
+| `AAPL` | `AAPL.US` | Always include exchange code |
+| `AAPL.NASDAQ` | `AAPL.US` | Use `US` for all US exchanges |
+| `EUR-USD.FOREX` | `EURUSD.FOREX` | Forex: no separator |
+| `BTCUSD.CC` | `BTC-USD.CC` | Crypto: hyphen required |
+| `aapl.us` | `AAPL.US` | Always uppercase |
+| `700.HK` | `0700.HK` | HK: 4 digits with leading zeros |
+| `BRK.B.US` | `BRK-B.US` | No dots in ticker part |
+
+### Special Characters
+
+- Hyphens allowed in ticker (class shares, crypto)
+- Dots NOT allowed in ticker part (only between ticker and exchange)
+- Carets: URL encode as `%5E`
+- Ampersands: URL encode as `%26`
+
+### WebSocket Symbol Format
+
+WebSocket uses bare tickers without exchange suffix:
+- Stocks: `AAPL` (not `AAPL.US`)
+- Forex: `EURUSD` (not `EURUSD.FOREX`)
+- Crypto: `BTC-USD` (not `BTC-USD.CC`)
+
+### Finding Correct Symbols
+
+```bash
+# Search by name
+curl "https://eodhd.com/api/search/Apple?api_token=YOUR_KEY&fmt=json"
+
+# Search by ISIN
+curl "https://eodhd.com/api/search/US0378331005?api_token=YOUR_KEY&fmt=json"
+
+# List all tickers on an exchange
+curl "https://eodhd.com/api/exchange-symbol-list/US?api_token=YOUR_KEY&fmt=json"
+
+# Map ISIN to symbol
+curl "https://eodhd.com/api/id-mapping?filter[isin]=US0378331005&api_token=YOUR_KEY"
+```
+
+---
+
+
+## Documentation
+
+- [Getting Started](https://eodhd.com/financial-apis)
+- [OpenAPI Spec (Swagger UI)](https://eodhd.com/financial-apis-blog/introducing-interactive-openapi-documentation-swagger-ui-redoc)
+- [OpenAPI Spec (Redoc)](https://eodhistoricaldata.github.io/api-docs/redoc.html)
+- [OpenAPI Spec (GitHub)](https://eodhistoricaldata.github.io/api-docs/)
+- [Company GitHub](https://github.com/EodHistoricalData/)
+- [API Limits & Call Costs](https://eodhd.com/financial-apis/api-limits)
+- [Pricing & Plans](https://eodhd.com/pricing)
+- [SDKs & Integrations](https://eodhd.com/financial-apis/category/excel-python-php-laravel-java-matlab-examples)
+- [OpenAPI 3.1 source (GitHub)](https://github.com/EodHistoricalData/EODHD-openapi)
+- [MCP Server for AI](https://eodhd.com/financial-apis/mcp-server-for-financial-data-by-eodhd) — `https://mcp.eodhd.com/v1/mcp?apikey=YOUR_API_KEY` (API key) or `https://mcp.eodhd.com/v2/mcp` (OAuth 2.1)
+- [Claude Code plugin (skills + MCP + agent)](https://github.com/EodHistoricalData/eodhd-claude-skills)
+- [Academy (200+ tutorials)](https://eodhd.com/financial-academy)
+- [Register / Get API Key](https://eodhd.com/register)
+
+---
+
+## Supported Exchanges
+
+60+ exchanges worldwide. Major exchange codes:
+
+### North America
+| Code | Exchange | MIC | Trading Hours (Local) | Tickers |
+|---|---|---|---|---|
+| `US` | USA (NYSE, NASDAQ, OTCM combined) | XNAS, XNYS, OTCM | Mon-Fri 09:30-16:00 ET | ~50,000 |
+| `TO` | Toronto Stock Exchange | XTSE | Mon-Fri 09:30-16:00 ET | ~2,900 |
+| `V` | TSX Venture Exchange | XTSX | Mon-Fri 09:30-16:00 ET | |
+| `NEO` | NEO Exchange | NEOE | Mon-Fri 09:30-16:00 ET | |
+| `MX` | Mexican Stock Exchange | XMEX | | |
+
+### Europe
+| Code | Exchange | MIC | Trading Hours (Local) | Currency |
+|---|---|---|---|---|
+| `LSE` | London Stock Exchange | XLON | Mon-Fri 08:00-16:30 GMT | GBP/GBX |
+| `XETRA` | XETRA (Germany) | XETR | Mon-Fri 09:00-17:30 CET | EUR |
+| `F` | Frankfurt | XFRA | Mon-Fri CET | EUR |
+| `PA` | Euronext Paris | XPAR | Mon-Fri CET | EUR |
+| `AS` | Euronext Amsterdam | XAMS | Mon-Fri CET | EUR |
+| `BR` | Euronext Brussels | XBRU | Mon-Fri CET | EUR |
+| `LS` | Euronext Lisbon | XLIS | | EUR |
+| `MC` | Madrid Stock Exchange | BMEX | | EUR |
+| `SW` | SIX Swiss Exchange | XSWX | | CHF |
+| `VI` | Vienna Stock Exchange | XWBO | | EUR |
+| `ST` | Stockholm (OMX) | XSTO | | SEK |
+| `OL` | Oslo Stock Exchange | XOSL | | NOK |
+| `HE` | Helsinki Stock Exchange | XHEL | | EUR |
+| `CO` | Copenhagen (OMX) | XCSE | | DKK |
+| `WAR` | Warsaw Stock Exchange | XWAR | | PLN |
+| `IR` | Irish Stock Exchange | XDUB | | EUR |
+| `IC` | Iceland | XICE | | ISK |
+| `AT` | Athens | ASEX | | EUR |
+| `BUD` | Budapest | XBUD | | HUF |
+| `RO` | Bucharest | XBSE | | RON |
+| `PR` | Prague | XPRA | | CZK |
+
+German regional exchanges: Berlin (`BE`/XBER), Dusseldorf (`DU`/XDUS), Hamburg (`HA`/XHAM), Hanover (`HAN`/XHAN), Munich (`MU`/XMUN), Stuttgart (`STU`/XSTU)
+
+### Asia-Pacific
+| Code | Exchange | MIC | Trading Hours (Local) | Currency |
+|---|---|---|---|---|
+| `HK` | Hong Kong Stock Exchange | | | HKD |
+| `SHG` | Shanghai Stock Exchange | XSHG | Mon-Fri 09:30-15:00 CST | CNY |
+| `SHE` | Shenzhen Stock Exchange | XSHE | | CNY |
+| `KO` | Korea Stock Exchange | XKRX | | KRW |
+| `KQ` | KOSDAQ | XKOS | | KRW |
+| `TW` | Taiwan Stock Exchange | XTAI | | TWD |
+| `TWO` | Taiwan OTC | ROCO | | TWD |
+| `BK` | Stock Exchange of Thailand | XBKK | | THB |
+| `KLSE` | Bursa Malaysia | XKLS | | MYR |
+| `JK` | Indonesia Stock Exchange | XIDX | | IDR |
+| `AU` | Australian Securities Exchange | XASX | Mon-Fri 09:50-16:12 AEST | AUD |
+| `VN` | Vietnam | XSTC | | VND |
+| `PSE` | Philippine Stock Exchange | XPHS | | PHP |
+| `KAR` | Karachi | XKAR | | PKR |
+| `SN` | Santiago / Chilean | XSGO | | CLP |
+
+### Africa & Middle East
+| Code | Exchange | MIC |
+|---|---|---|
+| `TA` | Tel Aviv Stock Exchange | XTAE |
+| `EGX` | Egyptian Exchange | NILX |
+| `XNSA` | Nigerian Stock Exchange | XNSA |
+| `GSE` | Ghana Stock Exchange | XGHA |
+| `XBOT` | Botswana Stock Exchange | XBOT |
+| `SEM` | Mauritius | XMAU |
+
+### South America
+| Code | Exchange | MIC |
+|---|---|---|
+| `SA` | Sao Paulo (B3) | BVMF |
+| `BA` | Buenos Aires | XBUE |
+| `LIM` | Lima | XLIM |
+
+### Virtual Exchanges
+| Code | Exchange | Description | Tickers |
+|---|---|---|---|
+| `FOREX` | Currency Pairs | Mon-Sun 00:00-23:59 UTC | ~990 |
+| `CC` | Cryptocurrencies | Mon-Sun 00:00-23:59 UTC | ~2,050 |
+| `GBOND` | Government Bonds | 20+ countries, 1M-30Y maturities | ~117 |
+| `MONEY` | Money Market | EURIBOR, SOFR, EFFR, ECB, LIBOR, mortgage rates | ~92 |
+| `EUFUND` | European Funds | European mutual funds | ~68,500 |
+| `INDX` | Indices | Global market indices | 600+ |
+
+### Historical Data Coverage
+
+| Data Type | Coverage |
+|---|---|
+| US EOD | From 1970s+ (varies by ticker) |
+| International EOD | From January 2000 |
+| US Fundamentals | Back to 1985 (30+ years) |
+| International Fundamentals | From 2000 |
+| US Intraday (1-min) | From 2004 (includes pre/post-market) |
+| US Intraday (5m/1h) | From October 2020 |
+| Forex/Crypto Intraday (1-min) | From 2009 |
+| Crypto EOD | From 2010+ |
+| Forex EOD | From 1990s |
+| News | From March 2021 |
+| IPO Calendar | From January 2015 |
+| Economic Events | From 2020 |
+| Macro Indicators | From December 1960 |
+| Tick Data (US) | From January 2008 |
+| Delisted US Tickers | 26,000+ (from January 2000) |
+| Delisted International | 42,000+ |
+
+---
+
+## Rate Limits
+**Docs:** [API Limits & Call Costs](https://eodhd.com/financial-apis/api-limits)
+
+
+### Daily Limit
+- Default: **100,000 API calls/day** (all paid plans)
+- Free plan: **20 calls/day**
+- Resets at **midnight GMT**
+- Extra calls purchasable (never expire, consumed after daily limit)
+
+### Minute Limit
+- **1,000 HTTP requests/minute** (documented limit; the response headers may report a slightly higher technical ceiling)
+- Returns HTTP 429 if exceeded
+- Every response carries `x-ratelimit-limit` and `x-ratelimit-remaining` headers
+
+### API Call Costs Per Endpoint
+
+| Cost | Endpoints |
+|---|---|
+| **1 call** | EOD, live quotes (per ticker), splits, dividends, calendars (earnings/splits/IPOs/trends/dividends), exchanges list/details v1/symbols, search, macro indicators, economic events, US Treasury rates, symbol change history, US tick data, interest rates, funding-stress spreads, credit & sovereign risk, sanctions, ASX corporate actions |
+| **5 calls** | Technical indicators, intraday data, company news, screener, commodities, real estate, exchange details v2 |
+| **5 + 5*N calls** | Sentiment (N = number of tickers), news word weights |
+| **10 calls** | Company fundamentals, insider transactions (legacy), SEC filings (10-K/10-Q/8-K/Form 4), SEC company analytics, congressional trades, historical market cap, CBOE indices, marketplace products (default) |
+| **100 calls** | Bulk EOD data, bulk fundamentals (entire exchange) |
+| **100 + N calls** | Bulk endpoints with `symbols` parameter (N = symbol count) |
+| **5,000 calls** | `/v2/bulk-fundamentals/{EXCHANGE}` full-exchange snapshot |
+| **0 calls** | Failed requests (errors don't count), WebSocket streaming, user details |
+
+### Marketplace Product Limits (Separate Pool)
+- 100,000 calls per 24 hours per subscription
+- 1,000 requests per minute
+- 10 calls per request
+- Separate reset time from main EODHD plan
+
+### Tips
+- Batch live quote requests: `GET /real-time/AAPL.US?s=MSFT.US,GOOGL.US` (1 call per ticker)
+- Use bulk endpoints for entire exchanges (100 calls vs N individual calls)
+- Cache EOD data until next trading day
+- Cache fundamentals for 24+ hours
+- Use `filter` parameter on fundamentals to reduce payload (800KB unfiltered vs 5-50KB filtered)
+- Paginate earnings trends in batches of 50-100 symbols
+
+---
+
+## Subscription Plans
+**Docs:** [Pricing & Plans](https://eodhd.com/pricing)
+
+
+| Plan | Monthly | Annual | API Calls/Day | Key Features |
+|---|---|---|---|---|
+| **Free** | 0 | 0/yr | 20 | EOD/splits/dividends/forex/crypto for any ticker, past year only; no fundamentals, no intraday; no credit card |
+| **EOD Historical Data — All World** | 19.99 | 199/yr | 100,000 | EOD prices, splits, dividends, 30+ year history, delisted data, live (delayed) quotes |
+| **EOD+Intraday — All World Extended** | 29.99 | 299.90/yr | 100,000 | Everything above plus intraday (1m/5m/1h), technicals, screener, WebSocket |
+| **Fundamentals Data Feed** | 59.99 | 599.90/yr | 100,000 | Fundamentals, financial statements, macro, insider/Form 4, ASX corporate actions, credit & sovereign risk, interest rates, real estate |
+| **All-In-One** | 99.99 | 999.90/yr | 100,000 | Everything: prices + fundamentals + news + calendars + WebSocket + SEC filings/analytics + congressional trades + sanctions |
+
+Prices in USD (also billed in EUR/GBP). **Extended Fundamentals** (bulk fundamentals for whole exchanges) is a separate subscription quoted on request. Plans listed on https://eodhd.com/pricing as of 2026-09-28.
+
+**Marketplace products** (separate subscriptions):
+
+| Product | Price | Details |
+|---|---|---|
+| US Stock Options | 29.99-39.99/mo | 6,000+ tickers, Greeks, 2-year history |
+| S&P/Dow Jones Index Constituents | 50/mo | Historical constituents from 2000 |
+| ESG Data (InvestVerte) | 50/mo | AI-powered E/S/G scores |
+| PRAAMS Risk Analytics | 27/mo | 120,000+ equities and bonds |
+| Tick Data API | 9.99-19.99/mo | Trade-level US data from 2008 |
+| Stock Logos (PNG) | 299/yr | 40,000 logos, 200x200px |
+
+Other `/mp/` subscriptions also include TradingHours market schedules/status data.
+
+**Billing notes:**
+- Payment via Stripe or PayPal (all major credit cards)
+- No long-term commitment, minimum 1 month, cancel anytime
+- All paid plans include 500 welcome bonus API calls
+- 50% academic discount for students (12 months with proof of status)
+- Commercial/display use requires separate B2B pricing (contact sales)
+- Extra API calls purchasable as buffer (never expire, consumed after daily limit)
+- Data deletion required within 1 month of subscription termination
+
+---
+
+## Price Data
+
+### Historical EOD Prices
+**Docs:** [Historical EOD Prices](https://eodhd.com/financial-apis/api-for-historical-data-and-volumes)
+
+
+End-of-day OHLCV data with daily, weekly, or monthly aggregation.
+
+```
+GET /eod/{SYMBOL}
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{SYMBOL}` | Yes | path | e.g., `AAPL.US` |
+| `api_token` | Yes | string | API key |
+| `from` | No | YYYY-MM-DD | Start date |
+| `to` | No | YYYY-MM-DD | End date |
+| `period` | No | string | `d` (daily), `w` (weekly), `m` (monthly). Default: `d` |
+| `order` | No | string | `a` (ascending) or `d` (descending). Default: `a` |
+| `fmt` | No | string | `json` or `csv`. Default: `csv` |
+| `filter` | No | string | `last_date`, `last_open`, `last_high`, `last_low`, `last_close`, or `last_volume` (requires fmt=json) |
+
+**Cost:** 1 API call
+
+**Response:**
+
+```json
+[
+  {
+    "date": "2025-01-02",
+    "open": 182.15,
+    "high": 185.60,
+    "low": 181.50,
+    "close": 184.25,
+    "adjusted_close": 184.25,
+    "volume": 45678900
+  }
+]
+```
+
+| Field | Description |
+|---|---|
+| `date` | Trading date (YYYY-MM-DD) |
+| `open` | Opening price (unadjusted / raw) |
+| `high` | Highest price (unadjusted) |
+| `low` | Lowest price (unadjusted) |
+| `close` | Closing price (unadjusted) |
+| `adjusted_close` | Close adjusted for splits and dividends (Chicago Booth algorithm, 4 decimal places) |
+| `volume` | Trading volume (adjusted for splits only) |
+
+**Yahoo Finance compatible endpoint:** `GET /table.csv` with parameters `s`, `a/b/c` (from month/day/year, months are 0-indexed), `d/e/f` (to), `g` (period).
+
+**Examples:**
+
+```bash
+# Daily prices for Apple, Jan 2025
+curl "https://eodhd.com/api/eod/AAPL.US?from=2025-01-01&to=2025-01-31&api_token=demo&fmt=json"
+
+# Weekly aggregation
+curl "https://eodhd.com/api/eod/MSFT.US?period=w&from=2024-01-01&api_token=demo&fmt=json"
+
+# Just the last close price
+curl "https://eodhd.com/api/eod/AAPL.US?filter=last_close&api_token=demo&fmt=json"
+
+# Bitcoin historical
+curl "https://eodhd.com/api/eod/BTC-USD.CC?from=2024-01-01&api_token=demo&fmt=json"
+
+# EUR/USD forex
+curl "https://eodhd.com/api/eod/EURUSD.FOREX?from=2024-01-01&api_token=demo&fmt=json"
+
+# Government bond
+curl "https://eodhd.com/api/eod/US10Y.GBOND?from=2024-01-01&api_token=YOUR_KEY&fmt=json"
+
+# EURIBOR rate
+curl "https://eodhd.com/api/eod/EURIBOR3M.MONEY?api_token=YOUR_KEY&fmt=json"
+```
+
+**Notes:**
+- US data available ~15 min after market close (16:15 EST)
+- Mutual funds/PINK/OTCBB: 3:00-6:00 AM EST next day
+- International data available ~2-3 hours after close
+- Use `adjusted_close` for historical comparisons (split+dividend adjusted)
+- Filter out days with `volume == 0` (occasional zero-volume flat candles)
+
+---
+
+### Intraday Historical Data
+**Docs:** [Intraday Data](https://eodhd.com/financial-apis/intraday-historical-data-api)
+
+
+Intraday OHLCV bars at 1-minute, 5-minute, or 1-hour intervals.
+
+```
+GET /intraday/{SYMBOL}
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{SYMBOL}` | Yes | path | e.g., `AAPL.US` |
+| `api_token` | Yes | string | API key |
+| `interval` | No | string | `1m`, `5m`, or `1h`. Default: `5m` |
+| `from` | No | integer | Start time as **Unix timestamp (UTC)** |
+| `to` | No | integer | End time as **Unix timestamp (UTC)** |
+| `fmt` | No | string | `json` or `csv`. Default: `json` |
+| `split-dt` | No | integer | `1` to split date/time into separate fields (for Zorro software) |
+
+**Cost:** 5 API calls
+
+**Time Range Limits:**
+
+| Interval | Max Range |
+|---|---|
+| 1m | 120 days |
+| 5m | 600 days |
+| 1h | 7200 days |
+
+**Response:**
+
+```json
+[
+  {
+    "timestamp": 1627911000,
+    "gmtoffset": 0,
+    "datetime": "2021-08-02 13:30:00",
+    "open": 146.36,
+    "high": 146.95,
+    "low": 146.09,
+    "close": 146.42,
+    "volume": 3930530
+  }
+]
+```
+
+**Examples:**
+
+```bash
+# 5-minute bars for Apple
+curl "https://eodhd.com/api/intraday/AAPL.US?interval=5m&api_token=demo&fmt=json"
+
+# 1-minute bars with Unix timestamps
+curl "https://eodhd.com/api/intraday/AAPL.US?interval=1m&from=1709251200&to=1709337600&api_token=demo&fmt=json"
+
+# 1-hour bars for Bitcoin
+curl "https://eodhd.com/api/intraday/BTC-USD.CC?interval=1h&api_token=demo&fmt=json"
+```
+
+**Notes:**
+- US 1-minute data available since 2004 (includes pre-market 4AM and post-market 8PM EST)
+- Forex/crypto 1-minute available since 2009
+- 5-minute and 1-hour available since October 2020
+- Data finalized ~2-3 hours after market close
+- `from`/`to` are **Unix timestamps (seconds, UTC)**, NOT date strings
+- All timestamps in response are UTC
+
+---
+
+### Live/Delayed Quotes
+**Docs:** [Live/Delayed Quotes](https://eodhd.com/financial-apis/live-realtime-stocks-api), [Bulk Live OHLCV (US)](https://eodhd.com/financial-apis/bulk-for-live-ohlcv-stock-prices-api-us-exchanges-only)
+
+
+Real-time (15-20 minute delayed) quotes with batch support.
+
+```
+GET /real-time/{SYMBOL}
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{SYMBOL}` | Yes | path | e.g., `AAPL.US` |
+| `api_token` | Yes | string | API key |
+| `s` | No | string | Additional symbols, comma-separated (batch, max 15-20 recommended) |
+| `ex` | No | string | Set to `US` for all US exchanges bulk (100 calls) |
+| `fmt` | No | string | `json` or `csv` |
+
+**Cost:** 1 API call per ticker
+
+**Response:**
+
+```json
+{
+  "code": "AAPL",
+  "timestamp": 1609459200,
+  "gmtoffset": -18000,
+  "open": 132.43,
+  "high": 134.50,
+  "low": 131.80,
+  "close": 133.72,
+  "volume": 98425000,
+  "previousClose": 131.96,
+  "change": 1.76,
+  "change_p": 1.33
+}
+```
+
+**Note:** The `close` field is the **current live price** during market hours.
+
+**Examples:**
+
+```bash
+# Single quote
+curl "https://eodhd.com/api/real-time/AAPL.US?api_token=demo&fmt=json"
+
+# Batch (multiple symbols)
+curl "https://eodhd.com/api/real-time/AAPL.US?s=MSFT.US,TSLA.US&api_token=demo&fmt=json"
+
+# All US exchanges (100 calls, paid key required)
+curl "https://eodhd.com/api/real-time/AAPL.US?ex=US&api_token=YOUR_KEY&fmt=json"
+```
+
+---
+
+### US Extended Quotes (Live v2, 2025)
+**Docs:** [US Extended Quotes (Live v2)](https://eodhd.com/financial-apis/live-v2-for-us-stocks-extended-quotes-2025)
+
+
+15-minute delayed quote data for US equities with 40+ fields.
+
+```
+GET /us-quote-delayed
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `s` | Yes | string | Symbols, comma-separated (e.g., `AAPL,MSFT,GOOGL`) |
+| `page[limit]` | No | integer | Max 100 |
+| `page[offset]` | No | integer | Pagination offset |
+| `fmt` | No | string | `json` or `csv`. Default: `json` |
+
+**Cost:** 1 API call per ticker
+
+**Response structure:** `{meta: {count}, data: {symbol: {...}}, links: {next}}`
+
+**Response fields include:** code, timestamp, open, high, low, close, volume, previousClose, change, change_p, bidPrice, bidSize, bidTime, askPrice, askSize, askTime, lastTradePrice, lastTradeTime, ethPrice, ethVolume, ethTime (extended hours), fiftyDayAveragePrice, hundredDayAveragePrice, twoHundredDayAveragePrice, fiftyTwoWeekHigh, fiftyTwoWeekLow, marketCap, pe, forwardPE, dividendYield, sharesOutstanding, sharesFloat
+
+**Example:**
+
+```bash
+curl "https://eodhd.com/api/us-quote-delayed?s=AAPL.US,TSLA.US&api_token=YOUR_KEY&fmt=json"
+```
+
+---
+
+### Bulk EOD Data
+**Docs:** [Bulk EOD Data](https://eodhd.com/financial-apis/bulk-api-eod-splits-dividends)
+
+
+Last trading day's data for an entire exchange in one request.
+
+```
+GET /eod-bulk-last-day/{EXCHANGE}
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{EXCHANGE}` | Yes | path | Exchange code (e.g., `US`, `LSE`, `VI`) |
+| `api_token` | Yes | string | API key |
+| `type` | No | string | Data type: `eod` (default), `splits`, or `dividends` |
+| `date` | No | YYYY-MM-DD | Specific date. Default: last trading day |
+| `symbols` | No | string | Specific symbols, comma-separated (**EOD type only**) |
+| `filter` | No | string | `extended` for additional data (name, EMA 50/200, beta, avg volumes 14/50/200 days; **JSON only, past 30 days only**) |
+| `fmt` | No | string | `json` or `csv`. Default: `json` |
+
+**Cost:** 100 API calls (+ N if `symbols` parameter used)
+
+**Important:** The `symbols` parameter does NOT work for `type=splits` and `type=dividends`.
+
+**Examples:**
+
+```bash
+# All US stocks, last day
+curl "https://eodhd.com/api/eod-bulk-last-day/US?api_token=YOUR_KEY&fmt=json"
+
+# Specific symbols only
+curl "https://eodhd.com/api/eod-bulk-last-day/US?symbols=AAPL.US,MSFT.US&api_token=YOUR_KEY&fmt=json"
+
+# Bulk splits data
+curl "https://eodhd.com/api/eod-bulk-last-day/US?type=splits&api_token=YOUR_KEY&fmt=json"
+
+# Bulk dividends data
+curl "https://eodhd.com/api/eod-bulk-last-day/US?type=dividends&api_token=YOUR_KEY&fmt=json"
+
+# Extended data (includes name, EMA, beta, market cap, etc.)
+curl "https://eodhd.com/api/eod-bulk-last-day/US?filter=extended&api_token=YOUR_KEY&fmt=json"
+```
+
+---
+
+### Historical Market Capitalization
+**Docs:** [Historical Market Cap](https://eodhd.com/financial-apis/historical-market-capitalization-api)
+
+
+Weekly market cap data from 2020 onwards (US stocks).
+
+```
+GET /historical-market-cap/{SYMBOL}
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{SYMBOL}` | Yes | path | e.g., `AAPL.US` |
+| `api_token` | Yes | string | API key |
+| `from` | No | YYYY-MM-DD | Start date |
+| `to` | No | YYYY-MM-DD | End date |
+
+**Cost:** 10 API calls
+
+---
+
+## Fundamentals
+
+### Company Fundamentals
+**Docs:** [Fundamentals (for any ticker)](https://eodhd.com/financial-apis/stock-etfs-fundamental-data-feeds), [Equities Fundamentals](https://eodhd.com/financial-apis/stock-etfs-fundamental-data-feeds#Equities_Fundamentals_Data_API), [ETFs Fundamentals](https://eodhd.com/financial-apis/stock-etfs-fundamental-data-feeds#ETFs_Fundamentals_Data_API), [Funds Fundamentals](https://eodhd.com/financial-apis/stock-etfs-fundamental-data-feeds#Funds_Fundamentals_Data_API)
+
+
+Comprehensive fundamental data: financials, valuation, earnings, holders, identifiers, and more.
+
+```
+GET /fundamentals/{SYMBOL}          # v1 (original)
+GET /v1.1/fundamentals/{SYMBOL}     # v1.1 — recommended for new integrations
+```
+
+**v1.1 vs v1** (same parameters, same sections; v1 stays available): the Earnings Trend is split into `Quarterly` and `Annual` objects instead of one flat date-keyed list, every quarter is always present (v1 could silently drop Q4 when a quarterly and an annual estimate shared a date), and each quarterly entry carries a human-readable `quarter` field (Q1–Q4).
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{SYMBOL}` | Yes | path | e.g., `AAPL.US` |
+| `api_token` | Yes | string | API key |
+| `filter` | No | string | Sections to return (strongly recommended) |
+| `fmt` | No | string | `json` |
+
+**Cost:** 10 API calls (regardless of filter)
+
+**Top-level sections** (use in `filter`): stocks — `General, Highlights, Valuation, SharesStats, Technicals, SplitsDividends, Holders, InsiderTransactions, outstandingShares, Earnings, Financials`; ETFs — `General, Technicals, ETF_Data`; funds — `General, MutualFund_Data`; indices — `General, Components, HistoricalTickerComponents, HistoricalComponents`.
+
+**Filter Examples:**
+- `filter=General` — Company profile only
+- `filter=Highlights,Valuation` — Key metrics
+- `filter=Financials::Balance_Sheet::quarterly` — Nested section
+- `filter=General::Code` — Specific field
+
+**Response Structure (Common Stock):**
+
+```json
+{
+  "General": {
+    "Code": "AAPL",
+    "Name": "Apple Inc",
+    "Exchange": "NASDAQ",
+    "CurrencyCode": "USD",
+    "Sector": "Technology",
+    "Industry": "Consumer Electronics",
+    "GicSector": "Information Technology",
+    "GicGroup": "Technology Hardware & Equipment",
+    "GicIndustry": "Technology Hardware, Storage & Peripherals",
+    "GicSubIndustry": "Technology Hardware, Storage & Peripherals",
+    "Description": "...",
+    "FullTimeEmployees": 164000,
+    "IPODate": "1980-12-12",
+    "WebURL": "https://www.apple.com",
+    "CIK": "0000320193",
+    "EIN": "94-2404110",
+    "CUSIP": "037833100",
+    "ISIN": "US0378331005",
+    "LEI": "HWUPKR0MPOU8FGXBT394",
+    "OpenFigi": "BBG000B9XRY4",
+    "IsDelisted": false,
+    "DelistedDate": null,
+    "Officers": {...}
+  },
+  "Highlights": {
+    "MarketCapitalization": 2500000000000,
+    "EBITDA": 130000000000,
+    "PERatio": 28.5,
+    "PEGRatio": 2.1,
+    "WallStreetTargetPrice": 195.0,
+    "BookValue": 4.25,
+    "DividendShare": 0.96,
+    "DividendYield": 0.005,
+    "EarningsShare": 6.15,
+    "EPSEstimateCurrentYear": 6.50,
+    "EPSEstimateNextYear": 7.20,
+    "ProfitMargin": 0.255,
+    "OperatingMarginTTM": 0.302,
+    "ReturnOnAssetsTTM": 0.215,
+    "ReturnOnEquityTTM": 1.475,
+    "RevenueTTM": 385000000000,
+    "GrossProfitTTM": 170000000000,
+    "DilutedEpsTTM": 6.15
+  },
+  "Valuation": {
+    "TrailingPE": 28.5,
+    "ForwardPE": 26.2,
+    "PriceSalesTTM": 6.5,
+    "PriceBookMRQ": 41.5,
+    "EnterpriseValue": 2600000000000,
+    "EnterpriseValueRevenue": 6.75,
+    "EnterpriseValueEbitda": 20.0
+  },
+  "SharesStats": {
+    "SharesOutstanding": 15700000000,
+    "SharesFloat": 15650000000,
+    "PercentInsiders": 0.07,
+    "PercentInstitutions": 60.5,
+    "SharesShort": 120000000,
+    "ShortRatio": 1.5,
+    "ShortPercentOfFloat": 0.008
+  },
+  "Financials": {
+    "Balance_Sheet": { "quarterly": [...], "yearly": [...] },
+    "Income_Statement": { "quarterly": [...], "yearly": [...] },
+    "Cash_Flow": { "quarterly": [...], "yearly": [...] }
+  },
+  "Earnings": {
+    "History": [...],
+    "Trend": [...],
+    "Annual": [...]
+  },
+  "outstandingShares": { "annual": [...], "quarterly": [...] }
+}
+```
+
+**Type Detection:** The `General.Type` field determines response structure:
+- `"Common Stock"` — Full financials, earnings, holders, officers
+- `"ETF"` — Holdings, sector weights, performance, allocations
+- `"FUND"` — NAV, holdings, expense ratio
+- `"INDX"` — Components, historical components
+- `"Crypto"` / `"Currency"` — Statistics, supply data, resources
+
+**Examples:**
+
+```bash
+# Full fundamentals (large response ~800KB)
+curl "https://eodhd.com/api/fundamentals/AAPL.US?api_token=demo&fmt=json"
+
+# Just highlights and valuation (~5KB)
+curl "https://eodhd.com/api/fundamentals/AAPL.US?filter=Highlights,Valuation&api_token=demo&fmt=json"
+
+# ETF holdings (VTI.US is in the demo set; SPY.US needs a real key)
+curl "https://eodhd.com/api/fundamentals/VTI.US?filter=ETF_Data::Top_10_Holdings&api_token=demo&fmt=json"
+
+# v1.1 earnings trend, split into Quarterly / Annual
+curl "https://eodhd.com/api/v1.1/fundamentals/AAPL.US?filter=Earnings::Trend&api_token=YOUR_KEY&fmt=json"
+
+# Quarterly balance sheet
+curl "https://eodhd.com/api/fundamentals/AAPL.US?filter=Financials::Balance_Sheet::quarterly&api_token=demo&fmt=json"
+
+# Logo URL (also in Fundamentals response as LogoURL field)
+curl "https://eodhd.com/api/fundamentals/AAPL.US?filter=General::LogoURL&api_token=demo&fmt=json"
+```
+
+**Notes:**
+- Always use `filter` to reduce response size (800KB unfiltered vs 5-50KB filtered)
+- Cache for 24+ hours
+- US financial statements go back to 1985 (30+ years)
+- Non-US fundamentals from 2000
+- ETFs have different structure (holdings, allocations, performance)
+- Fundamental data sourced from SEC.gov and SEDAR.com, processed with NLP/LLM/ML
+
+---
+
+### Crypto Fundamentals
+**Docs:** [Crypto Fundamentals](https://eodhd.com/financial-apis/fundamental-data-for-cryptocurrencies)
+
+
+Fundamental data for cryptocurrencies.
+
+```
+GET /fundamentals/{SYMBOL}.CC
+```
+
+**Response fields include:** General (Name, Type, Category coin/token, WebURL, Description), Developers, Links (website, reddit, youtube, explorer, source_code), Thumbnail (128x128 icon), Statistics (MarketCapitalization, MarketCapitalizationDiluted, CirculatingSupply, TotalSupply, MaxSupply, MarketCapDominance, LowAllTime, HighAllTime)
+
+---
+
+### Bulk Fundamentals
+**Docs:** [Bulk Fundamentals](https://eodhd.com/financial-apis/bulk-fundamentals-api-via-extended-fundamentals-plan)
+
+
+Batch fundamentals for an entire exchange.
+
+```
+GET /bulk-fundamentals/{EXCHANGE}        # paginated, optional symbols
+GET /v2/bulk-fundamentals/{EXCHANGE}     # full-exchange snapshot, no pagination (5,000 API calls)
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{EXCHANGE}` | Yes | path | Exchange code (e.g., `NASDAQ`) |
+| `api_token` | Yes | string | API key |
+| `symbols` | No | string | Specific symbols, comma-separated |
+| `limit` | No | integer | Results per page (max 500) |
+| `offset` | No | integer | Pagination offset |
+| `version` | No | string | `1.2` for the full current Fundamentals template (includes Earnings Trends) |
+
+**Cost:** 100 API calls (+ N if `symbols` used); the `/v2/` snapshot costs 5,000 API calls per request and accepts no `symbols`/`limit`/`offset`
+
+**Requirements:** Extended Fundamentals subscription (quoted on request)
+
+**Limitations:** Last 4 quarters and 4 years of financial data only. Stocks only (no ETFs/funds). The `/v2/` snapshot covers NASDAQ, NYSE, AMEX, BATS, TO and V only.
+
+**Examples:**
+
+```bash
+# First 100 on NASDAQ
+curl "https://eodhd.com/api/bulk-fundamentals/NASDAQ?limit=100&api_token=YOUR_KEY&fmt=json"
+
+# Specific symbols
+curl "https://eodhd.com/api/bulk-fundamentals/NASDAQ?symbols=AAPL.US,MSFT.US&api_token=YOUR_KEY&fmt=json"
+```
+
+---
+
+## Dividends & Splits
+
+### Historical Dividends
+**Docs:** [Historical Dividends](https://eodhd.com/financial-apis/api-splits-dividends#Dividends_History_API)
+
+
+Historical dividend data including ex-dividend, declaration, record, and payment dates.
+
+```
+GET /div/{SYMBOL}
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{SYMBOL}` | Yes | path | e.g., `AAPL.US` |
+| `api_token` | Yes | string | API key |
+| `from` | No | YYYY-MM-DD | Start date |
+| `to` | No | YYYY-MM-DD | End date |
+| `fmt` | No | string | `json` or `csv`. Default: `json` |
+
+**Cost:** 1 API call
+
+**Response:**
+
+```json
+[
+  {
+    "date": "2012-08-09",
+    "declarationDate": "2012-07-24",
+    "recordDate": "2012-08-13",
+    "paymentDate": "2012-08-16",
+    "period": "Quarterly",
+    "value": 0.0946,
+    "unadjustedValue": 2.6488,
+    "currency": "USD"
+  }
+]
+```
+
+| Field | Description |
+|---|---|
+| `date` | Ex-dividend date |
+| `declarationDate` | Date the dividend was declared |
+| `recordDate` | Record date for dividend eligibility |
+| `paymentDate` | Dividend payment date |
+| `period` | Dividend period (e.g., "Quarterly") |
+| `value` | Dividend value per share (split-adjusted) |
+| `unadjustedValue` | Unadjusted dividend value |
+| `currency` | Currency (e.g., "USD") |
+
+**Note:** Extended date fields (declaration, record, payment) available for major US/EU tickers in JSON format only.
+
+---
+
+### Historical Splits
+**Docs:** [Historical Splits](https://eodhd.com/financial-apis/api-splits-dividends#Historical_Splits_API)
+
+
+Historical stock split data.
+
+```
+GET /splits/{SYMBOL}
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{SYMBOL}` | Yes | path | e.g., `AAPL.US` |
+| `api_token` | Yes | string | API key |
+| `from` | No | YYYY-MM-DD | Start date |
+| `to` | No | YYYY-MM-DD | End date |
+| `fmt` | No | string | `json` or `csv`. Default: `json` |
+
+**Cost:** 1 API call
+
+**Response:**
+
+```json
+[
+  {
+    "date": "2020-08-31",
+    "split": "4.000000/1.000000"
+  }
+]
+```
+
+---
+
+## Technical Analysis
+
+### Technical Indicators
+**Docs:** [Technical Indicators](https://eodhd.com/financial-apis/technical-indicators-api)
+
+
+21+ pre-calculated technical indicators.
+
+```
+GET /technical/{SYMBOL}
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{SYMBOL}` | Yes | path | e.g., `AAPL.US` |
+| `api_token` | Yes | string | API key |
+| `function` | Yes | string | Indicator function name (see list below) |
+| `period` | No | integer | Calculation period (2-100000). Default varies by function |
+| `from` | No | YYYY-MM-DD | Start date |
+| `to` | No | YYYY-MM-DD | End date |
+| `order` | No | string | `a` (ascending) or `d` (descending) |
+| `fmt` | No | string | `json` or `csv` |
+| `splitadjusted_only` | No | integer | `0` = splits+dividends (default), `1` = splits only |
+| `filter` | No | string | `last_{function}` for just the latest value (e.g., `last_ema`, `last_rsi`) |
+
+**Cost:** 5 API calls
+
+**Supported Functions:**
+
+| Function | Description | Default Period |
+|---|---|---|
+| `sma` | Simple Moving Average | 50 |
+| `ema` | Exponential Moving Average | 50 |
+| `wma` | Weighted Moving Average | 50 |
+| `rsi` | Relative Strength Index | 50 |
+| `macd` | MACD (Moving Average Convergence Divergence) | 12/26/9 |
+| `bbands` | Bollinger Bands (returns uband, mband, lband) | 50 |
+| `stochastic` | Stochastic Oscillator | 14 |
+| `stochrsi` | Stochastic RSI | 14 |
+| `adx` | Average Directional Index | 50 |
+| `atr` | Average True Range | 50 |
+| `cci` | Commodity Channel Index | 50 |
+| `sar` | Parabolic SAR | 0.02/0.2 |
+| `dmi` | Directional Movement Index | 50 |
+| `slope` | Linear Regression Slope | 50 |
+| `volatility` | Historical Volatility | 50 |
+| `stddev` | Standard Deviation | 50 |
+| `avgvol` | Average Trading Volume | 50 |
+| `avgvolccy` | Average Volume by Price | 50 |
+| `beta` | Beta (vs benchmark) | 50 |
+| `splitadjusted` | Split-adjusted OHLC data | N/A |
+| `format_amibroker` | Amibroker output format | N/A |
+
+**Special Parameters:**
+- `macd`: `fast_period` (default 12), `slow_period` (26), `signal_period` (9)
+- `stochastic`: `fast_kperiod` (14), `slow_kperiod` (3), `slow_dperiod` (3)
+- `stochrsi`: `fast_kperiod`, `fast_dperiod`
+- `sar`: `acceleration` (0.02), `maximum` (0.20)
+- `beta`: `code2` (comparison ticker, default `GSPC.INDX` for S&P 500)
+
+**Response (SMA):**
+```json
+[{"date": "2025-01-02", "sma": 185.42}]
+```
+
+**Response (MACD):**
+```json
+[{"date": "2025-01-02", "macd": 2.15, "macd_signal": 1.80, "macd_hist": 0.35}]
+```
+
+**Response (Bollinger Bands):**
+```json
+[{"date": "2025-01-02", "bbands_upper": 195.50, "bbands_middle": 185.00, "bbands_lower": 174.50}]
+```
+
+**Examples:**
+
+```bash
+# 50-day SMA
+curl "https://eodhd.com/api/technical/AAPL.US?function=sma&period=50&api_token=demo&fmt=json"
+
+# RSI with 14-day period
+curl "https://eodhd.com/api/technical/AAPL.US?function=rsi&period=14&api_token=demo&fmt=json"
+
+# MACD
+curl "https://eodhd.com/api/technical/AAPL.US?function=macd&fast_period=12&slow_period=26&signal_period=9&api_token=demo&fmt=json"
+
+# Bollinger Bands
+curl "https://eodhd.com/api/technical/AAPL.US?function=bbands&period=20&api_token=demo&fmt=json"
+
+# Just the last RSI value
+curl "https://eodhd.com/api/technical/AAPL.US?function=rsi&period=14&filter=last_rsi&api_token=demo&fmt=json"
+
+# Beta vs S&P 500
+curl "https://eodhd.com/api/technical/AAPL.US?function=beta&code2=GSPC.INDX&api_token=demo&fmt=json"
+```
+
+---
+
+## News & Sentiment
+
+### Company News
+**Docs:** [Financial News](https://eodhd.com/financial-apis/stock-market-financial-news-api#Financial_News_API)
+
+
+Financial news articles with AI sentiment scores.
+
+```
+GET /news
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `s` | Yes* | string | Ticker(s), comma-separated (e.g., `AAPL.US`) |
+| `t` | Yes* | string | Topic tag (e.g., `technology`, `earnings`) |
+| `api_token` | Yes | string | API key |
+| `from` | No | YYYY-MM-DD | Start date |
+| `to` | No | YYYY-MM-DD | End date |
+| `limit` | No | integer | Results (default: 50, max: 1000) |
+| `offset` | No | integer | Pagination offset |
+| `fmt` | No | string | `json` or `xml` |
+
+*At least one of `s` or `t` is required.
+
+**Cost:** 5 API calls + 5 per ticker
+
+**Response:**
+
+```json
+[
+  {
+    "date": "2026-02-09T17:09:51+00:00",
+    "title": "Stock Market Today: Dow Firm As Nvidia, Microsoft Jump",
+    "content": "Full article body text...",
+    "link": "https://finance.yahoo.com/...",
+    "symbols": ["AAPL.US", "MSFT.US", "NVDA.US"],
+    "tags": ["ENERGY", "STOCK-MARKET", "TECH"],
+    "sentiment": {
+      "polarity": -0.026,
+      "neg": 0.084,
+      "neu": 0.837,
+      "pos": 0.08
+    }
+  }
+]
+```
+
+**Sentiment fields:**
+- `polarity`: Overall score (-1 to +1)
+- `neg`: Negative probability (0 to 1)
+- `neu`: Neutral probability (0 to 1)
+- `pos`: Positive probability (0 to 1)
+
+50+ standard topic tags plus AI auto-detected tags. News sourced from 10+ providers / 40+ media outlets. Available from March 2021.
+
+---
+
+### Sentiment Data
+**Docs:** [Sentiment Data](https://eodhd.com/financial-apis/stock-market-financial-news-api#Sentiment_Data_API)
+
+
+Aggregated daily sentiment scores.
+
+```
+GET /sentiments
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `s` | Yes | string | Tickers, comma-separated |
+| `api_token` | Yes | string | API key |
+| `from` | No | YYYY-MM-DD | Start date |
+| `to` | No | YYYY-MM-DD | End date |
+
+**Cost:** 5 + 5*N API calls (N = number of tickers)
+
+**Response:**
+
+```json
+{
+  "AAPL.US": [
+    {"date": "2022-02-22", "count": 23, "normalized": 0.6152}
+  ]
+}
+```
+
+| Score Range | Interpretation |
+|---|---|
+| 0.6 to 1.0 | Very positive |
+| 0.2 to 0.6 | Positive |
+| -0.2 to 0.2 | Neutral |
+| -0.6 to -0.2 | Negative |
+| -1.0 to -0.6 | Very negative |
+
+---
+
+### News Word Weights
+**Docs:** [News Word Weights](https://eodhd.com/financial-apis/stock-market-financial-news-api#News_Word_Weights_API)
+
+
+AI-powered trending topics analysis.
+
+```
+GET /news-word-weights
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `s` | Yes | string | Ticker to analyze |
+| `api_token` | Yes | string | API key |
+| `filter[date_from]` | No | YYYY-MM-DD | Start date |
+| `filter[date_to]` | No | YYYY-MM-DD | End date |
+| `page[limit]` | No | integer | Top words count (1-500). Default: 10 |
+| `fmt` | No | string | `json` or `xml`. Default: `json` |
+
+**Cost:** 5 + 5*N API calls
+
+**Note:** May timeout on large date ranges. Keep ranges narrow.
+
+---
+
+## Calendars & Corporate Events
+
+### Upcoming Earnings
+**Docs:** [Upcoming Earnings](https://eodhd.com/financial-apis/calendar-upcoming-earnings-ipos-and-splits#Historical_Upcoming_Earnings_API)
+
+
+```
+GET /calendar/earnings
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `from` | No | YYYY-MM-DD | Start date (default: today) |
+| `to` | No | YYYY-MM-DD | End date (default: today + 7 days) |
+| `symbols` | No | string | Tickers, comma-separated (overrides from/to) |
+| `fmt` | No | string | `json` or `csv` |
+
+**Cost:** 1 API call
+
+**Response:**
+
+```json
+{
+  "type": "Earnings",
+  "earnings": [
+    {
+      "code": "AAPL.US",
+      "report_date": "2025-01-30",
+      "date": "2024-12-31",
+      "before_after_market": "AfterMarket",
+      "currency": "USD",
+      "actual": 2.40,
+      "estimate": 2.35,
+      "difference": 0.05,
+      "percent": 2.13
+    }
+  ]
+}
+```
+
+---
+
+### Earnings Trends
+**Docs:** [Earnings Trends](https://eodhd.com/financial-apis/calendar-upcoming-earnings-ipos-and-splits#Earnings_Trends_API)
+
+
+EPS and revenue estimates/trends with analyst revisions.
+
+```
+GET /calendar/trends
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `symbols` | Yes | string | Tickers, comma-separated |
+| `api_token` | Yes | string | API key |
+| `fmt` | No | string | `json` or `csv` |
+
+**Cost:** 1 API call
+
+**Note:** JSON-only due to nested structure. Paginate large symbol sets in batches of 50-100.
+
+**Response includes per-symbol:** period (0q/+1q/0y/+1y), earningsEstimateAvg/Low/High, revenueEstimateAvg/Low/High, numberOfAnalysts, growth, epsTrend at 7d/30d/60d/90d ago, epsRevisions.
+
+---
+
+### Upcoming Dividends
+**Docs:** [Upcoming Dividends](https://eodhd.com/financial-apis/calendar-upcoming-earnings-ipos-and-splits#Historical_Upcoming_Dividends_API)
+
+
+```
+GET /calendar/dividends
+```
+
+**Parameters (deep-object style):**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `filter[symbol]` | Yes* | string | Ticker symbol |
+| `filter[date_eq]` | Yes* | YYYY-MM-DD | Exact date |
+| `filter[date_from]` | No | YYYY-MM-DD | From date |
+| `filter[date_to]` | No | YYYY-MM-DD | To date |
+| `page[limit]` | No | integer | Max 1000 |
+| `page[offset]` | No | integer | Pagination offset |
+
+*At least `filter[symbol]` or `filter[date_eq]` required.
+
+**Cost:** 1 API call
+
+**Note:** This endpoint uses deep-object style filters (`filter[symbol]`), unlike other calendar endpoints.
+
+---
+
+### Upcoming Splits
+**Docs:** [Upcoming Splits](https://eodhd.com/financial-apis/calendar-upcoming-earnings-ipos-and-splits#Historical_Upcoming_Splits_API)
+
+
+```
+GET /calendar/splits
+```
+
+**Parameters:** Same pattern as earnings. Use `symbols` or `from`/`to`.
+
+**Cost:** 1 API call
+
+**Response fields:** code, split_date, optionable (Y/N), old_shares, new_shares
+
+---
+
+### Upcoming IPOs
+**Docs:** [Upcoming IPOs](https://eodhd.com/financial-apis/calendar-upcoming-earnings-ipos-and-splits#Historical_Upcoming_IPOs_API)
+
+
+```
+GET /calendar/ipos
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `from` | No | YYYY-MM-DD | Start date |
+| `to` | No | YYYY-MM-DD | End date |
+| `fmt` | No | string | `json` or `csv` |
+
+**Cost:** 1 API call
+
+**Response fields:** code, name, exchange, currency, start_date, filing_date, amended_date, price_from, price_to, offer_price, shares, deal_type (Filed/Expected/Amended/Priced)
+
+**Notes:** Data from January 2015, up to 2-3 weeks ahead. `start_date` may be null; numeric fields may be 0 when unknown.
+
+---
+
+### Insider Transactions
+**Docs:** [Insider Transactions](https://eodhd.com/financial-apis/insider-transactions-api)
+
+
+SEC Form 4 insider trading data (US stocks). Two endpoints: the **recommended** structured Form 4 feed under `/sec-filings/{SYMBOL}/form4` (see [SEC Filings](#sec-filings)) and the legacy flat list below. The legacy endpoint only exposes transaction codes `P` and `S`.
+
+```
+GET /sec-filings/{SYMBOL}/form4     # recommended (Fundamentals Data Feed, All-In-One), 10 API calls
+GET /insider-transactions           # legacy
+```
+
+**Legacy endpoint parameters:**
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `code` | No | string | Ticker with exchange (e.g., `AAPL.US`) |
+| `from` | No | YYYY-MM-DD | Start date (default: one year ago) |
+| `to` | No | YYYY-MM-DD | End date (default: today) |
+| `limit` | No | integer | Results (1-1000, default: 100) |
+
+**Cost:** 10 API calls
+
+**Response:**
+
+```json
+[
+  {
+    "code": "AAPL.US",
+    "date": "2025-01-15",
+    "reportDate": "2025-01-17",
+    "ownerName": "John Smith",
+    "ownerTitle": "Chief Executive Officer",
+    "transactionDate": "2025-01-15",
+    "transactionCode": "P",
+    "transactionAmount": 5000,
+    "transactionPrice": 185.50,
+    "transactionAcquiredDisposed": "A",
+    "postTransactionAmount": 150000,
+    "secLink": "https://www.sec.gov/..."
+  }
+]
+```
+
+**Transaction Codes:** `P` (purchase), `S` (sale), `A` (award), `M` (exercise), `G` (gift), `F` (tax withholding)
+
+---
+
+## Economic Data
+
+### Economic Events
+**Docs:** [Economic Events](https://eodhd.com/financial-apis/economic-events-data-api)
+
+
+GDP releases, employment data, inflation reports, central bank decisions, and 50+ other event types across 30+ countries.
+
+```
+GET /economic-events
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `from` | No | YYYY-MM-DD | Start date |
+| `to` | No | YYYY-MM-DD | End date |
+| `country` | No | string | ISO alpha-2 code (e.g., `US`, `GB`, `DE`) |
+| `comparison` | No | string | `mom`, `qoq`, or `yoy` |
+| `type` | No | string | Event type filter |
+| `limit` | No | integer | Results (default: 50, max: 1000) |
+| `offset` | No | integer | Pagination offset (max 1000) |
+
+**Cost:** 1 API call
+
+**Response:**
+
+```json
+[
+  {
+    "type": "Nonfarm Payrolls",
+    "comparison": null,
+    "period": "May",
+    "country": "US",
+    "date": "2025-06-03 16:30:00",
+    "actual": 275,
+    "previous": 256,
+    "estimate": 250,
+    "change": 19,
+    "change_percentage": 7.42
+  }
+]
+```
+
+**Data from 2020.** Covers past and future events: Retail Sales, Bond Auctions, PMI Releases, and more.
+
+---
+
+### Macro Indicators
+**Docs:** [Macro Indicators](https://eodhd.com/financial-apis/macroeconomics-data-and-macro-indicators-api)
+
+
+Macroeconomic time series by country, from December 1960.
+
+```
+GET /macro-indicator/{COUNTRY}
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{COUNTRY}` | Yes | path | ISO alpha-3 code (e.g., `USA`, `GBR`, `DEU`, `JPN`, `CHN`) |
+| `api_token` | Yes | string | API key |
+| `indicator` | No | string | Specific indicator code |
+| `fmt` | No | string | `json` or `csv` |
+
+**Cost:** 1 API call
+
+**Common Indicators (30+):**
+
+| Code | Description |
+|---|---|
+| `gdp_current_usd` | GDP (current US$) |
+| `gdp_per_capita_usd` | GDP per capita (US$) |
+| `gdp_growth_annual` | GDP growth (annual %) |
+| `inflation_consumer_prices_annual` | Inflation (annual %) |
+| `unemployment_total_percent` | Unemployment (% of labor force) |
+| `interest_rate` | Central bank interest rate |
+| `population_total` | Total population |
+| `real_interest_rate` | Real interest rate (%) |
+| `trade_percent_gdp` | Trade (% of GDP) |
+| `government_debt_percent_gdp` | Government debt (% of GDP) |
+| `current_account_percent_gdp` | Current account balance (% of GDP) |
+| `debt_percent_gdp` | Debt (% of GDP) |
+
+**Examples:**
+
+```bash
+# US GDP growth (paid key; the demo key returns 403 here)
+curl "https://eodhd.com/api/macro-indicator/USA?indicator=gdp_growth_annual&api_token=YOUR_KEY&fmt=json"
+
+# German inflation
+curl "https://eodhd.com/api/macro-indicator/DEU?indicator=inflation_consumer_prices_annual&api_token=YOUR_KEY&fmt=json"
+```
+
+---
+
+### Money Market Rates
+
+Available via EOD endpoint with `.MONEY` exchange code:
+
+| Symbol | Description |
+|---|---|
+| `EURIBOR1W.MONEY` — `EURIBOR12M.MONEY` | EURIBOR rates (1W, 1M, 3M, 6M, 12M) |
+| `SOFR.MONEY` | Secured Overnight Financing Rate |
+| `EFFR.MONEY` | Effective Federal Funds Rate |
+| `ECBEUR{CCY}.MONEY` | ECB exchange rates (vs 30+ currencies, updated ~17:00 CET) |
+| `LIBOR{CCY}{PERIOD}.MONEY` | LIBOR rates (USD/EUR/GBP/JPY; 1W-12M) |
+| `NORGE{CCY}NOK.MONEY` | Norges Bank rates |
+| Various mortgage rates | US 15Y/30Y mortgage, Canada Prime Rate |
+
+---
+
+## Interest Rates & Funding Stress
+**Docs:** [Interest Rates API](https://eodhd.com/financial-apis/interest-rates-api-sofr-fed-funds-ecb-boe-policy-rates)
+
+
+Central bank policy rates, risk-free reference rates and money-market funding-stress spreads. Refreshed every working day (T+1). Plans: All-In-One, Fundamentals Data Feed. All three endpoints return a `{data, meta, links}` envelope; follow `links.next` for the next page.
+
+### Central Bank Policy Rates
+
+```
+GET /rates/policy-rates
+```
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `filter[code]` | No | string | `FED_TARGET_LOWER`, `FED_TARGET_UPPER`, `ECB_DFR`, `ECB_MRO`, `ECB_MLF`, `BOE_BANK_RATE` |
+| `filter[country]` | No | string | `US`, `EU`, `GB` |
+| `filter[central_bank]` | No | string | `FED`, `ECB`, `BOE` |
+| `filter[from]` / `filter[to]` | No | YYYY-MM-DD | Date range |
+| `page[limit]` | No | integer | Default 20, max 100 |
+| `page[offset]` | No | integer | Default 0 |
+
+**Cost:** 1 API call
+
+**Response row:** `{date, code, country, central_bank, rate, source, source_series_id}`
+
+```bash
+curl "https://eodhd.com/api/rates/policy-rates?filter[central_bank]=FED&filter[from]=2026-01-01&api_token=YOUR_KEY"
+```
+
+### Risk-Free Reference Rates
+
+```
+GET /rates/reference-rates
+```
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `filter[code]` | No | string | `SOFR`, `EFFR`, `OBFR`, `TGCR`, `BGCR`, `SOFR30D`, `SOFR90D`, `SOFR180D`, `SOFRINDEX`, `SONIA`, `ESTR` |
+| `filter[currency]` | No | string | `USD`, `GBP`, `EUR` |
+| `filter[from]` / `filter[to]` | No | YYYY-MM-DD | Date range |
+| `page[limit]` | No | integer | Default 20, max 100 |
+| `page[offset]` | No | integer | Default 0 |
+
+**Cost:** 1 API call
+
+**Response row:** `{date, code, currency, rate_type, rate, source, source_series_id, percentiles: {p1, p25, p75, p99}, volume_billion_usd}` (percentiles and volume for NY Fed series only)
+
+```bash
+curl "https://eodhd.com/api/rates/reference-rates?filter[code]=SOFR&filter[from]=2026-01-01&api_token=YOUR_KEY"
+```
+
+### Funding Stress Spreads
+
+```
+GET /spreads/funding-stress
+```
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `filter[code]` | No | string | `EFFR_SOFR`, `OBFR_EFFR`, `TGCR_BGCR`, `SOFR_TARGET_LOWER`, `EFFR_TARGET_MID`, `TARGET_UPPER_SOFR` (comma-separated allowed) |
+| `filter[from]` / `filter[to]` | No | YYYY-MM-DD | Default: last 30 days |
+
+**Cost:** 1 API call. No pagination.
+
+**Response row:** `{date, code, value_bps, formula, leg_a, leg_b, leg_a_rate, leg_b_rate}`
+
+---
+
+## Credit & Sovereign Risk
+**Docs:** [Credit & Sovereign Risk Data API](https://eodhd.com/financial-apis/credit-and-sovereign-risk-data-api)
+
+
+Seven endpoints. Sovereign datasets are the annual Damodaran (NYU Stern) tables (157 countries); corporate datasets come from the New York Fed, US Treasury via FRED and the CFTC. Plans: Fundamentals Data Feed and above. Every endpoint: **1 API call**, `page[limit]` (default 20, max 100), `page[offset]`, `{data, meta, links}` envelope.
+
+| Endpoint | Filters | Response row |
+|---|---|---|
+| `GET /credit-risk/sovereign/risk-premium` | `filter[country]` (ISO alpha-3 or name), `filter[region]` (Africa, Asia, Australia & New Zealand, Caribbean, Central and South America, Eastern Europe & Russia, Middle East, North America, Western Europe), `filter[as_of]` | `country_iso3, country_name, as_of_date, moodys_rating, adj_default_spread, country_risk_premium, equity_risk_premium, corporate_tax_rate, sovereign_cds, region, source` |
+| `GET /credit-risk/sovereign/credit-ratings` | `filter[country]`, `filter[as_of]` | `country_iso3, country_name, as_of_date, moodys_rating, sp_rating, fitch_rating, source` |
+| `GET /credit-risk/sovereign/cds-spreads` | `filter[country]`, `filter[as_of]` | `country_iso3, country_name, as_of_date, moodys_rating, cds_spread, cds_spread_net_of_switzerland, source` |
+| `GET /credit-risk/sovereign/default-spreads` | `filter[rating]` (Moody's notch, e.g. `Aaa`), `filter[as_of]` | `rating, as_of_date, default_spread, source` (20 rating buckets) |
+| `GET /credit-risk/corporate/cmdi` | `filter[from]`, `filter[to]` | `as_of_date, market_cmdi, ig_cmdi, hy_cmdi, source` — NY Fed Corporate Bond Market Distress Index, weekly |
+| `GET /credit-risk/corporate/hqm-yields` | `filter[tenor]` (1, 2, 3, 5, 7, 10, 15, 20, 25, 30; comma-separated), `filter[type]` (`par`, `spot`), `filter[from]`, `filter[to]` | `series_id, tenor_years, yield_type, as_of_date, yield_value, source` — HQM corporate yield curve, monthly |
+| `GET /credit-risk/cds-market/aggregates` | `filter[metric]` (`gross_notional`), `filter[dimension]` (`grade`, `cleared_status`), `filter[from]`, `filter[to]` | `as_of_date, release_date, metric, breakdown_dimension, breakdown_value, region, usd_notional_mn, source` — CFTC weekly swaps report, T+17 days |
+
+```bash
+curl "https://eodhd.com/api/credit-risk/sovereign/risk-premium?filter[country]=USA&api_token=YOUR_KEY"
+curl "https://eodhd.com/api/credit-risk/corporate/hqm-yields?filter[tenor]=2,5,10&filter[type]=par&filter[from]=2026-01-01&api_token=YOUR_KEY"
+```
+
+---
+
+## Commodities
+**Docs:** [Commodities API](https://eodhd.com/financial-apis/commodities-api-historical-prices-for-oil-gas-metals-agriculture-beta)
+
+
+Historical commodity prices and indices sourced from FRED. Energy series go back to 1986, most metals and agriculturals to the 1990s. Available on all plans (the demo key works for `WTI` only; other codes need a real key).
+
+```
+GET /commodities/historical/{CODE}
+```
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{CODE}` | Yes | path | Commodity code, case-insensitive (see list) |
+| `api_token` | Yes | string | API key |
+| `interval` | No | string | `daily` (energy only), `weekly`, `monthly` (default), `quarterly`, `annual` |
+| `page[limit]` / `page[offset]` | No | integer | Pagination |
+
+**Cost:** 5 API calls
+
+**Codes:** energy — `WTI`, `BRENT`, `NATURAL_GAS`, `GASOLINE_US`, `DIESEL_USGULF`, `HEATING_OIL_NYH`, `JET_FUEL_USGULF`, `PROPANE_MBTX`, `COAL_AU`, `URANIUM`; metals — `ALUMINUM`, `COPPER`; agriculture — `WHEAT`, `CORN`, `SUGAR`, `COTTON`, `COFFEE_MILD_ARABICA`, `COFFEE_ROBUSTAS`; indices — `ALL_COMMODITIES`, `ALL_COMMODITIES_PRODUCER`, `ENERGY_INDEX`, `NATGAS_EU`, `LNG_ASIA`.
+
+**Response:** `{meta: {name, interval, unit, offset, limit, total}, data: [{date, value}], links: {next}}`
+
+```bash
+curl "https://eodhd.com/api/commodities/historical/WTI?interval=monthly&api_token=demo"
+curl "https://eodhd.com/api/commodities/historical/BRENT?interval=daily&page[limit]=100&api_token=YOUR_KEY"
+```
+
+---
+
+## Real Estate
+**Docs:** [Real Estate Data API](https://eodhd.com/financial-apis/real-estate-data-api)
+
+
+BIS (Bank for International Settlements) residential property price indices for 60+ countries and aggregates: harmonised quarterly "Selected" series and granular national "Detailed" series. Plans: Fundamentals Data Feed, All-In-One. Every endpoint: **5 API calls**, `{data, meta, links}` envelope.
+
+| Endpoint | Parameters | Response row |
+|---|---|---|
+| `GET /real-estate/countries` | `page[limit]` (default 50, max 500), `page[offset]` | `code, name, has_spp, has_dpp` |
+| `GET /real-estate/{code}` | `filter[type]` (`nominal`, `real`), `filter[metric]` (`index`, `yoy`), `filter[from]` / `filter[to]` (`YYYY-Qn`), `page[limit]`, `page[offset]` | `period, value, type, metric`; meta carries `base_year` (2010 = 100), `frequency`, `source` |
+| `GET /real-estate/{code}/detailed` | `filter[property_type]`, `filter[area]`, `filter[vintage]`, `filter[freq]` (`Q`, `A`, `M`, `H`), `filter[from]`, `filter[to]`, `page[limit]`, `page[offset]` | `period, value, frequency, covered_area(_label), property_type(_label), vintage(_label), unit_measure(_label)` |
+| `GET /real-estate/{code}/detailed/series` | — | catalogue of available series: `covered_area, property_type, vintage, compiling_org, priced_unit, seasonal_adj, unit_measure, title` |
+
+`{code}` is the ISO alpha-2 country code (`US`, `DE`, `JP`) or a BIS aggregate code from the countries list.
+
+```bash
+curl "https://eodhd.com/api/real-estate/US?filter[type]=real&filter[metric]=yoy&filter[from]=2020-Q1&api_token=YOUR_KEY"
+```
+
+---
+
+## SEC Filings
+**Docs:** [SEC Filings API](https://eodhd.com/financial-apis/sec-filings-api)
+
+
+Structured data parsed from SEC EDGAR filings for US-listed companies: 10-K (49,000+ filings), 10-Q (147,000+), 8-K (526,000+) across 4,400+ companies back to 1994, plus Form 4 insider filings. Plan: All-In-One (Form 4 also in Fundamentals Data Feed). **10 API calls** per request. Pagination: `page[limit]` (default 20, max 100), `page[offset]`; the response carries `links.next`.
+
+```
+GET /sec-filings/{SYMBOL}          # overview: counts + latest date per form type
+GET /sec-filings/{SYMBOL}/10k      # annual reports
+GET /sec-filings/{SYMBOL}/10q      # quarterly reports
+GET /sec-filings/{SYMBOL}/8k       # material events
+GET /sec-filings/{SYMBOL}/form4    # insider transactions (SEC Form 4)
+```
+
+`{SYMBOL}` is a US ticker, `AAPL` or `AAPL.US` (suffix optional, case-insensitive).
+
+**10-K / 10-Q rows:** `accession_number, filed_at, period_of_report, fiscal_year_end` (10-K) or `fiscal_quarter_end, fiscal_quarter` (10-Q), `revenue, cost_of_revenue, gross_profit, operating_income, net_income, eps_basic, eps_diluted, shares_outstanding, total_assets, total_liabilities, stockholders_equity, research_and_development, operating_cash_flow, free_cash_flow, cash_and_equivalents, …`
+
+**8-K rows:** `accession_number, filed_at, period_of_report, items, item_sections, exhibits`
+
+**Form 4 rows:** `accession_number, filed_at, period_of_report, non_derivative: [{reporting_owner_cik, reporting_owner_name, is_director, is_officer, is_ten_percent_owner, officer_title, security_title, transaction_date, transaction_code, acquired_or_disposed, shares_amount, price_per_share, shares_owned_after, total_value}], derivative: [...], footnotes: [{footnote_id, text}]`
+
+```bash
+curl "https://eodhd.com/api/sec-filings/AAPL.US?api_token=YOUR_KEY"
+curl "https://eodhd.com/api/sec-filings/AAPL.US/10k?page[limit]=5&api_token=YOUR_KEY"
+curl "https://eodhd.com/api/sec-filings/AAPL.US/form4?page[limit]=20&api_token=YOUR_KEY"
+```
+
+---
+
+## SEC Company Analytics
+**Docs:** [SEC Company Analytics API](https://eodhd.com/financial-apis/sec-company-analytics-api)
+
+
+Financial statements, ratios, growth rates, trailing-twelve-month aggregates and revenue segments derived from XBRL filings for roughly 5,900 US-listed companies. Plan: All-In-One. **10 API calls** per request.
+
+```
+GET /sec-companies                        # directory of covered companies (paginated)
+GET /sec-companies/{SYMBOL}/financials    # {company, annual: [...], quarterly: [...]}
+GET /sec-companies/{SYMBOL}/ratios        # {company, ratios: [...]}   — ?years=N to limit periods
+GET /sec-companies/{SYMBOL}/growth        # {company, growth: [...]}   — ?years=N
+GET /sec-companies/{SYMBOL}/ttm           # {company, ttm: {...}}
+GET /sec-companies/{SYMBOL}/snapshot      # {company, latest_annual, ratios, growth, ttm}
+GET /sec-companies/{SYMBOL}/segments      # revenue by segment — ?axis=Geographic | ProductOrService
+```
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `page[limit]` / `page[offset]` | No | integer | Directory endpoint only (default 20, max 100) |
+| `years` | No | integer | Number of periods, ratios and growth endpoints only |
+| `axis` | No | string | `Geographic` or `ProductOrService`, segments endpoint only |
+
+**Ratios include:** `gross_margin, operating_margin, net_margin, ebitda_margin, roa, roe, current_ratio, quick_ratio, debt_to_equity, working_capital, tangible_book_value, …`
+
+```bash
+curl "https://eodhd.com/api/sec-companies/AAPL.US/snapshot?api_token=YOUR_KEY"
+curl "https://eodhd.com/api/sec-companies/AAPL.US/segments?axis=Geographic&api_token=YOUR_KEY"
+```
+
+---
+
+## Congressional Trades
+**Docs:** [Congressional Trades API](https://eodhd.com/financial-apis/congressional-trades-api)
+
+
+Securities transactions disclosed by US senators and representatives under the STOCK Act, from 14 June 2012 (45,000+ records, sourced from the Senate eFD system and the House Clerk disclosures). Plan: All-In-One. **10 API calls** per request.
+
+```
+GET /congressional-trades
+```
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `symbol` | No | string | Ticker, e.g. `NVDA` (a `.US` suffix is accepted) |
+| `chamber` | No | string | `senate`, `house` |
+| `bioguide_id` | No | string | Member ID (one uppercase letter + six digits) |
+| `transaction_type` | No | string | `purchase`, `sale`, `exchange` (comma-separated) |
+| `transaction_date_from` / `transaction_date_to` | No | YYYY-MM-DD | Trade date range |
+| `disclosure_date_from` / `disclosure_date_to` | No | YYYY-MM-DD | Filing date range |
+| `page[limit]` | No | integer | Default 20, max 100 |
+| `page[offset]` | No | integer | Default 0 |
+
+**Response row:** `{chamber, member: {bioguide_id, first_name, last_name, full_name, office, state, party, district}, asset: {symbol, description, asset_type}, transaction: {type, transaction_date, disclosure_date, owner, amount_range, amount_low, amount_high, days_to_disclose, is_late, comment}, source: {filing_url, source_system, filing_identifier}}`
+
+```bash
+curl "https://eodhd.com/api/congressional-trades?chamber=senate&transaction_type=purchase,sale&transaction_date_from=2026-01-01&page[limit]=5&api_token=YOUR_KEY"
+```
+
+---
+
+## Sanctions (OFAC)
+**Docs:** [Sanctions API](https://eodhd.com/financial-apis/sanctions-api-ofac-screening-data-entities-vessels)
+
+
+OFAC sanctions screening data: individuals, entities, vessels and aircraft with aliases, identifiers and programs. Refreshed on weekdays. Plan: All-In-One. **1 API call** per request. `{data, meta, links}` envelope.
+
+```
+GET /sanctions/entities     # search sanctioned parties
+GET /sanctions/vessels      # sanctioned vessels
+GET /sanctions/programs     # {program, count} — no pagination
+GET /sanctions/sources      # {name} — currently ofac
+```
+
+**Entities parameters:** `q` (free text, min 2 chars), `type` (`individual`, `entity`, `vessel`, `aircraft`), `program` (e.g. `RUSSIA-EO14024`), `country`, `active` (`true`/`false`), `source`, `page[limit]` (default 20, max 100), `page[offset]`
+
+**Entities row:** `{source, source_uid, entity_type, name, aliases, programs, country, listed_date, is_active, remarks, identifiers}`
+
+**Vessels parameters:** `q`, `imo`, `flag`, `vessel_type`, `program`, `source`, `page[limit]`, `page[offset]`
+
+**Vessels row:** `{source, entity_source_uid, entity_name, imo_number, mmsi, call_sign, flag, vessel_type, tonnage, gross_tonnage, owner, programs, country, is_active}`
+
+```bash
+curl "https://eodhd.com/api/sanctions/entities?program=RUSSIA-EO14024&type=entity&page[limit]=50&api_token=YOUR_KEY"
+curl "https://eodhd.com/api/sanctions/vessels?flag=Panama&api_token=YOUR_KEY"
+```
+
+---
+
+## ASX Corporate Actions
+**Docs:** [ASX Corporate Actions API](https://eodhd.com/financial-apis/asx-australia-corporate-actions-beta)
+
+
+Structured corporate actions for ASX-listed securities from the official ASX ReferencePoint (E34) feed, refreshed daily: dividends (with franking), splits, bonus issues, rights issues, buybacks, capital returns, share purchase plans. Plans: All-In-One, Fundamentals Data Feed. **1 API call** per request. All tickers use the `.AU` suffix.
+
+```
+GET /asx-corporate-actions
+```
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `type` | No | string | `dividends`, `splits`, `bonus-issues`, `rights-issues`, `buybacks`, `capital-returns`, `spp`, `other` (default: all) |
+| `symbol` | No | string | e.g. `PMV.AU` |
+| `date_from` / `date_to` | No | YYYY-MM-DD | Event date range |
+| `page[limit]` | No | integer | Default 100, max 1000 |
+| `page[offset]` | No | integer | Default 0 |
+| `fmt` | No | string | `json` |
+
+**Dividend row:** `{code, date, value, period, currency, exchange, recordDate, paymentDate, declarationDate, unadjustedValue, _asx_extra: {isin, franked_amount_aud, franked_percent, drp_indicator, withholding_tax_rate, comment, …}}`. Other types add their own fields (split ratio and `new_security_code`, bonus `ratio`/`despatchDate`, rights `applicationPrice`/`applicationCloseDate`, SPP `price`/`maxAmount`/`offerCloseDate`).
+
+```bash
+curl "https://eodhd.com/api/asx-corporate-actions?type=dividends&symbol=PMV.AU&api_token=YOUR_KEY"
+```
+
+---
+
+## Exchange & Symbol Data
+
+### Exchanges List
+**Docs:** [Exchanges List](https://eodhd.com/financial-apis/exchanges-api-list-of-tickers-and-trading-hours#Get_List_of_Exchanges_API)
+
+
+```
+GET /exchanges-list
+```
+
+**Cost:** 1 API call
+
+**Response fields:** Name, Code, OperatingMIC, Country, Currency, CountryISO2, CountryISO3
+
+---
+
+### Exchange Symbol List
+**Docs:** [Exchange Symbol List](https://eodhd.com/financial-apis/exchanges-api-list-of-tickers-and-trading-hours#Get_List_of_Tickers_Exchange_Symbols_API)
+
+
+All tickers on an exchange, with optional delisted and type filters.
+
+```
+GET /exchange-symbol-list/{EXCHANGE}
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{EXCHANGE}` | Yes | path | Exchange code (e.g., `US`, `LSE`) |
+| `api_token` | Yes | string | API key |
+| `delisted` | No | integer | Include delisted: `0` (default) or `1` |
+| `type` | No | string | Filter by type: `common_stock`, `preferred_stock`, `stock`, `etf`, `fund` |
+| `fmt` | No | string | `json` or `csv` |
+
+**Cost:** 1 API call
+
+**Response:**
+
+```json
+[
+  {
+    "Code": "AAPL",
+    "Name": "Apple Inc",
+    "Country": "USA",
+    "Exchange": "NASDAQ",
+    "Currency": "USD",
+    "Type": "Common Stock",
+    "Isin": "US0378331005"
+  }
+]
+```
+
+**Notes:** Returns only active tickers from past month by default. Use `delisted=1` for 26,000+ delisted US and 42,000+ delisted international tickers.
+
+---
+
+### Exchange Details
+**Docs:** [Exchange Details](https://eodhd.com/financial-apis/exchanges-api-trading-hours-and-stock-market-holidays)
+
+
+Trading hours, holidays, and status. Two versions:
+
+```
+GET /v2/exchange-details                  # list of exchange codes covered by v2 (5 API calls)
+GET /v2/exchange-details/{EXCHANGE_CODE}  # v2: pre-market/after-hours/lunch-break hours + typed holidays (5 API calls)
+GET /exchange-details/{EXCHANGE_CODE}     # v1: adds OperatingMIC, Country, Currency, isOpen, ActiveTickers (1 API call)
+```
+
+**v2 response:** `{data: {Name, Code, Timezone, TradingHours: {Open, Close, WorkingDays, PreMarketOpen, PreMarketClose, AfterHoursOpen, AfterHoursClose, LunchBreakStart, LunchBreakEnd}, ExchangeHolidays: {"YYYY-MM-DD": {Holiday, Type, EarlyClose}}}}`. Exchange code is case-insensitive.
+
+**v1 parameters:**
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{EXCHANGE_CODE}` | Yes | path | Exchange code |
+| `api_token` | Yes | string | API key |
+| `from` | No | YYYY-MM-DD | Holiday start date filter |
+| `to` | No | YYYY-MM-DD | Holiday end date filter (default: 6 months ahead) |
+| `fmt` | No | string | `json` or `csv` |
+
+**Cost:** 1 API call
+
+**Response includes:** Name, Code, OperatingMIC, Country, Currency, Timezone, isOpen, TradingHours (Open/Close/UTC), ExchangeHolidays[], ExchangeEarlyCloseDays[], ActiveTickers, UpdatedTickers
+
+---
+
+### Symbol Search
+**Docs:** [Symbol Search](https://eodhd.com/financial-apis/search-api-for-stocks-etfs-mutual-funds)
+
+
+Search by name, ticker code, or ISIN.
+
+```
+GET /search/{QUERY}
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{QUERY}` | Yes | path | Search term (name, ticker, or ISIN) |
+| `api_token` | Yes | string | API key |
+| `exchange` | No | string | Filter by exchange |
+| `type` | No | string | `stock`, `etf`, `fund`, `bond`, `index`, `crypto`, `all` |
+| `bonds_only` | No | integer | `1` to search bonds only |
+| `limit` | No | integer | Results (default: 15, max: 500) |
+
+**Cost:** 1 API call
+
+**Response fields:** Code, Exchange, Name, Type, Country, Currency, ISIN, previousClose, previousCloseDate, isPrimary
+
+**Note:** Demo key does NOT work for this endpoint. Searches active tickers only. Supports ISIN search (45,000+ ISINs in database). CUSIPs can be converted to ISINs by prepending "US" and appending a Luhn Algorithm checksum.
+
+---
+
+### ID Mapping
+**Docs:** [ID Mapping](https://eodhd.com/financial-apis/id-mapping-api-cusip-isin-figi-lei-cik-%E2%86%94-symbol)
+
+
+Map between CUSIP, ISIN, FIGI, LEI, CIK and ticker symbols.
+
+```
+GET /id-mapping
+```
+
+**Parameters (deep-object filters):**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `filter[symbol]` | No | string | Ticker symbol |
+| `filter[ex]` | No | string | Exchange code |
+| `filter[isin]` | No | string | ISIN |
+| `filter[figi]` | No | string | FIGI |
+| `filter[lei]` | No | string | LEI |
+| `filter[cusip]` | No | string | CUSIP |
+| `filter[cik]` | No | string | CIK |
+| `page[limit]` | No | integer | Max 1000 |
+| `page[offset]` | No | integer | Pagination offset |
+
+At least one filter required.
+
+**Response fields:** symbol, isin, figi, lei, cusip, cik
+
+---
+
+### Symbol Change History
+**Docs:** [Symbol Change History](https://eodhd.com/financial-apis/exchanges-api-trading-hours-and-stock-market-holidays#Symbol_Change_History)
+
+
+Historical symbol changes, delistings, and renames.
+
+```
+GET /symbol-change-history
+```
+
+**Cost:** 1 API call
+
+**Note:** US only, from July 22, 2022. Requires All World Extended or All-In-One plan.
+
+---
+
+### Stock Screener
+**Docs:** [Stock Screener](https://eodhd.com/financial-apis/stock-market-screener-api)
+
+
+Filter stocks by fundamental metrics, sector, exchange, and signals.
+
+```
+GET /screener
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `sort` | No | string | Sort field and direction (e.g., `market_capitalization.desc`) |
+| `limit` | No | integer | Results (default: 50, max: 100) |
+| `offset` | No | integer | Pagination offset (0-999) |
+| `filters` | No | JSON array | Filter conditions |
+| `signals` | No | string | Pre-calculated signal filters |
+
+**Cost:** 5 API calls
+
+**Filter syntax:**
+```json
+[
+  ["market_capitalization", ">", 1000000000],
+  ["sector", "=", "Technology"],
+  ["exchange", "=", "us"]
+]
+```
+
+**Available filter fields:** `code` (String), `name` (String), `exchange` (String), `sector` (String), `industry` (String), `market_capitalization` (Number), `earnings_share` (Number), `dividend_yield` (Number), `refund_1d_p` (Number), `refund_5d_p` (Number), `refund_ytd_p` (Number), `avgvol_1d` (Number), `avgvol_50d` (Number), `avgvol_200d` (Number), `adjusted_close` (Number), `pe` (Number), `peg` (Number), `pb` (Number), `ps` (Number), `revenue` (Number), `ebitda` (Number), `roe` (Number), `roa` (Number), `beta` (Number)
+
+**String operations:** `=`, `match`
+**Numeric operations:** `=`, `!=`, `>`, `>=`, `<`, `<=`
+
+**Signals:** `200d_new_lo`, `200d_new_hi`, `50d_new_lo`, `50d_new_hi`, `bookvalue_neg`, `bookvalue_pos`, `wallstreet_lo`, `wallstreet_hi`
+
+**Important:** Two-word sectors/industries require `match` instead of `=` (e.g., `["sector", "match", "Consumer Cyclical"]`).
+
+**Examples:**
+
+```bash
+# Large-cap tech stocks (paid key; the demo key returns 403 on the screener)
+curl 'https://eodhd.com/api/screener?api_token=YOUR_KEY&fmt=json&filters=[["market_capitalization",">",100000000000],["sector","=","Technology"]]'
+
+# High dividend yield
+curl 'https://eodhd.com/api/screener?api_token=YOUR_KEY&fmt=json&filters=[["dividend_yield",">",0.04]]&sort=dividend_yield.desc'
+```
+
+**Note:** Screener works only for the latest trading day. Historical screening is not supported.
+
+---
+
+## Options (Marketplace)
+
+### US Options Contracts
+**Docs:** [US Options Contracts](https://eodhd.com/marketplace/unicornbay/options/docs)
+
+
+Options contract specifications with Greeks for 6,000+ US tickers. 40+ fields per contract.
+
+```
+GET /mp/unicornbay/options/contracts
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `filter[underlying_symbol]` | No | string | Underlying stock (e.g., `AAPL`) |
+| `filter[type]` | No | string | `put` or `call` |
+| `filter[exp_date_from]` | No | YYYY-MM-DD | Expiration from date |
+| `filter[exp_date_to]` | No | YYYY-MM-DD | Expiration to date |
+| `filter[strike_from]` | No | number | Minimum strike |
+| `filter[strike_to]` | No | number | Maximum strike |
+| `sort` | No | string | `exp_date`, `strike`, `-exp_date`, `-strike` |
+| `page[limit]` | No | integer | Results per page (max: 1000) |
+| `page[offset]` | No | integer | Pagination offset |
+
+**Response includes:** contract name, underlying_symbol, exp_date, type, strike, OHLC, bid/ask, volume, open_interest, implied_volatility, delta, gamma, theta, vega, rho, moneyness, DTE (days to expiration), midpoint, and more.
+
+---
+
+### US Options EOD
+**Docs:** [US Options EOD](https://eodhd.com/marketplace/unicornbay/options/docs)
+
+
+End-of-day options prices with full chain data. 2 years of historical data.
+
+```
+GET /mp/unicornbay/options/eod
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `filter[contract]` | No | string | Exact contract name |
+| `filter[underlying_symbol]` | No | string | Underlying stock |
+| `filter[type]` | No | string | `put` or `call` |
+| `filter[exp_date_from]` | No | YYYY-MM-DD | Expiration from |
+| `filter[exp_date_to]` | No | YYYY-MM-DD | Expiration to |
+| `filter[tradetime_from]` | No | YYYY-MM-DD | Trade time from |
+| `filter[tradetime_to]` | No | YYYY-MM-DD | Trade time to |
+| `filter[strike_from]` | No | number | Min strike |
+| `filter[strike_to]` | No | number | Max strike |
+| `sort` | No | string | `exp_date`, `strike`, `-exp_date`, `-strike` |
+| `page[limit]` | No | integer | Max 1000 |
+| `page[offset]` | No | integer | Max 10000 |
+| `compact` | No | integer | `0` or `1` for compact format |
+
+---
+
+### US Options Underlyings
+**Docs:** [US Options Underlyings](https://eodhd.com/marketplace/unicornbay/options/docs)
+
+
+```
+GET /mp/unicornbay/options/underlying-symbols
+```
+
+---
+
+## Indices (Marketplace)
+
+### Indices List
+**Docs:** [Indices List](https://eodhd.com/marketplace/unicornbay/spglobal/docs)
+
+
+100+ indices with values, divisors, and daily returns.
+
+```
+GET /mp/unicornbay/spglobal/list
+```
+
+---
+
+### Index Components
+**Docs:** [Index Components](https://eodhd.com/marketplace/unicornbay/spglobal/docs)
+
+
+Index constituents with historical changes from 2000. S&P 500/600/100/400 + 20 industry indices.
+
+```
+GET /mp/unicornbay/spglobal/comp/{SYMBOL}.INDX     # e.g. GSPC.INDX (symbol from the list endpoint)
+```
+
+---
+
+## Logos
+
+### Stock Logos (PNG)
+**Docs:** [Stock Logos (PNG)](https://eodhd.com/marketplace/unicornbay/logo/docs)
+
+
+200x200px PNG logos with transparent background for 40,000+ stocks across 60+ exchanges.
+
+```
+GET /logo/{SYMBOL}
+```
+
+Returns a PNG image. Also available as direct URL: `https://eodhd.com/img/logos/{EXCHANGE}/{TICKER}.png`
+
+Also accessible via `LogoURL` field in the Fundamentals API response (All-in-One and Fundamental Data plans).
+
+---
+
+### Stock Logos (SVG)
+**Docs:** [Stock Logos (SVG)](https://eodhd.com/marketplace/unicornbay/logo-svg/docs)
+
+
+Scalable SVG logos (US and TO exchanges only).
+
+```
+GET /logo-svg/{SYMBOL}
+```
+
+---
+
+## ESG (Marketplace — Investverte)
+
+AI-powered ESG scoring with deep learning-based data completion. Supports `model=ai` (default) and `model=legacy` (backward compatibility).
+
+### ESG View Company
+**Docs:** [ESG Company Score](https://eodhd.com/marketplace/investverte/esg_data/docs)
+
+
+```
+GET /mp/investverte/esg/{SYMBOL}
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{SYMBOL}` | Yes | path | Ticker (e.g., `AAPL`, `000039.SZ`) |
+| `api_token` | Yes | string | API key |
+| `year` | No | integer | Filter by year |
+| `frequency` | No | string | `FY`, `Q1`, `Q2`, `Q3`, `Q4` |
+| `model` | No | string | `ai` (default) or `legacy` |
+
+**Response:**
+
+```json
+[
+  {
+    "e": 72.5,
+    "s": 68.3,
+    "g": 81.2,
+    "esg": 74.0,
+    "year": 2024,
+    "frequency": "FY"
+  }
+]
+```
+
+### ESG List Companies
+**Docs:** [ESG Companies List](https://eodhd.com/marketplace/investverte/esg_data/docs)
+
+
+```
+GET /mp/investverte/companies
+```
+
+### ESG List Countries
+**Docs:** [ESG Countries List](https://eodhd.com/marketplace/investverte/esg_data/docs)
+
+
+All countries with aggregate ESG scores.
+
+```
+GET /mp/investverte/countries
+```
+
+### ESG Country Details
+**Docs:** [ESG Country Details](https://eodhd.com/marketplace/investverte/esg_data/docs)
+
+
+```
+GET /mp/investverte/country/{CODE}
+```
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{CODE}` | Yes | path | Country code (e.g., `US`, `GB`) |
+
+### ESG List Sectors
+**Docs:** [ESG Sectors List](https://eodhd.com/marketplace/investverte/esg_data/docs)
+
+
+All sectors with aggregate ESG scores.
+
+```
+GET /mp/investverte/sectors
+```
+
+### ESG Sector Details
+**Docs:** [ESG Sector Details](https://eodhd.com/marketplace/investverte/esg_data/docs)
+
+
+```
+GET /mp/investverte/sector/{SECTOR}
+```
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `{SECTOR}` | Yes | path | Sector name exactly as returned by `/mp/investverte/sectors`, URL-encoded (e.g. `Technology`, `Basic%20Materials`) |
+
+Response: `{find: true, industry: {"<industry>": [values…]}, …}` — ESG time series per industry within the sector.
+
+---
+
+## Risk Analytics (Marketplace — PRAAMS)
+
+12-dimension risk-return scoring with PRAAMS Ratio for 120,000+ global equities and bonds. Backed by 470+ professional metrics covering valuation, profitability, growth, dividends, default risk, stress-testing, and liquidity.
+
+### Equity Risk Scoring by Ticker
+**Docs:** [Equity Risk by Ticker](https://eodhd.com/marketplace/praams/analyse/docs)
+
+
+```
+GET /mp/praams/analyse/equity/ticker/{TICKER}
+```
+
+### Equity Risk Scoring by ISIN
+**Docs:** [Equity Risk by ISIN](https://eodhd.com/marketplace/praams/analyse/docs)
+
+
+```
+GET /mp/praams/analyse/equity/isin/{ISIN}
+```
+
+### Bond Analysis
+**Docs:** [Bond Analysis](https://eodhd.com/marketplace/praams/analyse/docs)
+
+
+```
+GET /mp/praams/analyse/bond/{ISIN}     # bond ISIN, e.g. US7593518852 (corporate) or US91282CJN20 (US Treasury)
+```
+
+Response: `{item: {asset: {assetId, ratio, isBond: true, bondType: "Corporate"|"Sovereign", …}, …}, success, errors}`. An equity ISIN returns HTTP 400 `DataNotFound`.
+
+### Bank Balance Sheet
+**Docs:** [Bank Balance Sheet](https://eodhd.com/marketplace/praams/bank/docs)
+
+
+Purpose-built bank financial statements (quarterly and annual) covering core revenue, net interest income, provisions, loan/debt breakdowns, investment portfolios, REPO positions.
+
+```
+GET /mp/praams/bank/balance_sheet/ticker/{TICKER}
+GET /mp/praams/bank/balance_sheet/isin/{ISIN}
+```
+
+### Bank Income Statement
+**Docs:** [Bank Income Statement](https://eodhd.com/marketplace/praams/bank/docs)
+
+
+```
+GET /mp/praams/bank/income_statement/ticker/{TICKER}
+GET /mp/praams/bank/income_statement/isin/{ISIN}
+```
+
+### Smart Equity Screener
+**Docs:** [Smart Investment Screener API](https://eodhd.com/marketplace/praams/explore/docs)
+
+
+Search and filter equities using PRAAMS analytics with risk scoring. **This is a POST endpoint** — filters go in a JSON body; a GET request returns HTTP 500.
+
+```
+POST /mp/praams/explore/equity?api_token=YOUR_KEY
+Content-Type: application/json
+```
+
+**JSON body fields (all optional):** `skip` (default 0), `take` (default 50), `regions`, `countries`, `sectors`, `industries`, `capitalisation`, `currency`, `orderBy`, and PRAAMS score ranges 1–7 as `<factor>Min` / `<factor>Max` for `mainRatio`, `valuation`, `performance`, `profitability`, `growthMom`, `other`, `analystView`, `dividends`, `countryRisk`, `liquidity`, `stressTest`, `volatility`, `solvency`.
+
+**Response:** `{item: {peers: [...], totalCount}, success, message, errors}`
+
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{"take":10,"sectors":["Technology"],"mainRatioMin":5}' \
+  "https://eodhd.com/api/mp/praams/explore/equity?api_token=YOUR_KEY"
+```
+
+### Smart Bond Screener
+**Docs:** [Bond Peer Screener](https://eodhd.com/marketplace/praams/explore/docs)
+
+
+Search and filter bonds using PRAAMS analytics with risk scoring. **POST with JSON body**, same shape as the equity screener.
+
+```
+POST /mp/praams/explore/bond?api_token=YOUR_KEY
+Content-Type: application/json
+```
+
+**Extra bond body fields:** `yieldMin`, `yieldMax`, `durationMin`, `durationMax`, `couponsMin`, `couponsMax`, `marketViewMin`, `marketViewMax`, `excludeSubordinated`, `excludePerpetuals`.
+
+### PDF Reports
+**Docs:** [Equity Reports (PDF)](https://eodhd.com/marketplace/praams/reports/docs), [Bond Reports (PDF)](https://eodhd.com/marketplace/praams/reports/docs)
+
+
+Auto-generated multi-page PDF reports updated daily with visuals, 6 return and 6 risk factors. The response body **is the PDF** (`Content-Type: application/pdf`); `email` is a **required** query parameter (HTTP 400 without it) and is also used for report notifications.
+
+```
+GET /mp/praams/reports/equity/ticker/{TICKER}?email=you@example.com
+GET /mp/praams/reports/equity/isin/{ISIN}?email=you@example.com
+GET /mp/praams/reports/bond/{ISIN}?email=you@example.com
+```
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `email` | Yes | string | Address that receives the report |
+| `is_full` | No | boolean | `true` for the full report, `false` for the short version |
+
+```bash
+curl -o AAPL-praams.pdf "https://eodhd.com/api/mp/praams/reports/equity/ticker/AAPL?email=you@example.com&api_token=YOUR_KEY"
+curl -o bond.pdf "https://eodhd.com/api/mp/praams/reports/bond/US7593518852?email=you@example.com&api_token=YOUR_KEY"
+```
+
+## Trading Hours (Marketplace — TradingHours)
+**Docs:** [G20 Markets](https://eodhd.com/marketplace/tradinghours/markets-g20/docs), [Global Equities](https://eodhd.com/marketplace/tradinghours/markets-equities/docs), [Global Equities & Derivatives](https://eodhd.com/marketplace/tradinghours/markets-derivatives/docs)
+
+
+### List Markets
+
+All available markets with basic information.
+
+```
+GET /mp/tradinghours/markets
+```
+
+Markets are identified by a **FinID** such as `US.NYSE`, `GB.LSE` (case-insensitive). Get FinIDs from the list or lookup endpoints first. Three subscription tiers share the same endpoints: G20 markets, Global Equities, Global Equities & Derivatives.
+
+### List Markets
+
+```
+GET /mp/tradinghours/markets
+```
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `group` | No | string | `core` (G20+), `extended` (global equities), `all` (equities + derivatives), `allowed` (your tier). Default `all` |
+
+**Response:** `{data: [{fin_id, exchange, market, products, mic, asset_type, group, …}]}`
+
+### Lookup Markets
+
+Returns the same market catalogue (`fin_id`, `exchange`, `market`, `mic`, `asset_type`, …). The `exchange`/`mic` query parameters are ignored server-side (verified 2026-09-28) — filter the returned list client-side by `fin_id`, `exchange` name or `mic`.
+
+```
+GET /mp/tradinghours/markets/lookup
+```
+
+### Market Details
+
+Detailed metadata: timezone (IANA), MIC codes, products, weekend schedule, holiday date range.
+
+```
+GET /mp/tradinghours/markets/details
+```
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `market` | Yes | string | FinID, e.g. `US.NYSE` (HTTP 422 without it) |
+
+### Market Status
+
+Whether a market is open right now, the reason, and the next bell time.
+
+```
+GET /mp/tradinghours/markets/status
+```
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `market` | Yes | string | FinID, e.g. `US.NYSE` |
+
+**Response:** `{data: {"US.NYSE": {fin_id, exchange, market, products, timezone, status, reason, until, next_bell}}}`
+
+---
+
+## Tick Data
+
+### US Tick Data
+**Docs:** [US Tick Data](https://eodhd.com/financial-apis/us-stock-market-tick-data-api)
+
+
+Historical trade-level tick data for US equities with millisecond precision. ~80,000 tickers (current and delisted), ~10TB total, from January 2008. Available in the All-In-One plan or as a standalone product.
+
+```
+GET /ticks/
+```
+
+**Note the trailing slash** — `/api/ticks/` is the working path; `/api/ticks` without the slash returns 404. Requests without both `from` and `to` also return 404.
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `s` | Yes | string | Ticker symbol (e.g., `AAPL` or `AAPL.US`) |
+| `api_token` | Yes | string | API key |
+| `from` | Yes | integer | Start Unix timestamp (seconds, UTC) |
+| `to` | Yes | integer | End Unix timestamp (seconds, UTC) |
+| `limit` | No | integer | Maximum number of ticks (1–10,000) |
+| `fmt` | No | string | `json` only |
+
+**Cost:** 1 API call per request
+
+```bash
+curl "https://eodhd.com/api/ticks/?s=AAPL&from=1790000000&to=1790086400&limit=100&api_token=YOUR_KEY&fmt=json"
+```
+
+**Response (columnar format):**
+
+```json
+{
+  "ex": ["Q", "Q", "Q"],
+  "mkt": ["K", "K", "K"],
+  "price": [179.35, 179.35, 179.35],
+  "seq": [64234, 64238, 64329],
+  "shares": [50, 10, 100],
+  "sl": ["@ TI", "@ TI", "@ T"],
+  "sub_mkt": ["", "", ""],
+  "ts": [1694419200008, 1694419200008, 1694419200008]
+}
+```
+
+| Field | Description |
+|---|---|
+| `ex` | Exchange where trade occurred |
+| `mkt` | Market identifier |
+| `price` | Trade price |
+| `seq` | Trade sequence number |
+| `shares` | Number of shares |
+| `sl` | Sales condition codes (A-Z) |
+| `ts` | Timestamp (milliseconds since epoch) |
+
+### Marketplace Tick Data
+**Docs:** [Marketplace Tick Data](https://eodhd.com/marketplace/unicornbay/tickdata)
+
+
+Trade-level tick data via the UnicornBay marketplace provider (same data and columnar response as `/ticks/`, billed against the marketplace pool).
+
+```
+GET /mp/unicornbay/tickdata/ticks
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `s` | Yes | string | Ticker symbol (`AAPL` or `AAPL.US`) |
+| `api_token` | Yes | string | API key |
+| `from` | Yes | integer | Start Unix timestamp (seconds, UTC) — HTTP 500 without `from`/`to` |
+| `to` | Yes | integer | End Unix timestamp (seconds, UTC) |
+| `limit` | No | integer | Maximum number of ticks (1–10,000) |
+
+---
+
+## CBOE Indices
+
+### CBOE Indices List
+**Docs:** [CBOE Indices List](https://eodhd.com/financial-apis/cboe-europe-indices-api-beta#CBOE_Indices_List_API)
+
+
+```
+GET /cboe/indices
+```
+
+**Cost:** 10 API calls. Plans: All-In-One, Fundamentals Data Feed.
+
+**Response:** `{meta: {total}, data: [{id, type: "cboe-index", attributes: {region, index_code, feed_type, date, index_close, index_divisor}}], links: {next}}` — paginate by following `links.next` until it is null.
+
+### CBOE Index Historical Data
+**Docs:** [CBOE Index Data](https://eodhd.com/financial-apis/cboe-europe-indices-api-beta#2_CBOE_Index_Feed_API)
+
+
+```
+GET /cboe/index
+```
+
+**Parameters (all three filters are required; HTTP 422 otherwise):**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `filter[index_code]` | Yes | string | CBOE Europe index code from `/cboe/indices` (e.g., `BAT20N`, `BDE30P`, `BNL30N`) |
+| `filter[feed_type]` | Yes | string | `snapshot_official_closing`, `snapshot_official_opening` or `snapshot_pro_forma_closing` |
+| `filter[date]` | Yes | YYYY-MM-DD | Trading date (use a `date` present in the `/cboe/indices` attributes) |
+| `filter[include_review]` | No | boolean | Include review data |
+| `fmt` | No | string | `json` (default) or `xml` |
+
+**Cost:** 10 API calls
+
+```bash
+curl "https://eodhd.com/api/cboe/index?filter[index_code]=BNL30N&filter[feed_type]=snapshot_official_opening&filter[date]=2025-09-22&api_token=YOUR_KEY"
+```
+
+**Component fields include:** symbol, isin, name, sedol, cusip, country, closing_price, currency, total_shares, market_cap, free_float_factor, index_weighting, sector
+
+---
+
+## US Treasury Rates
+
+### Bill Rates
+**Docs:** [US Treasury Bill Rates](https://eodhd.com/financial-apis/us-treasury-ust-interest-rates-api-beta)
+
+
+Daily US Treasury bill rates.
+
+```
+GET /ust/bill-rates
+```
+
+**Parameters:**
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `api_token` | Yes | string | API key |
+| `from` | No | YYYY-MM-DD | Start date |
+| `to` | No | YYYY-MM-DD | End date |
+| `filter[year]` | No | integer | Filter by year (defaults to current year) |
+| `fmt` | No | string | `json` or `csv`. Default: `json` |
+
+**Cost:** 1 API call
+
+**Response fields:** date, tenor, discount, coupon, avg_discount, avg_coupon, maturity_date, cusip (also: 4/8/13/26/52 weeks bank_discount and coupon_equivalent)
+
+---
+
+### Yield Curve Rates
+**Docs:** [US Treasury Yield Curve](https://eodhd.com/financial-apis/us-treasury-ust-interest-rates-api-beta)
+
+
+```
+GET /ust/yield-rates
+```
+
+Par yield curve. **Response fields:** date, tenor rates for 1M, 2M, 3M, 4M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 20Y, 30Y
+
+---
+
+### Long-Term Rates
+**Docs:** [US Treasury Long-Term Rates](https://eodhd.com/financial-apis/us-treasury-ust-interest-rates-api-beta)
+
+
+```
+GET /ust/long-term-rates
+```
+
+**Response fields:** date, rate_type (BC_20year, Over_10_Years, Real_Rate), rate, extrapolation_factor, lt_composite_gt_10, treasury_20_year_cmt
+
+---
+
+### Real Yield Curve Rates
+**Docs:** [US Treasury Real Yield Curve](https://eodhd.com/financial-apis/us-treasury-ust-interest-rates-api-beta)
+
+
+TIPS-derived real yields.
+
+```
+GET /ust/real-yield-rates
+```
+
+**Response fields:** date, tenor rates for 5Y, 7Y, 10Y, 20Y, 30Y
+
+---
+
+## WebSocket Real-Time
+**Docs:** [WebSocket Real-Time](https://eodhd.com/financial-apis/new-real-time-data-api-websockets)
+
+
+Real-time streaming with <50ms latency for US and European equities, forex and crypto. Does NOT consume API calls. Plans: All-In-One, EOD+Intraday — All World Extended.
+
+**Host:** `wss://ws.eodhistoricaldata.com` — append `?api_token=YOUR_KEY` to every endpoint.
+
+| Market | Trades | Quotes (bid/ask) | 1-minute bars | Trading status |
+|---|---|---|---|---|
+| US stocks | `/ws/us` | `/ws/us-quote` | `/ws/us-candles` | `/ws/us-status` |
+| European stocks | `/ws/eu` | `/ws/eu-quote` | `/ws/eu-candles` | `/ws/eu-status` |
+| Forex | `/ws/forex` | — | — | — |
+| Crypto | `/ws/crypto` | — | — | — |
+
+**Symbols:** US — plain ticker (`AAPL`); Europe — `TICKER.EXCHANGE` (`GSK.LSE`); forex — `EURUSD`; crypto — `BTC-USD`.
+
+**Limits:** 50 symbols per API token by default (upgradeable in the dashboard), max 64 concurrent connections per token across all markets. Must re-subscribe after a reconnect.
+
+**Subscribe / unsubscribe:**
+```json
+{"action": "subscribe", "symbols": "AAPL,TSLA"}
+{"action": "unsubscribe", "symbols": "AAPL"}
+```
+
+**Trade (US/EU):**
+```json
+{"s": "AAPL", "p": 309.19, "c": [], "v": 2, "dp": false, "ms": "extended-hours", "t": 1787671313868}
+```
+
+| Field | Description |
+|---|---|
+| `s` | Symbol |
+| `p` | Price |
+| `v` | Volume/size |
+| `c` | Condition codes (array) |
+| `dp` | Dark pool (boolean) |
+| `ms` | Market status: `open`, `closed`, `extended-hours` |
+| `t` | Timestamp (epoch milliseconds) |
+
+**Quote (US/EU):**
+```json
+{"s": "AAPL", "ap": 317.297, "as": 160, "bp": 316.988, "bs": 40, "t": 1784115291977}
+```
+
+**1-minute bar (US/EU candles):**
+```json
+{"s": "AAPL", "i": "1m", "t": 1787671260000, "o": 309.25, "h": 309.26, "l": 309.19, "c": 309.19, "v": 1101}
+```
+
+**Trading status (US/EU status):**
+```json
+{"s": "AAPL", "h": "T", "r": "0", "t": 1787731200000}
+```
+
+**Forex:**
+```json
+{"s": "EURUSD", "a": 1.1419, "b": 1.1416, "dc": "0.3005", "dd": "0.0034", "ppms": true, "t": 1784115288241}
+```
+
+**Crypto:**
+```json
+{"s": "ETH-USD", "p": "1881.0931", "q": "1.9e-7", "dc": "5.6041", "dd": "105.4177", "t": 1784115286805}
+```
+
+**Demo symbols:** 12 symbols work with `api_token=demo`, including AAPL, MSFT, TSLA (US), EURUSD (forex), BTC-USD and ETH-USD (crypto).
+
+### Recent minute bars over REST (gap filling)
+
+The real-time service keeps the recent closed 1-minute bars for US and EU symbols and exposes them over plain HTTPS on the WebSocket host — use it to fill a gap after a dropped connection without opening a socket:
+
+```
+GET https://ws.eodhistoricaldata.com/history?market=us&symbol=AAPL&api_token=YOUR_KEY
+```
+
+| Parameter | Required | Type | Description |
+|---|---|---|---|
+| `market` | Yes | string | `us` or `eu` |
+| `symbol` | Yes | string | `AAPL` (US) or `GSK.LSE` (EU) |
+| `api_token` | Yes | string | API key |
+
+**Response:** JSON array of bars in the candles format: `[{"s": "AAPL", "i": "1m", "t": 1790583000000, "o": 340.82, "h": 340.82, "l": 340.82, "c": 340.82, "v": 80}, …]`
+
+**Python Example:**
+
+```python
+import websocket
+import json
+
+def on_message(ws, message):
+    data = json.loads(message)
+    print(f"{data['s']}: {data.get('p', data.get('a', 'N/A'))}")
+
+ws = websocket.WebSocketApp(
+    "wss://ws.eodhistoricaldata.com/ws/us?api_token=YOUR_KEY",
+    on_message=on_message
+)
+ws.run_forever()
+# After connection, send: {"action": "subscribe", "symbols": "AAPL,MSFT"}
+```
+
+---
+
+## Account
+
+### User Details
+**Docs:** [User Details](https://eodhd.com/financial-apis/user-api)
+
+
+```
+GET /user
+GET /internal-user   # alias, identical response
+```
+
+**Cost:** 0 API calls
+
+**Response:**
+
+```json
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "subscriptionType": "monthly",
+  "paymentMethod": "Stripe",
+  "apiRequests": 53861,
+  "apiRequestsDate": "2025-01-15",
+  "dailyRateLimit": 100000,
+  "extraLimit": 0,
+  "inviteToken": null,
+  "inviteTokenClicked": 0,
+  "subscriptionMode": "paid",
+  "availableDataFeeds": [
+    "EOD Historical Data",
+    "Fundamental Data",
+    "Intraday Data API",
+    "News API",
+    "Technical API Data",
+    "Calendar Data",
+    "Live (delayed) Data API",
+    "Search API"
+  ],
+  "availableMarketplaceDataFeeds": {
+    "dailyRateLimit": 100000,
+    "requestsSpent": 30,
+    "timeToReset": "08:53 GMT+0000",
+    "subscriptions": ["US Stock Options Data API"]
+  }
+}
+```
+
+---
+
+## Error Handling
+
+### HTTP Status Codes
+
+| Code | Meaning | Action |
+|---|---|---|
+| 200 | Success | Process response |
+| 401 | Unauthenticated | Missing or invalid API key (plain-text body `Unauthenticated`). Check `api_token` / `Authorization` header |
+| 402 | Payment Required | Daily API limit exhausted. Wait for midnight GMT or purchase extra calls |
+| 403 | Forbidden | Key is valid but not entitled: wrong plan, demo key outside the demo symbol set, marketplace product not subscribed |
+| 404 | Not Found | Unknown symbol/exchange (`Symbol not found`) or wrong path |
+| 422 | Unprocessable | Missing/invalid required parameter; body is `{"errors": {"<field>": ["…"]}}` |
+| 429 | Too Many Requests | Exceeded 1,000 req/min. Implement backoff |
+| 500 | Server Error | Retry with backoff |
+
+### Error Response Format
+
+```json
+{
+  "error": "Error message description",
+  "code": 403
+}
+```
+
+Invalid/expired tokens return plain text: `Unauthenticated`
+
+### Python Error Handling
+
+```python
+import requests
+
+def fetch_eodhd(url, params):
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        return response.json()
+    elif response.status_code == 401:
+        raise Exception("Missing or invalid API key.")
+    elif response.status_code == 402:
+        raise Exception("API limit exceeded. Wait for midnight GMT or buy extra calls.")
+    elif response.status_code == 403:
+        raise Exception("Not entitled: upgrade plan or use a real key instead of demo.")
+    elif response.status_code == 429:
+        raise Exception("Rate limit exceeded. Slow down requests.")
+    else:
+        response.raise_for_status()
+```
+
+---
+
+## SDKs & Integrations
+**Docs:** [SDKs & Integrations](https://eodhd.com/financial-apis/category/excel-python-php-laravel-java-matlab-examples)
+
+
+### Official SDKs
+
+| Language | Package | Install |
+|---|---|---|
+| **Python** | `eodhd` | `pip install eodhd` → `from eodhd import APIClient` |
+| **Node.js/TypeScript** | `eodhd` | `npm install eodhd` — Full typed client, retry logic, rate-limit aware |
+| **.NET/C#** | EODHistoricalData.Wrapper | NuGet / GitHub |
+| **R** | `eodhdR2` | `install.packages("eodhdR2")` → `eodhdR2::set_token()` (v2, 2024) |
+| **Java** | GitHub example | Uses Gson for JSON |
+| **PHP/Laravel** | `radicalloop/eodhistoricaldata` | Composer, auto-discovery for Laravel 5.5+ |
+| **F#** | GitHub example | Deedle + FSharp.Data NuGet packages |
+| **MATLAB** | `webread()` | Use `nonsecure.eodhd.com` (HTTP, not HTTPS) |
+| **Excel** | Excel Add-In | VBA function `=EODSymbolData(Symbol, From, To)` |
+| **Google Sheets** | Add-on | Google Workspace Marketplace; also supports IMPORTDATA |
+
+### No-Code Tools
+
+- **Power BI**: Custom connector for EOD, Intraday, and Fundamental data
+- **NinjaTrader**: Adapter via NinjaScript import (.ZIP)
+- **WordPress Plugin**: Shortcodes for prices, fundamentals, tables, news, currency converter
+- **Chrome Extension**: Real-time prices data bar + currency converter
+- **Windows Downloader**: No-code, multi-threading, proxy, Metastock/Amibroker CSV formats (open-source on GitHub)
+- **Linux Downloader**: One-liner wget batch script
+- **XLQ2**: C++ application by QMatix, 700+ formulae, COM interface
+- **Postman Collection**: All endpoints, demo key compatible
+- **Telegram Bot (EODHDSignals)**: Free bot with buy/sell alerts for SMA, EMA, RSI, MACD, BBANDS strategies
+
+### OpenAPI Specification
+**Docs:** [OpenAPI Spec (Swagger UI)](https://eodhd.com/financial-apis-blog/introducing-interactive-openapi-documentation-swagger-ui-redoc), [OpenAPI Spec (Redoc)](https://eodhistoricaldata.github.io/api-docs/redoc.html), [OpenAPI Spec (GitHub)](https://eodhistoricaldata.github.io/api-docs/)
+
+
+OpenAPI 3.1.0 covering 88 endpoints (source: https://github.com/EodHistoricalData/EODHD-openapi):
+- **Swagger UI**: https://eodhd.com/financial-apis-blog/introducing-interactive-openapi-documentation-swagger-ui-redoc — Interactive "Try It Out"
+- **Redoc**: https://eodhistoricaldata.github.io/api-docs/redoc.html
+- **Raw spec**: https://eodhistoricaldata.github.io/api-docs/
+- Use to auto-generate client libraries, validate responses, or import into Postman/Insomnia
+
+---
+
+## AI Integrations
+**Docs:** [MCP Server for AI](https://eodhd.com/financial-apis/mcp-server-for-financial-data-by-eodhd), [Claude Code plugin](https://eodhd.com/financial-apis/eodhd-claude-skills-teach-your-ai-assistant-the-entire-financial-api)
+
+
+### MCP Server (Model Context Protocol)
+
+Official MCP server exposing the whole EODHD API as 90+ read-only tools, 3 prompt templates and 100+ embedded documentation resources (looked up locally, zero API calls). Two deployments share one codebase:
+
+| Version | URL | Auth | Best for |
+|---|---|---|---|
+| v1 | `https://mcp.eodhd.com/v1/mcp?apikey=YOUR_API_KEY` | API key in the URL (an `Authorization: Bearer` header also works) | ChatGPT connectors, Claude Code, LangChain/OpenAI agents, any programmatic MCP client |
+| v2 | `https://mcp.eodhd.com/v2/mcp` | OAuth 2.1 (built-in authorization server) | Claude Desktop and other OAuth-native clients |
+
+**Setup examples:**
+
+```bash
+# Claude Code
+claude mcp add eodhd --transport http "https://mcp.eodhd.com/v1/mcp?apikey=YOUR_API_KEY"
+```
+
+Claude Desktop: Settings → Extensions → Add → paste `https://mcp.eodhd.com/v2/mcp` and approve the OAuth consent. ChatGPT: Settings → Connectors → Developer mode → add the v1 URL.
+
+**Tool families:** prices (EOD, intraday, live, extended quotes, real-time minute bars, tick data), fundamentals (incl. bulk), dividends/splits, technicals, news/sentiment, calendars, insider Form 4, SEC filings, congressional trades, ASX corporate actions, commodities, macro/economic events, US Treasury, interest rates and funding stress, credit & sovereign risk, sanctions, real estate, exchanges/search/ID mapping/screener, CBOE indices, marketplace (options, index constituents, tick data, TradingHours, PRAAMS, InvestVerte ESG), plus helpers `resolve_ticker`, `get_support_resistance_levels`, `retrieve_description_by_id`.
+
+**Source:** https://github.com/EodHistoricalData/EODHD-MCP-Server (v1) and https://github.com/EodHistoricalData/EODHD-MCP-Server-v2 (v2, `.mcpb` bundle in Releases).
+
+### Claude Code plugin (skills + MCP + agent)
+
+One-command install that teaches Claude Code (and Codex) the entire API: an OAuth MCP connection, 13 skills, a `financial-analyst` agent, 72 endpoint guides, 28 reference docs, 7 plan guides and a dependency-free Python client.
+
+```
+/plugin marketplace add EodHistoricalData/eodhd-claude-skills
+/plugin install eodhd@eodhd-claude-skills
+```
+
+**GitHub:** https://github.com/EodHistoricalData/eodhd-claude-skills
+
+### ChatGPT Assistant
+
+Custom assistant that retrieves data directly from EODHD servers. Handles real-time prices, fundamentals, historical data, analysis, and visualizations. Requires an API token.
+
+### For agents reading this file
+
+- Machine-readable spec: OpenAPI 3.1 at https://github.com/EodHistoricalData/EODHD-openapi (`openapi.yaml`)
+- Prefer the `Authorization: Bearer` header so the key never lands in logs
+- Newer endpoints paginate with `page[limit]`/`page[offset]` and return `links.next`; older ones use `limit`/`offset`
+- Every error body is JSON except `401 Unauthenticated`, which is plain text
+
+---
+
+## Data Update Times
+
+| Data Type | Update Time | Notes |
+|---|---|---|
+| US EOD (NYSE/NASDAQ) | 16:15 EST | 15 min after close |
+| US Mutual Funds / PINK / OTCBB | 3:00-6:00 AM EST next day | |
+| International EOD | 2-3 hours after close | |
+| Intraday (US) | 2-3 hours after close | |
+| Forex EOD | Every 4 hours from 00:00 GMT | |
+| Crypto EOD | Every 4 hours from 00:00 GMT | |
+| Fundamentals | 02:00-04:00 UTC daily | Nightly batch |
+| Financial Statements | Quarterly, 24-48 hours after filing | |
+| News (major stocks) | Every 15 minutes | |
+| Options | 10 PM - 12 AM EST daily | |
+| ECB Exchange Rates | ~17:00 CET | |
+| API Call Counter | Resets at midnight GMT | |
+
+### Caching Recommendations
+
+| Data | Cache Duration |
+|---|---|
+| EOD prices | Until next trading day |
+| Fundamentals (highlights) | 24 hours |
+| Fundamentals (financials) | 7 days |
+| News | 30-60 minutes |
+| Live quotes | Do not cache |
+
+---
+
+## Data Coverage Details
+
+### Delisted Stocks
+
+- Delisted after 2018: fundamentals + dividends/splits + EOD + intraday (after 2021)
+- Delisted before 2018: EOD data only
+- Get delisted tickers: `GET /exchange-symbol-list/{EXCHANGE}?delisted=1`
+- 26,000+ US tickers (from January 2000), 42,000+ international
+- Important for survivorship-bias-free backtesting
+
+### Government Bonds (GBOND)
+
+Coverage spans 20+ countries: Australia, Brazil, Canada, Chile, China, France, Germany, Greece, India, Indonesia, Italy, Japan, Kenya, Malaysia, Mexico, Netherlands, Norway, Portugal, South Korea, Spain, Sweden, Switzerland, Thailand, UK, US. Maturities from 1 month to 30 years.
+
+### Money Market (MONEY)
+
+ECB exchange rates (EUR vs 30+ currencies), Norges Bank rates (NOK vs 30+ currencies), EURIBOR (1W/1M/3M/6M/12M), SOFR, EFFR, LIBOR, ECB rates, EUR 10Y IRS, US 15Y/30Y mortgage rates, Canada Prime Rate.
+
+### Forex Sessions
+
+- Asian: 23:00-08:00 GMT
+- European: 07:00-16:00 GMT
+- North American: 13:00-22:00 GMT
+- Highest volume: European/NA overlap (13:00-16:00 GMT)
+
+### Close vs Adjusted Close
+
+- `close`: Raw closing price (unadjusted)
+- `adjusted_close`: Adjusted for splits and dividends using Chicago Booth algorithm (4 decimal places)
+- Use `adjusted_close` for historical comparisons and backtesting
+
+### EPS Data
+
+EODHD provides non-GAAP EPS when available, GAAP otherwise. GAAP follows SEC standards; Non-GAAP excludes one-time items.
+
+---
+
+## Edge Cases & Gotchas
+
+1. Bulk EOD `symbols` parameter does NOT work for `type=splits` and `type=dividends`
+2. Demo key does NOT work for the Search API
+3. MATLAB should use HTTP (not HTTPS) via `nonsecure.eodhd.com`
+4. R language also recommended to use HTTP for older versions
+5. Earnings Trends is JSON-only due to nested structure
+6. Calendar Dividends uses deep-object style filters (`filter[symbol]`) unlike other calendar endpoints
+7. Intraday `from`/`to` parameters use **Unix timestamps (seconds, UTC)**, NOT YYYY-MM-DD date strings
+8. Bulk Fundamentals limited to last 4 quarters/4 years; stocks only (no ETFs/funds)
+9. Free plan: 1 year history only, 20 API calls/day
+10. `filter=extended` on Bulk EOD only works for past 30 days of data
+11. IPO `start_date` may be null; numeric fields may be 0 when unknown
+12. Screener two-word sectors/industries need `match` instead of `=`
+13. WebSocket requires re-subscribing on reconnect
+14. WebSocket uses bare symbols: `AAPL` not `AAPL.US`, `EURUSD` not `EURUSD.FOREX`
+15. News Word Weights may timeout on large date ranges — keep ranges narrow
+16. Forex ticker format varies: `EURUSD.FOREX` (REST), `EURUSD` (WebSocket), `EUR.FOREX` (single currency)
+17. Hong Kong tickers must be 4 digits with leading zeros (`0700.HK` not `700.HK`)
+18. Crypto tickers use hyphen, forex tickers do not (`BTC-USD.CC` vs `EURUSD.FOREX`)
+19. OHLC fields are raw/unadjusted; only `adjusted_close` accounts for corporate actions
+20. Volume is adjusted for splits only, not dividends
+21. US tick data lives at `/ticks/` **with a trailing slash** and needs both `from` and `to`; without them the server answers 404
+22. PRAAMS screeners (`/mp/praams/explore/*`) are POST with a JSON body; GET returns 500. PRAAMS PDF reports require an `email` query parameter
+23. `/cboe/index` requires all three of `filter[index_code]`, `filter[feed_type]`, `filter[date]`
+24. TradingHours details/status take the FinID in a `market` parameter (`market=US.NYSE`); lookup ignores query filters, filter client-side
+25. Newer datasets (rates, credit risk, real estate, SEC, sanctions, congress, commodities, ASX) use `filter[...]` / `page[limit]` / `page[offset]` and return a `{data, meta, links}` envelope; follow `links.next` for pagination
+26. An invalid token is HTTP **401**, not 403; 403 means "valid key, no entitlement"
+27. The real-time minute-bar history endpoint lives on the WebSocket host (`https://ws.eodhistoricaldata.com/history`), not under `/api`
+
+---
+
+## Versioning
+
+EODHD uses **backwards-compatible updates** without URL-based versioning:
+- Existing fields are never removed or renamed
+- Existing endpoint URLs remain stable
+- New fields may be added to responses
+- Parse JSON flexibly (tolerate unknown fields)
+- Breaking changes: minimum 30 days notice, 90 days support
+
+---
+
+## Common Code Patterns
+
+### Python: Fetch Historical Prices
+
+```python
+import os
+import requests
+
+API_TOKEN = os.environ["EODHD_API_TOKEN"]
+BASE_URL = "https://eodhd.com/api"
+
+def get_eod(symbol, from_date, to_date):
+    url = f"{BASE_URL}/eod/{symbol}"
+    params = {
+        "api_token": API_TOKEN,
+        "from": from_date,
+        "to": to_date,
+        "fmt": "json"
+    }
+    response = requests.get(url, params=params)
+    response.raise_for_status()
+    return response.json()
+
+data = get_eod("AAPL.US", "2024-01-01", "2024-12-31")
+```
+
+### Python: Fetch Fundamentals with Filter
+
+```python
+def get_fundamentals(symbol, sections="Highlights,Valuation"):
+    url = f"{BASE_URL}/fundamentals/{symbol}"
+    params = {
+        "api_token": API_TOKEN,
+        "filter": sections,
+        "fmt": "json"
+    }
+    response = requests.get(url, params=params)
+    response.raise_for_status()
+    return response.json()
+
+data = get_fundamentals("AAPL.US")
+print(f"P/E Ratio: {data['Highlights']['PERatio']}")
+print(f"Market Cap: {data['Highlights']['MarketCapitalization']}")
+```
+
+### Python: Stock Screener
+
+```python
+import json
+
+def screen_stocks(filters, limit=20):
+    url = f"{BASE_URL}/screener"
+    params = {
+        "api_token": API_TOKEN,
+        "filters": json.dumps(filters),
+        "limit": limit,
+        "fmt": "json"
+    }
+    response = requests.get(url, params=params)
+    response.raise_for_status()
+    return response.json()
+
+# Large-cap tech stocks with low P/E
+results = screen_stocks([
+    ["market_capitalization", ">", 100000000000],
+    ["sector", "=", "Technology"],
+    ["pe", "<", 25]
+])
+```
+
+### Python: Using Official SDK
+
+```python
+from eodhd import APIClient
+
+api = APIClient("YOUR_API_TOKEN")
+
+# Historical prices
+prices = api.get_eod_data("AAPL.US", "2024-01-01", "2024-12-31")
+
+# Fundamentals
+fundamentals = api.get_fundamentals("AAPL.US")
+```
+
+### Python: ID Mapping
+
+```python
+def id_mapping(isin):
+    url = f"{BASE_URL}/id-mapping"
+    params = {
+        "api_token": API_TOKEN,
+        "filter[isin]": isin
+    }
+    response = requests.get(url, params=params)
+    response.raise_for_status()
+    return response.json()
+
+result = id_mapping("US0378331005")  # Apple ISIN
+```
+
+### JavaScript: Fetch Prices
+
+```javascript
+const API_TOKEN = process.env.EODHD_API_TOKEN;
+const BASE_URL = "https://eodhd.com/api";
+
+async function getEOD(symbol, from, to) {
+  const url = `${BASE_URL}/eod/${symbol}?api_token=${API_TOKEN}&from=${from}&to=${to}&fmt=json`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.json();
+}
+
+const data = await getEOD("AAPL.US", "2024-01-01", "2024-12-31");
+```
+
+### curl: Common Requests
+
+```bash
+# Historical prices
+curl "https://eodhd.com/api/eod/AAPL.US?from=2024-01-01&to=2024-12-31&api_token=YOUR_KEY&fmt=json"
+
+# Fundamentals (filtered)
+curl "https://eodhd.com/api/fundamentals/AAPL.US?filter=Highlights,Valuation&api_token=YOUR_KEY&fmt=json"
+
+# Technical indicator (RSI 14-day)
+curl "https://eodhd.com/api/technical/AAPL.US?function=rsi&period=14&api_token=YOUR_KEY&fmt=json"
+
+# News with sentiment
+curl "https://eodhd.com/api/news?s=AAPL.US&limit=10&api_token=YOUR_KEY&fmt=json"
+
+# Stock screener
+curl 'https://eodhd.com/api/screener?filters=[["sector","=","Technology"],["pe","<",25]]&api_token=YOUR_KEY&fmt=json'
+
+# Macro indicator
+curl "https://eodhd.com/api/macro-indicator/USA?indicator=gdp_growth_annual&api_token=YOUR_KEY&fmt=json"
+
+# Upcoming earnings
+curl "https://eodhd.com/api/calendar/earnings?from=2025-01-20&to=2025-01-31&api_token=YOUR_KEY&fmt=json"
+
+# Bitcoin price
+curl "https://eodhd.com/api/eod/BTC-USD.CC?from=2024-01-01&api_token=YOUR_KEY&fmt=json"
+
+# EUR/USD forex
+curl "https://eodhd.com/api/eod/EURUSD.FOREX?from=2024-01-01&api_token=YOUR_KEY&fmt=json"
+
+# Search by ISIN
+curl "https://eodhd.com/api/search/US0378331005?api_token=YOUR_KEY&fmt=json"
+
+# ID mapping
+curl "https://eodhd.com/api/id-mapping?filter[isin]=US0378331005&api_token=YOUR_KEY"
+
+# Check API usage
+curl "https://eodhd.com/api/user?api_token=YOUR_KEY&fmt=json"
+
+# Same request with the key in a header instead of the URL
+curl -H "Authorization: Bearer YOUR_KEY" "https://eodhd.com/api/user?fmt=json"
+
+# SEC 10-K financials, Form 4 insider filings, congressional trades
+curl "https://eodhd.com/api/sec-filings/AAPL.US/10k?page[limit]=5&api_token=YOUR_KEY"
+curl "https://eodhd.com/api/sec-filings/AAPL.US/form4?page[limit]=5&api_token=YOUR_KEY"
+curl "https://eodhd.com/api/congressional-trades?symbol=NVDA&page[limit]=5&api_token=YOUR_KEY"
+
+# Policy rates, SOFR, sovereign ratings, sanctions, commodities, real estate
+curl "https://eodhd.com/api/rates/policy-rates?filter[central_bank]=FED&page[limit]=5&api_token=YOUR_KEY"
+curl "https://eodhd.com/api/rates/reference-rates?filter[code]=SOFR&page[limit]=5&api_token=YOUR_KEY"
+curl "https://eodhd.com/api/credit-risk/sovereign/credit-ratings?filter[country]=DEU&api_token=YOUR_KEY"
+curl "https://eodhd.com/api/sanctions/entities?q=gazprom&page[limit]=5&api_token=YOUR_KEY"
+curl "https://eodhd.com/api/commodities/historical/BRENT?interval=monthly&api_token=YOUR_KEY"
+curl "https://eodhd.com/api/real-estate/US?filter[type]=real&filter[metric]=yoy&api_token=YOUR_KEY"
+
+# Government bond
+curl "https://eodhd.com/api/eod/US10Y.GBOND?from=2024-01-01&api_token=YOUR_KEY&fmt=json"
+
+# Money market rate
+curl "https://eodhd.com/api/eod/EURIBOR3M.MONEY?api_token=YOUR_KEY&fmt=json"
+```

@@ -1,0 +1,16 @@
+{
+  "symbol": "MSFT",
+  "status": "success",
+  "data": [
+    {
+      "date": "2026-09-30",
+      "shares_outstanding_diluted": "7446000000",
+      "shares_outstanding_basic": "7446000000"
+    },
+    {
+      "date": "2026-06-30",
+      "shares_outstanding_diluted": "7453000000",
+      "shares_outstanding_basic": "7453000000"
+    }
+  ]
+}

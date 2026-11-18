@@ -1,0 +1,41 @@
+[
+  {
+    "code": "AAPL.US",
+    "timestamp": 1795035600,
+    "gmtoffset": 0,
+    "open": 351.94,
+    "high": 356.42,
+    "low": 351.4706,
+    "close": 352.45,
+    "volume": 33281625,
+    "previousClose": 352.32,
+    "change": 0.13,
+    "change_p": 0.0369
+  },
+  {
+    "code": "MSFT.US",
+    "timestamp": 1795035600,
+    "gmtoffset": 0,
+    "open": 505.11,
+    "high": 510.44,
+    "low": 501.08,
+    "close": 508.29,
+    "volume": 19408308,
+    "previousClose": 506.24,
+    "change": 2.05,
+    "change_p": 0.4049
+  },
+  {
+    "code": "VTI.US",
+    "timestamp": 1795035600,
+    "gmtoffset": 0,
+    "open": 360.67,
+    "high": 361.67,
+    "low": 357.8,
+    "close": 359.48,
+    "volume": 3453030,
+    "previousClose": 359.48,
+    "change": 0,
+    "change_p": 0
+  }
+]
