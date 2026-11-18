@@ -125,7 +125,7 @@ class ProfileServiceTest : FunSpec({
             val item = f.add("SAP.DE")
 
             item shouldBe WatchlistItem(
-                identity = CompanyIdentity(Symbol.of("SAP.DE"), "XETRA", "SAP SE", Market.EU),
+                identity = CompanyIdentity(Symbol.of("SAP.DE"), "XETRA", "SAP SE", Market.EU, "Common Stock"),
                 sector = "Software",
                 tags = emptyList(),
             )
@@ -235,7 +235,11 @@ class ProfileServiceTest : FunSpec({
 
             val item = f.add("AAPL", name = "Other name")
 
-            item shouldBe WatchlistItem(CompanyIdentity(Symbol.of("AAPL"), "NASDAQ", "Apple Stored", Market.US), "Stored", listOf("core"))
+            item shouldBe WatchlistItem(
+                CompanyIdentity(Symbol.of("AAPL"), "NASDAQ", "Apple Stored", Market.US, "Common Stock"),
+                "Stored",
+                listOf("core"),
+            )
             f.watchlistOf(f.data.profile.id) shouldContainExactly listOf(entry)
             f.data.source.calls.shouldBeEmpty()
             f.data.cache.getAllCalls shouldBe 0
@@ -247,7 +251,7 @@ class ProfileServiceTest : FunSpec({
 
             val item = f.add("GONE")
 
-            item.identity shouldBe CompanyIdentity(Symbol.of("GONE"), "US", "GONE", Market.US)
+            item.identity shouldBe CompanyIdentity(Symbol.of("GONE"), "US", "GONE", Market.US, null)
             f.watchlistOf(f.data.profile.id) shouldContainExactly watchlistEntries("GONE")
         }
 
@@ -282,7 +286,7 @@ class ProfileServiceTest : FunSpec({
                 val item = f.add("AD.AS", name = "Koninklijke Ahold Delhaize NV")
 
                 item shouldBe WatchlistItem(
-                    identity = CompanyIdentity(Symbol.of("AD.AS"), "AMS", "Koninklijke Ahold Delhaize NV", Market.EU),
+                    identity = CompanyIdentity(Symbol.of("AD.AS"), "AMS", "Koninklijke Ahold Delhaize NV", Market.EU, null),
                     sector = null,
                     tags = emptyList(),
                 )

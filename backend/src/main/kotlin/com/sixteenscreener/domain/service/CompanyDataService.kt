@@ -108,7 +108,9 @@ class CompanyDataService(
         val fetched = profile.data?.takeIf { plan is Fetch<*, *> && profile.status == DataStatus.FRESH }
         if (fetched != null) watchlistCompanies.profileFetched(target.profile, key.source, symbol, fetched)
         val identity = identities.identify(symbol, target.lookup.listing, target.profile.watchlistEntry(symbol)?.name)
-        return CompanyProfileData(profile.data?.name?.let { identity.copy(name = it) } ?: identity, profile)
+        val exchange = identities.exchangeOf(symbol, target.lookup.listing)
+        val homeExchange = identity.stock && exchange?.isHomeOf(profile.data?.country) == true
+        return CompanyProfileData(profile.data?.name?.let { identity.copy(name = it) } ?: identity, profile, homeExchange)
     }
 
     suspend fun unexpiredCompanyProfile(source: SourceId, symbol: Symbol, lookup: SymbolLookup): SourceData<CompanyProfile> {

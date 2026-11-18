@@ -9,15 +9,20 @@ import java.time.Instant
  * @property exchange short exchange name shown under the ticker
  * @property name company name
  * @property market market of the exchange; null outside the US and EU markets (ADR-035)
+ * @property type security type as provided by the source, e.g. `Common Stock`; null when unknown
  */
 data class CompanyIdentity(
     val symbol: Symbol,
     val exchange: String,
     val name: String,
     val market: Market?,
+    val type: String?,
 ) {
     /** Ticker without the exchange suffix. */
     val ticker: String get() = symbol.ticker
+
+    /** True when the security is a stock, see [SecurityType.isStock]. */
+    val stock: Boolean get() = SecurityType.isStock(type)
 }
 
 /**
@@ -105,10 +110,13 @@ data class PriceAndRatios(
 /**
  * Company profile of a company from one source (detailed screen, "Company profile" tab).
  *
- * @property identity symbol, exchange, name and market resolved by the backend
+ * @property identity symbol, exchange, name, market and security type resolved by the backend
  * @property profile profile data from the source with its status
+ * @property homeExchange true when the company is a stock and its exchange is a main venue in the country of the
+ * company profile; false without a profile country or on an exchange missing from the static exchange table
  */
 data class CompanyProfileData(
     val identity: CompanyIdentity,
     val profile: SourceData<CompanyProfile>,
+    val homeExchange: Boolean,
 )

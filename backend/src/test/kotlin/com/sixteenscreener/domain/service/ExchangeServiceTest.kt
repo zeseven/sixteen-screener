@@ -53,7 +53,8 @@ class ExchangeServiceTest : FunSpec({
         entries.filter { row ->
             val info = resolver.find(row.mic)
             info == null || info.name != row.shortName || info.currency != row.currency ||
-                info.timeZone != row.timeZone || info.market != row.market
+                info.timeZone != row.timeZone || info.market != row.market || info.country != row.country ||
+                info.mainVenue != row.mainVenue
         }.shouldBeEmpty()
     }
 
@@ -66,6 +67,8 @@ class ExchangeServiceTest : FunSpec({
             currency = "CAD",
             timeZone = ZoneId.of("America/Toronto"),
             market = null,
+            country = "CA",
+            mainVenue = true,
         )
     }
 
@@ -78,6 +81,8 @@ class ExchangeServiceTest : FunSpec({
             currency = "EUR",
             timeZone = ZoneId.of("Europe/Amsterdam"),
             market = Market.EU,
+            country = "NL",
+            mainVenue = true,
         )
     }
 
@@ -90,7 +95,20 @@ class ExchangeServiceTest : FunSpec({
             currency = "USD",
             timeZone = ZoneId.of("America/New_York"),
             market = Market.US,
+            country = "US",
+            mainVenue = true,
         )
+    }
+
+    test("a row of a German regional exchange is not a main venue") {
+        entry("F").country shouldBe "DE"
+        entry("F").mainVenue shouldBe false
+        entry("DE").mainVenue shouldBe true
+    }
+
+    test("US OTC rows are not main venues") {
+        entries.filter { it.suffix.isEmpty() && !it.mainVenue }.map { it.mic } shouldContainExactlyInAnyOrder
+            listOf("OTCM", "OOTC", "PINX", "PSGM", "EXPM", "OTCB", "OTCQ", "XOTC")
     }
 
     test("the table is the same on every call") {

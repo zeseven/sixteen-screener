@@ -469,11 +469,36 @@ class WatchlistRoutesTest : FunSpec({
                     "exchange" to JsonPrimitive("XETRA"),
                     "name" to JsonPrimitive("SAP SE"),
                     "market" to JsonPrimitive("EU"),
+                    "type" to JsonPrimitive("Common Stock"),
+                    "stock" to JsonPrimitive(true),
                     "logoUrl" to JsonPrimitive("/logos/SAP.DE"),
                     "sector" to JsonPrimitive("Software"),
                     "tags" to JsonArray(listOf(JsonPrimitive("eu"))),
                 ),
             )
+        }
+    }
+
+    test("watchlist item of a security that is not a stock has stock false") {
+        routeTest { ports ->
+            val profile = ports.savedProfile(watchlist = listOf("TM"))
+            ports.symbolDirectory.add(ListedSymbol(Symbol.of("TM"), "TOYOTA MOTOR CORP", "XNYS", "USD", "ADR"))
+
+            val item = client.get("/profiles/${profile.id}/watchlist").json().items().single()
+
+            item["type"] shouldBe JsonPrimitive("ADR")
+            item["stock"] shouldBe JsonPrimitive(false)
+        }
+    }
+
+    test("watchlist item of a symbol missing from the directory has an unknown type and counts as a stock") {
+        routeTest { ports ->
+            val profile = ports.savedProfile(watchlist = listOf("GONE"))
+
+            val item = client.get("/profiles/${profile.id}/watchlist").json().items().single()
+
+            item["type"] shouldBe JsonNull
+            item["stock"] shouldBe JsonPrimitive(true)
         }
     }
 

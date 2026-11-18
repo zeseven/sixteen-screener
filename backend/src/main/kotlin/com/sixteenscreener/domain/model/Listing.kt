@@ -39,10 +39,19 @@ data class SearchHit(
  * @property timeZone time zone of the exchange, used for market days
  * @property market market of the exchange; null outside the US and EU markets (ADR-035)
  * @property currency ISO 4217 trading currency of the exchange
+ * @property country ISO 3166-1 alpha-2 country of the exchange
+ * @property mainVenue true when domestic companies have their primary listing on the exchange; false for regional and OTC
+ * exchanges
  */
 data class ExchangeInfo(
     val name: String,
     val timeZone: ZoneId,
     val market: Market?,
     val currency: String,
-)
+    val country: String,
+    val mainVenue: Boolean,
+) {
+    /** True when the exchange is a main venue in [companyCountry], an ISO 3166-1 alpha-2 code compared case-insensitively. */
+    fun isHomeOf(companyCountry: String?): Boolean =
+        mainVenue && companyCountry != null && country.equals(companyCountry.trim(), ignoreCase = true)
+}

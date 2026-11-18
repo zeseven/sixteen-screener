@@ -186,7 +186,31 @@ class SearchServiceTest : FunSpec({
             f.hits("ahold", "AD.AS" to "Koninklijke Ahold Delhaize NV")
 
             f.search("ahold").items.single().identity shouldBe
-                CompanyIdentity(Symbol.of("AD.AS"), "AMS", "Koninklijke Ahold Delhaize NV", Market.EU)
+                CompanyIdentity(Symbol.of("AD.AS"), "AMS", "Koninklijke Ahold Delhaize NV", Market.EU, "Common Stock")
+        }
+
+        test("security type of the directory listing wins over the type of the search hit") {
+            val f = SearchFixture()
+            f.data.listed(listing("TM", mic = "XNYS", name = "TOYOTA MOTOR CORP").copy(type = "ADR"))
+            f.hits("toyota", "TM" to "Toyota Motor Corp")
+
+            val identity = f.search("toyota").items.single().identity
+
+            identity.type shouldBe "ADR"
+            identity.stock shouldBe false
+        }
+
+        test("result missing from the directory takes the security type of the search hit") {
+            val f = SearchFixture()
+            f.data.source.searchResults["toyota"] = SourceResult.Success(
+                listOf(SearchHit(Symbol.of("TM"), "Toyota Motor Corp", "ADR")),
+                f.data.success(),
+            )
+
+            val identity = f.search("toyota").items.single().identity
+
+            identity.type shouldBe "ADR"
+            identity.stock shouldBe false
         }
 
         test("duplicate symbols from the source are returned once") {

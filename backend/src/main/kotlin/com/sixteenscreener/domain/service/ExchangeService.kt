@@ -27,6 +27,8 @@ class ExchangeService(private val marketResolver: MarketResolver) : ExchangesUse
             currency = info.currency,
             timeZone = info.timeZone,
             market = info.market,
+            country = info.country,
+            mainVenue = info.mainVenue,
         )
     }
 

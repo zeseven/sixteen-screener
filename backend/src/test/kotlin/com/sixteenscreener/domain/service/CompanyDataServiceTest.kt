@@ -6,6 +6,7 @@ import com.sixteenscreener.domain.model.DataStatus
 import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.Indicator
 import com.sixteenscreener.domain.model.IndicatorLevel
+import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.Market
 import com.sixteenscreener.domain.model.PriceTrend
 import com.sixteenscreener.domain.model.ProfileId
@@ -26,6 +27,7 @@ import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.ratiosKey
 import com.sixteenscreener.watchlistEntry
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.datatest.withData
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -39,6 +41,14 @@ import java.time.Duration
 private val AAPL = Symbol.of("AAPL")
 private val AD = Symbol.of("AD.AS")
 private val apple = listing("AAPL", name = "APPLE INC")
+
+private data class HomeExchangeCase(
+    val symbol: String,
+    val mic: String,
+    val type: String?,
+    val country: String?,
+    val home: Boolean,
+)
 
 private fun fixture(
     limit: Int = 60,
@@ -443,6 +453,40 @@ class CompanyDataServiceTest : FunSpec({
             result.profile.status shouldBe DataStatus.LIMIT_REACHED
             result.profile.data.shouldBeNull()
             result.identity.name shouldBe "APPLE INC"
+            result.homeExchange shouldBe false
+        }
+
+        test("identity keeps the security type of the listing when the name is taken from the source profile") {
+            val f = CompanyDataFixture().apply { listed(listing("AAPL", name = "APPLE INC").copy(type = "ADR")) }
+            f.profileFromSource("AAPL")
+
+            val identity = f.service.companyProfile(f.profile.id, AAPL, source = null, refresh = false).identity
+
+            identity.name shouldBe "Apple Inc"
+            identity.type shouldBe "ADR"
+            identity.stock shouldBe false
+        }
+
+        context("home exchange") {
+            withData(
+                nameFn = { "${it.symbol} on ${it.mic} (${it.type}) for ${it.country} -> ${it.home}" },
+                HomeExchangeCase("AAPL", "XNAS", "Common Stock", "US", home = true),
+                HomeExchangeCase("SAP.DE", "XETR", "Common Stock", "de", home = true),
+                HomeExchangeCase("O", "XNYS", "REIT", "US", home = true),
+                HomeExchangeCase("SAP.DE", "XETR", null, "DE", home = true),
+                HomeExchangeCase("APC.DE", "XETR", "Common Stock", "US", home = false),
+                HomeExchangeCase("SAP.F", "XFRA", "Common Stock", "DE", home = false),
+                HomeExchangeCase("NSRGY", "OTCQ", "Common Stock", "US", home = false),
+                HomeExchangeCase("TM", "XNYS", "ADR", "US", home = false),
+                HomeExchangeCase("AAPL", "XNAS", "Common Stock", null, home = false),
+                HomeExchangeCase("AAPL", "ZZZZ", "Common Stock", "US", home = false),
+            ) { case ->
+                val symbol = Symbol.of(case.symbol)
+                val f = CompanyDataFixture().apply { listed(ListedSymbol(symbol, case.symbol, case.mic, "USD", case.type)) }
+                f.profileFromSource(case.symbol, sampleProfile().copy(country = case.country))
+
+                f.service.companyProfile(f.profile.id, symbol, source = null, refresh = false).homeExchange shouldBe case.home
+            }
         }
     }
 
@@ -523,7 +567,7 @@ class CompanyDataServiceTest : FunSpec({
             val result = f.service.companyProfile(f.profile.id, AD, source = null, refresh = true)
 
             result.profile.status shouldBe DataStatus.NOT_SUPPORTED
-            result.identity shouldBe CompanyIdentity(AD, "AMS", "AD", Market.EU)
+            result.identity shouldBe CompanyIdentity(AD, "AMS", "AD", Market.EU, null)
             f.source.calls.shouldBeEmpty()
         }
 

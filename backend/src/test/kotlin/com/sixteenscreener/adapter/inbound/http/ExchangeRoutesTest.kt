@@ -21,6 +21,8 @@ private fun exchange(
     shortName: String,
     fullName: String,
     mic: String,
+    country: String,
+    mainVenue: Boolean,
     currency: String,
     timeZone: String,
     market: String?,
@@ -30,6 +32,8 @@ private fun exchange(
         "shortName" to JsonPrimitive(shortName),
         "fullName" to JsonPrimitive(fullName),
         "mic" to JsonPrimitive(mic),
+        "country" to JsonPrimitive(country),
+        "mainVenue" to JsonPrimitive(mainVenue),
         "currency" to JsonPrimitive(currency),
         "timeZone" to JsonPrimitive(timeZone),
         "market" to (market?.let(::JsonPrimitive) ?: JsonNull),
@@ -46,9 +50,9 @@ class ExchangeRoutesTest : FunSpec({
             val body = response.json()
             body.keys shouldBe setOf("items")
             body.itemWithSuffix("V") shouldBe
-                exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", "CAD", "America/Toronto", null)
+                exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", "CA", true, "CAD", "America/Toronto", null)
             body.itemWithSuffix("AS") shouldBe
-                exchange("AS", "AMS", "Euronext Amsterdam", "XAMS", "EUR", "Europe/Amsterdam", "EU")
+                exchange("AS", "AMS", "Euronext Amsterdam", "XAMS", "NL", true, "EUR", "Europe/Amsterdam", "EU")
         }
     }
 
@@ -58,7 +62,17 @@ class ExchangeRoutesTest : FunSpec({
 
             items.first()["suffix"] shouldBe JsonPrimitive("")
             items.single { it["mic"] == JsonPrimitive("XNYS") } shouldBe
-                exchange("", "NYSE", "New York Stock Exchange", "XNYS", "USD", "America/New_York", "US")
+                exchange("", "NYSE", "New York Stock Exchange", "XNYS", "US", true, "USD", "America/New_York", "US")
+        }
+    }
+
+    test("German regional exchanges and US OTC markets are not main venues") {
+        routeTest {
+            val items = client.get("/exchanges").json().items()
+
+            items.single { it["mic"] == JsonPrimitive("XFRA") } shouldBe
+                exchange("F", "FSE", "Frankfurt Stock Exchange", "XFRA", "DE", false, "EUR", "Europe/Berlin", "EU")
+            items.single { it["mic"] == JsonPrimitive("PINX") }["mainVenue"] shouldBe JsonPrimitive(false)
         }
     }
 

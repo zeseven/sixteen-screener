@@ -388,6 +388,9 @@ class CompanyRoutesTest : FunSpec({
                         "exchange" to JsonPrimitive("NASDAQ"),
                         "name" to JsonPrimitive("Apple Inc"),
                         "market" to JsonPrimitive("US"),
+                        "type" to JsonPrimitive("Common Stock"),
+                        "stock" to JsonPrimitive(true),
+                        "homeExchange" to JsonPrimitive(true),
                         "country" to JsonPrimitive("US"),
                         "currency" to JsonPrimitive("USD"),
                         "sector" to JsonPrimitive("Technology"),
@@ -400,6 +403,35 @@ class CompanyRoutesTest : FunSpec({
                         "description" to JsonNull,
                     ),
                 )
+            }
+        }
+
+        test("a listing on an exchange outside the company's country is not its home exchange") {
+            routeTest(config = fullConfig()) { ports ->
+                val saved = ports.savedProfile()
+                val appleOnXetra = Symbol.of("APC.DE")
+                ports.symbolDirectory.add(ListedSymbol(appleOnXetra, "APPLE INC", "XETR", "EUR", "Common Stock"))
+                ports.marketData.profiles[appleOnXetra] = SourceResult.Success(profile, ports.success())
+
+                val returned = client.get("/profiles/${saved.id}/companies/APC.DE/profile").json()["profile"]!!.jsonObject
+
+                returned["country"] shouldBe JsonPrimitive("US")
+                returned["stock"] shouldBe JsonPrimitive(true)
+                returned["homeExchange"] shouldBe JsonPrimitive(false)
+            }
+        }
+
+        test("a depositary receipt is not on its home exchange") {
+            routeTest(config = fullConfig()) { ports ->
+                val saved = ports.savedProfile()
+                ports.symbolDirectory.add(ListedSymbol(aapl, "APPLE INC", "XNAS", "USD", "ADR"))
+                ports.marketData.profiles[aapl] = SourceResult.Success(profile, ports.success())
+
+                val returned = client.get("/profiles/${saved.id}/companies/AAPL/profile").json()["profile"]!!.jsonObject
+
+                returned["type"] shouldBe JsonPrimitive("ADR")
+                returned["stock"] shouldBe JsonPrimitive(false)
+                returned["homeExchange"] shouldBe JsonPrimitive(false)
             }
         }
 

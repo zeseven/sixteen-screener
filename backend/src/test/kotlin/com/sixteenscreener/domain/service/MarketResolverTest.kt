@@ -13,6 +13,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.util.Locale
 
 class MarketResolverTest : FunSpec({
     val resolver = MarketResolver()
@@ -72,36 +73,44 @@ class MarketResolverTest : FunSpec({
         resolver.find("XTKS")?.currency shouldBe "JPY"
     }
 
-    data class CodeCase(val code: String, val name: String, val zone: String, val market: Market?, val currency: String)
+    data class CodeCase(
+        val code: String,
+        val name: String,
+        val zone: String,
+        val market: Market?,
+        val currency: String,
+        val country: String,
+        val mainVenue: Boolean = true,
+    )
 
     context("maps exchange codes to the static exchange table") {
         withData(
             nameFn = { "${it.code} -> ${it.name} (${it.market})" },
-            CodeCase("US", "US", "America/New_York", Market.US, "USD"),
-            CodeCase("AS", "AMS", "Europe/Amsterdam", Market.EU, "EUR"),
-            CodeCase("PA", "Paris", "Europe/Paris", Market.EU, "EUR"),
-            CodeCase("BR", "BRU", "Europe/Brussels", Market.EU, "EUR"),
-            CodeCase("LS", "Lisbon", "Europe/Lisbon", Market.EU, "EUR"),
-            CodeCase("IR", "Dublin", "Europe/Dublin", Market.EU, "EUR"),
-            CodeCase("DE", "XETRA", "Europe/Berlin", Market.EU, "EUR"),
-            CodeCase("F", "FSE", "Europe/Berlin", Market.EU, "EUR"),
-            CodeCase("MI", "Milan", "Europe/Rome", Market.EU, "EUR"),
-            CodeCase("MC", "BME", "Europe/Madrid", Market.EU, "EUR"),
-            CodeCase("ST", "STO", "Europe/Stockholm", Market.EU, "SEK"),
-            CodeCase("CO", "CPH", "Europe/Copenhagen", Market.EU, "DKK"),
-            CodeCase("OL", "Oslo", "Europe/Oslo", Market.EU, "NOK"),
-            CodeCase("WA", "GPW", "Europe/Warsaw", Market.EU, "PLN"),
-            CodeCase("L", "LSE", "Europe/London", Market.EU, "GBP"),
-            CodeCase("IL", "LSE", "Europe/London", Market.EU, "GBP"),
-            CodeCase("SW", "SIX", "Europe/Zurich", Market.EU, "CHF"),
-            CodeCase("T", "TSE", "Asia/Tokyo", null, "JPY"),
-            CodeCase("TO", "TSX", "America/Toronto", null, "CAD"),
-            CodeCase("HK", "HKEX", "Asia/Hong_Kong", null, "HKD"),
-            CodeCase("IS", "BIST", "Europe/Istanbul", null, "TRY"),
-            CodeCase("ME", "MOEX", "Europe/Moscow", null, "RUB"),
+            CodeCase("US", "US", "America/New_York", Market.US, "USD", "US", mainVenue = false),
+            CodeCase("AS", "AMS", "Europe/Amsterdam", Market.EU, "EUR", "NL"),
+            CodeCase("PA", "Paris", "Europe/Paris", Market.EU, "EUR", "FR"),
+            CodeCase("BR", "BRU", "Europe/Brussels", Market.EU, "EUR", "BE"),
+            CodeCase("LS", "Lisbon", "Europe/Lisbon", Market.EU, "EUR", "PT"),
+            CodeCase("IR", "Dublin", "Europe/Dublin", Market.EU, "EUR", "IE"),
+            CodeCase("DE", "XETRA", "Europe/Berlin", Market.EU, "EUR", "DE"),
+            CodeCase("F", "FSE", "Europe/Berlin", Market.EU, "EUR", "DE", mainVenue = false),
+            CodeCase("MI", "Milan", "Europe/Rome", Market.EU, "EUR", "IT"),
+            CodeCase("MC", "BME", "Europe/Madrid", Market.EU, "EUR", "ES"),
+            CodeCase("ST", "STO", "Europe/Stockholm", Market.EU, "SEK", "SE"),
+            CodeCase("CO", "CPH", "Europe/Copenhagen", Market.EU, "DKK", "DK"),
+            CodeCase("OL", "Oslo", "Europe/Oslo", Market.EU, "NOK", "NO"),
+            CodeCase("WA", "GPW", "Europe/Warsaw", Market.EU, "PLN", "PL"),
+            CodeCase("L", "LSE", "Europe/London", Market.EU, "GBP", "GB"),
+            CodeCase("IL", "LSE", "Europe/London", Market.EU, "GBP", "GB"),
+            CodeCase("SW", "SIX", "Europe/Zurich", Market.EU, "CHF", "CH"),
+            CodeCase("T", "TSE", "Asia/Tokyo", null, "JPY", "JP"),
+            CodeCase("TO", "TSX", "America/Toronto", null, "CAD", "CA"),
+            CodeCase("HK", "HKEX", "Asia/Hong_Kong", null, "HKD", "HK"),
+            CodeCase("IS", "BIST", "Europe/Istanbul", null, "TRY", "TR"),
+            CodeCase("ME", "MOEX", "Europe/Moscow", null, "RUB", "RU"),
         ) { case ->
             resolver.exchangeOf(ExchangeCode(case.code)) shouldBe
-                ExchangeInfo(case.name, ZoneId.of(case.zone), case.market, case.currency)
+                ExchangeInfo(case.name, ZoneId.of(case.zone), case.market, case.currency, case.country, case.mainVenue)
         }
     }
 
@@ -181,6 +190,69 @@ class MarketResolverTest : FunSpec({
             .filterValues { it.toSet().size > 1 }
             .keys
             .shouldBeEmpty()
+    }
+
+    test("every exchange of the static exchange table is in a valid ISO 3166-1 alpha-2 country") {
+        val isoCountries = Locale.getISOCountries().toSet()
+
+        allMicsOf(resolver)
+            .filterNot { mic -> resolver.find(mic).shouldNotBeNull().country.let { it in isoCountries && it == it.uppercase() } }
+            .shouldBeEmpty()
+    }
+
+    test("only the German regional exchanges and the US OTC markets are not main venues") {
+        allMicsOf(resolver).filterNot { resolver.find(it).shouldNotBeNull().mainVenue }.toSet() shouldBe setOf(
+            "XFRA", "XBER", "XMUN", "XSTU", "XDUS", "XHAM", "XHAN",
+            "OTCM", "OOTC", "PINX", "PSGM", "EXPM", "OTCB", "OTCQ", "XOTC",
+        )
+    }
+
+    test("the combined US exchanges are in the US and not a main venue") {
+        val combined = resolver.exchangeOf(ExchangeCode.US).shouldNotBeNull()
+
+        combined.country shouldBe "US"
+        combined.mainVenue shouldBe false
+    }
+
+    context("maps MICs to the country of the exchange") {
+        withData(
+            nameFn = { "${it.first} -> ${it.second}" },
+            "XNYS" to "US",
+            "PINX" to "US",
+            "XETR" to "DE",
+            "XHAN" to "DE",
+            "XMSM" to "IE",
+            "MTAA" to "IT",
+            "XVTX" to "CH",
+            "XLON" to "GB",
+            "NEOE" to "CA",
+            "XSHE" to "CN",
+            "XKOS" to "KR",
+            "ROCO" to "TW",
+            "DSMD" to "QA",
+            "XCAR" to "VE",
+        ) { (mic, country) ->
+            resolver.find(mic)?.country shouldBe country
+        }
+    }
+
+    data class HomeCase(val mic: String, val companyCountry: String?, val home: Boolean)
+
+    context("an exchange is the home of companies of its country only when it is a main venue") {
+        withData(
+            nameFn = { "${it.mic} for ${it.companyCountry} -> ${it.home}" },
+            HomeCase("XETR", "DE", true),
+            HomeCase("XETR", "de", true),
+            HomeCase("XETR", " DE ", true),
+            HomeCase("XETR", "US", false),
+            HomeCase("XETR", null, false),
+            HomeCase("XETR", "", false),
+            HomeCase("XFRA", "DE", false),
+            HomeCase("XNAS", "US", true),
+            HomeCase("PINX", "US", false),
+        ) { case ->
+            resolver.find(case.mic).shouldNotBeNull().isHomeOf(case.companyCountry) shouldBe case.home
+        }
     }
 
     context("maps MICs to short names abbreviated to fit under the ticker") {

@@ -60,12 +60,14 @@ class SearchRoutesTest : FunSpec({
             body["source"] shouldBe JsonPrimitive("finnhub")
             body["status"] shouldBe JsonPrimitive("OK")
             val (sap, toyota) = body.items()
-            sap.keys shouldBe setOf("symbol", "ticker", "exchange", "name", "market", "logoUrl", "inWatchlist")
+            sap.keys shouldBe setOf("symbol", "ticker", "exchange", "name", "market", "type", "stock", "logoUrl", "inWatchlist")
             sap["symbol"] shouldBe JsonPrimitive("SAP.DE")
             sap["ticker"] shouldBe JsonPrimitive("SAP")
             sap["exchange"] shouldBe JsonPrimitive("XETRA")
             sap["name"] shouldBe JsonPrimitive("SAP SE")
             sap["market"] shouldBe JsonPrimitive("EU")
+            sap["type"] shouldBe JsonPrimitive("Common Stock")
+            sap["stock"] shouldBe JsonPrimitive(true)
             sap["logoUrl"] shouldBe JsonPrimitive("/logos/SAP.DE")
             sap["inWatchlist"] shouldBe JsonPrimitive(true)
             toyota["market"] shouldBe JsonNull
@@ -74,6 +76,19 @@ class SearchRoutesTest : FunSpec({
             toyota.keys shouldBe sap.keys
             ports.companyCache.getAllCalls shouldBe 0
             toyota["inWatchlist"] shouldBe JsonPrimitive(false)
+        }
+    }
+
+    test("a result that is not a stock carries its security type and stock false") {
+        routeTest { ports ->
+            val profile = ports.savedProfile()
+            ports.symbolDirectory.add(ListedSymbol(Symbol.of("TM"), "TOYOTA MOTOR CORP", "XNYS", "USD", "ADR"))
+            ports.searchHits("TM", "TM")
+
+            val item = client.get("/profiles/${profile.id}/search") { parameter("query", "TM") }.json().items().single()
+
+            item["type"] shouldBe JsonPrimitive("ADR")
+            item["stock"] shouldBe JsonPrimitive(false)
         }
     }
 

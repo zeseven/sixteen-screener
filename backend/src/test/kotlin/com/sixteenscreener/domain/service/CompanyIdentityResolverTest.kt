@@ -12,7 +12,7 @@ class CompanyIdentityResolverTest : FunSpec({
 
     test("listing gives exchange name, market and name") {
         resolver.identify(Symbol.of("SAP.DE"), listing("SAP.DE", mic = "XETR", name = "SAP SE"), fallbackName = "SAP") shouldBe
-            CompanyIdentity(Symbol.of("SAP.DE"), "XETRA", "SAP SE", Market.EU)
+            CompanyIdentity(Symbol.of("SAP.DE"), "XETRA", "SAP SE", Market.EU, "Common Stock")
     }
 
     test("listing MIC wins over the static exchange table of the exchange code") {
@@ -32,7 +32,7 @@ class CompanyIdentityResolverTest : FunSpec({
 
     test("listing without MIC takes exchange and market from the static exchange table") {
         resolver.identify(Symbol.of("SHEL.L"), listing("SHEL.L", mic = null, name = "SHELL PLC")) shouldBe
-            CompanyIdentity(Symbol.of("SHEL.L"), "LSE", "SHELL PLC", Market.EU)
+            CompanyIdentity(Symbol.of("SHEL.L"), "LSE", "SHELL PLC", Market.EU, "Common Stock")
     }
 
     data class Case(val symbol: String, val exchange: String, val market: Market?)
@@ -60,7 +60,36 @@ class CompanyIdentityResolverTest : FunSpec({
 
     test("without listing the fallback name is used") {
         resolver.identify(Symbol.of("AAPL"), listing = null, fallbackName = "Apple Inc") shouldBe
-            CompanyIdentity(Symbol.of("AAPL"), "US", "Apple Inc", Market.US)
+            CompanyIdentity(Symbol.of("AAPL"), "US", "Apple Inc", Market.US, null)
+    }
+
+    test("listing type wins over the fallback type") {
+        resolver.identify(Symbol.of("TM"), listing("TM", mic = "XNYS").copy(type = "ADR"), fallbackType = "Common Stock").type shouldBe
+            "ADR"
+    }
+
+    test("listing without type uses the fallback type") {
+        resolver.identify(Symbol.of("TM"), listing("TM").copy(type = null), fallbackType = "ADR").type shouldBe "ADR"
+    }
+
+    test("without listing the fallback type is used") {
+        val identity = resolver.identify(Symbol.of("TM"), listing = null, fallbackType = "ADR")
+
+        identity.type shouldBe "ADR"
+        identity.stock shouldBe false
+    }
+
+    test("without listing and fallback type the type is unknown and counts as a stock") {
+        val identity = resolver.identify(Symbol.of("AAPL"), listing = null)
+
+        identity.type shouldBe null
+        identity.stock shouldBe true
+    }
+
+    test("exchange of a listing comes from its MIC, otherwise from the exchange code") {
+        resolver.exchangeOf(Symbol.of("SAP.DE"), listing("SAP.DE", mic = "XFRA"))?.mainVenue shouldBe false
+        resolver.exchangeOf(Symbol.of("SAP.DE"), listing = null)?.country shouldBe "DE"
+        resolver.exchangeOf(Symbol.of("SAP.DE"), listing("SAP.DE", mic = "ZZZZ")) shouldBe null
     }
 
     test("without listing and fallback name the ticker is the name") {

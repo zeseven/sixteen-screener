@@ -38,7 +38,7 @@ class SearchService(
         val watchlist = profile.watchlistSymbols.toSet()
         val items = hits.map { hit ->
             SearchResult(
-                identity = identities.identify(hit.symbol, lookups[hit.symbol]?.listing, hit.name),
+                identity = identities.identify(hit.symbol, lookups[hit.symbol]?.listing, hit.name, hit.type),
                 inWatchlist = hit.symbol in watchlist,
             )
         }

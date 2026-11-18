@@ -73,8 +73,12 @@ class WatchlistServiceTest : FunSpec({
         f.data.listed(listing("AAPL", name = "APPLE INC"), listing("SAP.DE", mic = "XETR", currency = "EUR", name = "SAP SE"))
 
         f.watchlist() shouldContainExactly listOf(
-            WatchlistItem(CompanyIdentity(Symbol.of("SAP.DE"), "XETRA", "SAP SE", Market.EU), "Software", listOf("eu", "core")),
-            WatchlistItem(CompanyIdentity(Symbol.of("AAPL"), "NASDAQ", "Apple Inc", Market.US), null, emptyList()),
+            WatchlistItem(
+                CompanyIdentity(Symbol.of("SAP.DE"), "XETRA", "SAP SE", Market.EU, "Common Stock"),
+                "Software",
+                listOf("eu", "core"),
+            ),
+            WatchlistItem(CompanyIdentity(Symbol.of("AAPL"), "NASDAQ", "Apple Inc", Market.US, "Common Stock"), null, emptyList()),
         )
     }
 
@@ -87,7 +91,7 @@ class WatchlistServiceTest : FunSpec({
 
         f.watchlist() shouldContainExactly listOf(
             WatchlistItem(
-                CompanyIdentity(Symbol.of("AD.AS"), "AMS", "Koninklijke Ahold Delhaize NV", Market.EU),
+                CompanyIdentity(Symbol.of("AD.AS"), "AMS", "Koninklijke Ahold Delhaize NV", Market.EU, null),
                 null,
                 emptyList(),
             ),
@@ -121,7 +125,7 @@ class WatchlistServiceTest : FunSpec({
 
         val item = f.watchlist().single()
 
-        item.identity shouldBe CompanyIdentity(Symbol.of("GONE.DE"), "XETRA", "GONE", Market.EU)
+        item.identity shouldBe CompanyIdentity(Symbol.of("GONE.DE"), "XETRA", "GONE", Market.EU, null)
         item.sector shouldBe "Industrials"
     }
 
