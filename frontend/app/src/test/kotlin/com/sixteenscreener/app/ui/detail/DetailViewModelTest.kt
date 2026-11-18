@@ -76,10 +76,10 @@ class DetailViewModelTest {
     private fun callsOf(prefix: String) = apiClient.calls.filter { it.startsWith(prefix) }
 
     @Test
-    fun `price and ratios load when the screen opens`() = runTest {
+    fun `price and ratios and the company profile load when the screen opens`() = runTest {
         val viewModel = viewModel()
 
-        assertEquals(listOf("getPriceAndRatios(p1, AAPL, null, false)"), apiClient.calls)
+        assertEquals(listOf("getPriceAndRatios(p1, AAPL, null, false)", "getCompanyProfile(p1, AAPL, null, false)"), apiClient.calls)
         assertEquals(CompanyData.priceAndRatios(), viewModel.state.priceAndRatios.value)
         assertFalse(viewModel.state.priceAndRatios.isLoading)
     }
@@ -98,11 +98,65 @@ class DetailViewModelTest {
     }
 
     @Test
-    fun `header shows the initial summary without loading the profile`() = runTest {
+    fun `company profile is requested on open with an initial summary and the price tab selected`() = runTest {
+        val response = CompletableDeferred<ApiResult<CompanyProfileData>>()
+        apiClient.getCompanyProfile = { _, _, _, _ -> response.await() }
+
         val viewModel = viewModel()
 
+        assertEquals(DetailTab.PRICE_AND_RATIOS, viewModel.state.selectedTab)
+        assertEquals(listOf("getCompanyProfile(p1, AAPL, null, false)"), callsOf("getCompanyProfile"))
+        assertTrue(viewModel.state.companyProfile.isLoading)
         assertEquals("Apple Inc.", viewModel.state.header?.name)
-        assertTrue(callsOf("getCompanyProfile").isEmpty())
+    }
+
+    @Test
+    fun `home exchange mark is shown when the profile arrives without opening the profile tab`() = runTest {
+        val response = CompletableDeferred<ApiResult<CompanyProfileData>>()
+        apiClient.getCompanyProfile = { _, _, _, _ -> response.await() }
+        val viewModel = viewModel()
+        assertFalse(viewModel.state.homeExchange)
+
+        response.complete(ApiResult.Success(CompanyData.companyProfileData(CompanyData.companyProfile(homeExchange = true))))
+
+        assertTrue(viewModel.state.homeExchange)
+        assertEquals(DetailTab.PRICE_AND_RATIOS, viewModel.state.selectedTab)
+    }
+
+    @Test
+    fun `opening the profile tab after the profile loaded on open sends no second request`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onTabSelected(DetailTab.COMPANY_PROFILE)
+
+        assertEquals(listOf("getCompanyProfile(p1, AAPL, null, false)"), callsOf("getCompanyProfile"))
+        assertEquals(CompanyData.companyProfileData(), viewModel.state.companyProfile.value)
+    }
+
+    @Test
+    fun `opening the profile tab while the profile loads on open sends no second request`() = runTest {
+        val response = CompletableDeferred<ApiResult<CompanyProfileData>>()
+        apiClient.getCompanyProfile = { _, _, _, _ -> response.await() }
+        val viewModel = viewModel()
+
+        viewModel.onTabSelected(DetailTab.COMPANY_PROFILE)
+        response.complete(ApiResult.Success(CompanyData.companyProfileData()))
+
+        assertEquals(1, callsOf("getCompanyProfile").size)
+        assertEquals(CompanyData.companyProfileData(), viewModel.state.companyProfile.value)
+    }
+
+    @Test
+    fun `failed profile on open keeps the route header without the home exchange mark and the price tab`() = runTest {
+        apiClient.getCompanyProfile = { _, _, _, _ -> ApiResult.Failure(ApiError.Network(isTimeout = false)) }
+
+        val viewModel = viewModel()
+
+        assertEquals(apple, viewModel.state.header)
+        assertFalse(viewModel.state.homeExchange)
+        assertEquals(CompanyData.priceAndRatios(), viewModel.state.priceAndRatios.value)
+        assertNull(viewModel.state.priceAndRatios.error)
+        assertEquals(ApiError.Network(isTimeout = false), viewModel.state.companyProfile.error)
     }
 
     @Test
@@ -137,8 +191,6 @@ class DetailViewModelTest {
         }
         val viewModel = viewModel()
 
-        viewModel.onTabSelected(DetailTab.COMPANY_PROFILE)
-
         assertEquals("Apple Incorporated", viewModel.state.header?.name)
         assertEquals(apple.logoUrl, viewModel.state.header?.logoUrl)
     }
@@ -146,6 +198,7 @@ class DetailViewModelTest {
     @Test
     fun `header carries the security type of the route company and no home exchange before the profile arrives`() = runTest {
         val adr = Companies.identity("NSRGY", name = "Nestle SA", type = "ADR", stock = false)
+        apiClient.getCompanyProfile = { _, _, _, _ -> CompletableDeferred<ApiResult<CompanyProfileData>>().await() }
 
         val viewModel = viewModel(DetailRoute(adr.symbol, adr))
 
@@ -160,8 +213,6 @@ class DetailViewModelTest {
             ApiResult.Success(CompanyData.companyProfileData(CompanyData.companyProfile(type = "ADR", stock = false, homeExchange = true)))
         }
         val viewModel = viewModel()
-
-        viewModel.onTabSelected(DetailTab.COMPANY_PROFILE)
 
         assertEquals("ADR", viewModel.state.header?.type)
         assertEquals(false, viewModel.state.header?.stock)
@@ -398,6 +449,7 @@ class DetailViewModelTest {
     fun `add sends the name of the route company shown in the header`() = runTest {
         val sentNames = mutableListOf<String>()
         apiClient.addToWatchlist = { _, _, name -> sentNames += name; ApiResult.Success(Companies.item("AAPL")) }
+        apiClient.getCompanyProfile = { _, _, _, _ -> CompletableDeferred<ApiResult<CompanyProfileData>>().await() }
         val viewModel = viewModel()
 
         viewModel.onToggleWatchlist()
@@ -413,7 +465,6 @@ class DetailViewModelTest {
         val sentNames = mutableListOf<String>()
         apiClient.addToWatchlist = { _, _, name -> sentNames += name; ApiResult.Success(Companies.item("AAPL")) }
         val viewModel = viewModel()
-        viewModel.onTabSelected(DetailTab.COMPANY_PROFILE)
 
         viewModel.onToggleWatchlist()
 

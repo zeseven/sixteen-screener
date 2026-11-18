@@ -89,6 +89,7 @@ data class DetailUiState(
 
 /**
  * Detailed screen: each tab loads its data once when first shown, the refresh button reloads every tab from the sources (ADR-052).
+ * The company profile loads when the screen opens, as the header shows its identity and home exchange.
  * The balance sheet keeps the result of each selected source while the screen is open (ADR-007, ADR-047).
  */
 @HiltViewModel(assistedFactory = DetailViewModel.Factory::class)
@@ -140,7 +141,7 @@ class DetailViewModel @AssistedInject constructor(
 
     init {
         loadOnce(DetailTab.PRICE_AND_RATIOS)
-        if (route.initialCompany == null) loadOnce(DetailTab.COMPANY_PROFILE)
+        loadOnce(DetailTab.COMPANY_PROFILE)
     }
 
     fun onTabSelected(tab: DetailTab) {
