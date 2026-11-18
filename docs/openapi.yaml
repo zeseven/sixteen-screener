@@ -735,7 +735,7 @@ components:
           example: AAPL
         exchange:
           type: string
-          description: Short exchange name displayed under the ticker.
+          description: Short exchange name displayed under the ticker, at most 6 characters.
           example: NASDAQ
         name:
           type: string
@@ -1372,6 +1372,7 @@ components:
           example: V
         shortName:
           type: string
+          description: Short exchange name displayed under the ticker, at most 6 characters.
           example: TSXV
         fullName:
           type: string

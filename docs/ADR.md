@@ -799,3 +799,14 @@ The first snapshot replacing a cached list does not reload market data of rows a
 **Decision:** Gradle calculates the build number on every build with `git rev-list --count --first-parent HEAD`: only commits on `main`'s own line count, so commits of squashed or deleted branches are never included and a merge counts once. It is used as `versionCode` and compiled into `BuildConfig` together with the short commit hash and a flag for uncommitted changes; nothing is stored in a file. `versionName` stays a semantic version raised by hand. The settings screen shows `<version> (build <number>, <hash>)`, with `-dirty` after the hash when the working tree had uncommitted changes. The build fails outside a git checkout.
 
 **Consequences:** Any machine builds the same number from the same commit, and the number identifies the code. Releases must be built from `main`; rewriting commits of `main` that were already built, or building another branch, can repeat or lower a number. A CI checkout must fetch the full history. `adb install -r` refuses a lower build number, which guards against installing an older APK by mistake.
+
+## ADR-078: Exchange short names of at most 6 characters
+
+**Date:** 2026-11-18
+**Status:** Accepted
+
+**Context:** The exchange short name of the static exchange table (ADR-062) is shown under the ticker on the company rows of the app and returned as `shortName` by `GET /exchanges`. Names like "Euronext Amsterdam" or "Nasdaq Stockholm" do not fit there.
+
+**Decision:** Exchange short names are our own hardcoded values in the static exchange table, at most 6 characters long. The city name is used when it fits (Paris, Milan, Oslo, Dublin), otherwise the usual abbreviation of the exchange (AMS, STO, BET, BIST). Frankfurt is FSE rather than FRA, because FRA is the ISO code of France. MICs of the same exchange may share a short name (NASDAQ, OTC, SIX, Dublin, Milan); a short name shared by several MICs always has one time zone and currency. Full exchange names stay unchanged and are shown on the Exchanges screen.
+
+**Consequences:** The short name fits under the ticker without truncation. A test fails when a short name is longer than 6 characters or is shared by exchanges of different time zones or currencies.
