@@ -26,3 +26,4 @@ frontend/local.properties
 *.jks
 *.keystore
 frontend/.idea/
+.idea/
