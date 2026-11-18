@@ -25,24 +25,24 @@ class MarketResolverTest : FunSpec({
             Case("XNYS", "NYSE", "America/New_York", Market.US),
             Case("XNAS", "NASDAQ", "America/New_York", Market.US),
             Case("XNGS", "NASDAQ", "America/New_York", Market.US),
-            Case("XASE", "NYSE American", "America/New_York", Market.US),
-            Case("ARCX", "NYSE Arca", "America/New_York", Market.US),
-            Case("BATS", "Cboe BZX", "America/New_York", Market.US),
+            Case("XASE", "AMEX", "America/New_York", Market.US),
+            Case("ARCX", "Arca", "America/New_York", Market.US),
+            Case("BATS", "BZX", "America/New_York", Market.US),
             Case("IEXG", "IEX", "America/New_York", Market.US),
             Case("OTCM", "OTC", "America/New_York", Market.US),
             Case("XETR", "XETRA", "Europe/Berlin", Market.EU),
-            Case("XFRA", "Frankfurt", "Europe/Berlin", Market.EU),
-            Case("XPAR", "Euronext Paris", "Europe/Paris", Market.EU),
-            Case("XAMS", "Euronext Amsterdam", "Europe/Amsterdam", Market.EU),
-            Case("XBRU", "Euronext Brussels", "Europe/Brussels", Market.EU),
-            Case("XLIS", "Euronext Lisbon", "Europe/Lisbon", Market.EU),
-            Case("XMSM", "Euronext Dublin", "Europe/Dublin", Market.EU),
-            Case("XOSL", "Oslo Bors", "Europe/Oslo", Market.EU),
-            Case("XMIL", "Borsa Italiana", "Europe/Rome", Market.EU),
+            Case("XFRA", "FSE", "Europe/Berlin", Market.EU),
+            Case("XPAR", "Paris", "Europe/Paris", Market.EU),
+            Case("XAMS", "AMS", "Europe/Amsterdam", Market.EU),
+            Case("XBRU", "BRU", "Europe/Brussels", Market.EU),
+            Case("XLIS", "Lisbon", "Europe/Lisbon", Market.EU),
+            Case("XMSM", "Dublin", "Europe/Dublin", Market.EU),
+            Case("XOSL", "Oslo", "Europe/Oslo", Market.EU),
+            Case("XMIL", "Milan", "Europe/Rome", Market.EU),
             Case("XMAD", "BME", "Europe/Madrid", Market.EU),
-            Case("XSTO", "Nasdaq Stockholm", "Europe/Stockholm", Market.EU),
-            Case("XHEL", "Nasdaq Helsinki", "Europe/Helsinki", Market.EU),
-            Case("XCSE", "Nasdaq Copenhagen", "Europe/Copenhagen", Market.EU),
+            Case("XSTO", "STO", "Europe/Stockholm", Market.EU),
+            Case("XHEL", "HEL", "Europe/Helsinki", Market.EU),
+            Case("XCSE", "CPH", "Europe/Copenhagen", Market.EU),
             Case("XWBO", "Vienna", "Europe/Vienna", Market.EU),
             Case("XWAR", "GPW", "Europe/Warsaw", Market.EU),
             Case("XLON", "LSE", "Europe/London", Market.EU),
@@ -78,18 +78,18 @@ class MarketResolverTest : FunSpec({
         withData(
             nameFn = { "${it.code} -> ${it.name} (${it.market})" },
             CodeCase("US", "US", "America/New_York", Market.US, "USD"),
-            CodeCase("AS", "Euronext Amsterdam", "Europe/Amsterdam", Market.EU, "EUR"),
-            CodeCase("PA", "Euronext Paris", "Europe/Paris", Market.EU, "EUR"),
-            CodeCase("BR", "Euronext Brussels", "Europe/Brussels", Market.EU, "EUR"),
-            CodeCase("LS", "Euronext Lisbon", "Europe/Lisbon", Market.EU, "EUR"),
-            CodeCase("IR", "Euronext Dublin", "Europe/Dublin", Market.EU, "EUR"),
+            CodeCase("AS", "AMS", "Europe/Amsterdam", Market.EU, "EUR"),
+            CodeCase("PA", "Paris", "Europe/Paris", Market.EU, "EUR"),
+            CodeCase("BR", "BRU", "Europe/Brussels", Market.EU, "EUR"),
+            CodeCase("LS", "Lisbon", "Europe/Lisbon", Market.EU, "EUR"),
+            CodeCase("IR", "Dublin", "Europe/Dublin", Market.EU, "EUR"),
             CodeCase("DE", "XETRA", "Europe/Berlin", Market.EU, "EUR"),
-            CodeCase("F", "Frankfurt", "Europe/Berlin", Market.EU, "EUR"),
-            CodeCase("MI", "Borsa Italiana", "Europe/Rome", Market.EU, "EUR"),
+            CodeCase("F", "FSE", "Europe/Berlin", Market.EU, "EUR"),
+            CodeCase("MI", "Milan", "Europe/Rome", Market.EU, "EUR"),
             CodeCase("MC", "BME", "Europe/Madrid", Market.EU, "EUR"),
-            CodeCase("ST", "Nasdaq Stockholm", "Europe/Stockholm", Market.EU, "SEK"),
-            CodeCase("CO", "Nasdaq Copenhagen", "Europe/Copenhagen", Market.EU, "DKK"),
-            CodeCase("OL", "Oslo Bors", "Europe/Oslo", Market.EU, "NOK"),
+            CodeCase("ST", "STO", "Europe/Stockholm", Market.EU, "SEK"),
+            CodeCase("CO", "CPH", "Europe/Copenhagen", Market.EU, "DKK"),
+            CodeCase("OL", "Oslo", "Europe/Oslo", Market.EU, "NOK"),
             CodeCase("WA", "GPW", "Europe/Warsaw", Market.EU, "PLN"),
             CodeCase("L", "LSE", "Europe/London", Market.EU, "GBP"),
             CodeCase("IL", "LSE", "Europe/London", Market.EU, "GBP"),
@@ -97,7 +97,7 @@ class MarketResolverTest : FunSpec({
             CodeCase("T", "TSE", "Asia/Tokyo", null, "JPY"),
             CodeCase("TO", "TSX", "America/Toronto", null, "CAD"),
             CodeCase("HK", "HKEX", "Asia/Hong_Kong", null, "HKD"),
-            CodeCase("IS", "Borsa Istanbul", "Europe/Istanbul", null, "TRY"),
+            CodeCase("IS", "BIST", "Europe/Istanbul", null, "TRY"),
             CodeCase("ME", "MOEX", "Europe/Moscow", null, "RUB"),
         ) { case ->
             resolver.exchangeOf(ExchangeCode(case.code)) shouldBe
@@ -156,9 +156,7 @@ class MarketResolverTest : FunSpec({
     }
 
     test("every MIC of the static exchange table has a full name") {
-        val mics = resolver.usMics + KnownExchangeCodes.mics.values + listOf("XMSM", "MTAA", "XVTX")
-
-        mics.filter { resolver.find(it) == null || resolver.fullNameOf(it).isNullOrBlank() }.shouldBeEmpty()
+        allMicsOf(resolver).filter { resolver.find(it) == null || resolver.fullNameOf(it).isNullOrBlank() }.shouldBeEmpty()
     }
 
     test("US MICs are the US exchanges of the static exchange table") {
@@ -168,4 +166,40 @@ class MarketResolverTest : FunSpec({
         )
         resolver.usMics.map { resolver.find(it)?.market }.toSet() shouldBe setOf(Market.US)
     }
+
+    test("every short name of the static exchange table is non-blank and fits under the ticker") {
+        val exchanges = allMicsOf(resolver).map { resolver.find(it).shouldNotBeNull() }
+
+        exchanges.filter { it.name.isBlank() || it.name.length > MAX_SHORT_NAME_LENGTH }.shouldBeEmpty()
+    }
+
+    test("a short name shared by several MICs belongs to one time zone and currency") {
+        val exchanges = allMicsOf(resolver).map { resolver.find(it).shouldNotBeNull() }
+
+        exchanges
+            .groupBy(ExchangeInfo::name) { it.timeZone to it.currency }
+            .filterValues { it.toSet().size > 1 }
+            .keys
+            .shouldBeEmpty()
+    }
+
+    context("maps MICs to short names abbreviated to fit under the ticker") {
+        withData(
+            nameFn = { "${it.first} -> ${it.second}" },
+            "XAMS" to "AMS",
+            "XFRA" to "FSE",
+            "XBUD" to "BET",
+            "XCAS" to "CasaSE",
+            "XKUW" to "Kuwait",
+            "XDUB" to "Dublin",
+            "MTAA" to "Milan",
+        ) { (mic, shortName) ->
+            resolver.find(mic)?.name shouldBe shortName
+        }
+    }
 })
+
+private const val MAX_SHORT_NAME_LENGTH = 6
+
+private fun allMicsOf(resolver: MarketResolver): List<String> =
+    resolver.usMics + KnownExchangeCodes.mics.values + listOf("XMSM", "MTAA", "XVTX")

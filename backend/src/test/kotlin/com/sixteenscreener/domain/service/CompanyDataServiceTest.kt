@@ -523,7 +523,7 @@ class CompanyDataServiceTest : FunSpec({
             val result = f.service.companyProfile(f.profile.id, AD, source = null, refresh = true)
 
             result.profile.status shouldBe DataStatus.NOT_SUPPORTED
-            result.identity shouldBe CompanyIdentity(AD, "Euronext Amsterdam", "AD", Market.EU)
+            result.identity shouldBe CompanyIdentity(AD, "AMS", "AD", Market.EU)
             f.source.calls.shouldBeEmpty()
         }
 

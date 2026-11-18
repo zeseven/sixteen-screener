@@ -227,7 +227,7 @@ class ProfileRoutesTest : FunSpec({
                         mapOf(
                             "symbol" to JsonPrimitive("AD.AS"),
                             "ticker" to JsonPrimitive("AD"),
-                            "exchange" to JsonPrimitive("Euronext Amsterdam"),
+                            "exchange" to JsonPrimitive("AMS"),
                             "name" to JsonPrimitive("Koninklijke Ahold Delhaize NV"),
                             "market" to JsonPrimitive("EU"),
                             "logoUrl" to JsonPrimitive("/logos/AD.AS"),

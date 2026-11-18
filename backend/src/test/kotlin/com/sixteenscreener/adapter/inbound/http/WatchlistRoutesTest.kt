@@ -542,7 +542,7 @@ class WatchlistRoutesTest : FunSpec({
 
             val item = client.get("/profiles/${profile.id}/watchlist").json().items().single()
 
-            item["exchange"] shouldBe JsonPrimitive("Euronext Amsterdam")
+            item["exchange"] shouldBe JsonPrimitive("AMS")
             item["name"] shouldBe JsonPrimitive("Koninklijke Ahold Delhaize NV")
             item["market"] shouldBe JsonPrimitive("EU")
         }

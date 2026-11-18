@@ -48,7 +48,7 @@ class ExchangeRoutesTest : FunSpec({
             body.itemWithSuffix("V") shouldBe
                 exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", "CAD", "America/Toronto", null)
             body.itemWithSuffix("AS") shouldBe
-                exchange("AS", "Euronext Amsterdam", "Euronext Amsterdam", "XAMS", "EUR", "Europe/Amsterdam", "EU")
+                exchange("AS", "AMS", "Euronext Amsterdam", "XAMS", "EUR", "Europe/Amsterdam", "EU")
         }
     }
 

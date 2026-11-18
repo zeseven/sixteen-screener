@@ -282,7 +282,7 @@ class ProfileServiceTest : FunSpec({
                 val item = f.add("AD.AS", name = "Koninklijke Ahold Delhaize NV")
 
                 item shouldBe WatchlistItem(
-                    identity = CompanyIdentity(Symbol.of("AD.AS"), "Euronext Amsterdam", "Koninklijke Ahold Delhaize NV", Market.EU),
+                    identity = CompanyIdentity(Symbol.of("AD.AS"), "AMS", "Koninklijke Ahold Delhaize NV", Market.EU),
                     sector = null,
                     tags = emptyList(),
                 )

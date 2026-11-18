@@ -87,7 +87,7 @@ class WatchlistServiceTest : FunSpec({
 
         f.watchlist() shouldContainExactly listOf(
             WatchlistItem(
-                CompanyIdentity(Symbol.of("AD.AS"), "Euronext Amsterdam", "Koninklijke Ahold Delhaize NV", Market.EU),
+                CompanyIdentity(Symbol.of("AD.AS"), "AMS", "Koninklijke Ahold Delhaize NV", Market.EU),
                 null,
                 emptyList(),
             ),

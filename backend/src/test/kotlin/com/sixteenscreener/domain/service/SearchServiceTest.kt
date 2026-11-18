@@ -176,7 +176,7 @@ class SearchServiceTest : FunSpec({
             val identity = f.search("apple").items.single().identity
 
             identity.symbol shouldBe Symbol.of("AAPL.NE")
-            identity.exchange shouldBe "Cboe Canada"
+            identity.exchange shouldBe "NEO"
             identity.name shouldBe "APPLE INC - CDR"
             identity.market.shouldBeNull()
         }
@@ -186,7 +186,7 @@ class SearchServiceTest : FunSpec({
             f.hits("ahold", "AD.AS" to "Koninklijke Ahold Delhaize NV")
 
             f.search("ahold").items.single().identity shouldBe
-                CompanyIdentity(Symbol.of("AD.AS"), "Euronext Amsterdam", "Koninklijke Ahold Delhaize NV", Market.EU)
+                CompanyIdentity(Symbol.of("AD.AS"), "AMS", "Koninklijke Ahold Delhaize NV", Market.EU)
         }
 
         test("duplicate symbols from the source are returned once") {

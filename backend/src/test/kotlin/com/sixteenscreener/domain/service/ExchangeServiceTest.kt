@@ -72,7 +72,7 @@ class ExchangeServiceTest : FunSpec({
     test("a row of an EU exchange belongs to the EU market") {
         entry("AS") shouldBe ExchangeEntry(
             suffix = "AS",
-            shortName = "Euronext Amsterdam",
+            shortName = "AMS",
             fullName = "Euronext Amsterdam",
             mic = "XAMS",
             currency = "EUR",
