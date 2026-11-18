@@ -96,7 +96,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Tabs: Price and ratio, Balance sheet, Company profile (data from the default source)
 - [x] Balance sheet tab: table with one column per year (horizontal scroll, abbreviated large values); SEC EDGAR as an additional source selectable from the dropdown, loaded on demand
 - [x] Manual refresh button refreshing all tabs
-- [x] Security type row under the header ('type: ...', red when not a stock, 'unknown' when the source gives none), followed by a checkmark and 'home exchange' when the exchange is the company's home exchange
+- [x] Security type row under the header ('type: ...', red when not a stock, 'unknown' when the source gives none), followed by a checkmark and 'home exchange' when the exchange is the company's home exchange; the company profile is requested as soon as the screen opens
 - [x] UX investigation: side-by-side comparison of several sources (result in `docs/UX-COMPARISON.md` for developer review, not committed; implementation not in scope)
 
 ### Sources screen
