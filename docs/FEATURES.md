@@ -186,3 +186,4 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [ ] EU "source of truth" for balance sheets (expected from the EU in 2027-2029)
 - [ ] Side-by-side comparison of several sources on the detailed screen (based on the alpha UX investigation)
 - [ ] Detailed screen: show calculated ratio values (e.g. P/E calculated from price and EPS), marked as calculated
+- [ ] Search screen turned into a screener: more search fields and functionality to find companies (e.g. by sector, market, exchange, market cap or ratios), based on the screener endpoints of the sources where their plans provide them (FMP, EODHD)
