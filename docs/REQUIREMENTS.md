@@ -38,7 +38,7 @@ Contains filters (drop-down controls): Market (USA/EU/all), sector (finances/tec
 Search is triggered after each letter typed, but no more than 1 request/sec.
 Companies found displayed as a list of rows without stock price and indicators (logo, ticker with exchange name, company name, flag); any company can be added to the watchlist. Search makes no source requests other than the search itself.
 If the source request limit is reached or the source fails, the search shows no results and the reason under the input box.
-- Exchanges. A table of known exchanges, with a text filter above it that matches any field.
+- Exchanges. A table of known exchanges, with a text filter above it that matches any field. Each exchange shows its country and whether it is a main venue (an exchange where domestic companies have their primary listing).
 - Sources. Displays all the sources for stock prices and ratios. Default one is marked and can be changed by user.
 Each source shows its request limits and counter for requests already made per corresponding interval (min, hour, day).
 Each source also shows a connection indicator for the last call made to it: nothing if the last call succeeded; the response code (e.g. 400) if the response was outside 2XX; 'T' for a timeout; 'NPE' for an unexpected application error.
@@ -49,6 +49,7 @@ That screen contains several tabs:
 - Balance sheet (annual data only; a table with one column per year, scrolled horizontally when the years don't fit),
 - Company profile.
 Each tab displays data from the 'default' source. Each tab contains a dropdown to select the source (balance sheet contains additionally government source, the 'source of truth'). On company profile tab user can append its own tags (for filtering on the Watchlist screen). Tags belong to the watchlist: only companies in the watchlist can have tags (tag editing is disabled for other companies), and removing a company from the watchlist removes its tags.
+Right under the company row at the top of the detailed screen, a smaller row shows the security type (for example 'Common Stock' or 'ADR'). A type that is not a stock is highlighted. When the exchange is the company's home exchange (an exchange of the company's own country), a checkmark and 'home exchange' follow the type. Both are approximations to help the user pick the stock among several listings of the same company.
 There should be one more 'settings' screen, accessible by 'settings' button, with indicators and other app settings.
 
 ## Displaying company info
@@ -56,6 +57,7 @@ Each company is displayed as a row with next elements:
 Logo image, ticker, Company name, Flag icon (USA/Europe), Stock price, indicators (search results show no stock price and indicators)
 Ticker is displayed together with a short Exchange name. Exchange name goes in a much smaller font (and weaker color) under the ticker itself.
 Company name takes no more than half of the company card's width. If it's longer, tail letters are dropped and replaced with dots (display only) to get half of the width.
+The same company can be listed on several exchanges, and some listings are not stocks but other securities (ADR, preference shares, funds, ...). Nothing is hidden, but the name of a company whose listing is not a stock is displayed in a different pale color.
 Flag icon is an Unicode character going right after the company name, displaying the market (USA flag for American markets and EU flag for European markets).
 Companies from exchanges outside these markets have no flag and are shown only when the market filter is 'all'.
 Stock price is displayed in different colors:

@@ -726,7 +726,7 @@ components:
       description: |
         Company identity. Exchange and market come from the exchange directory, or from the static exchange table when
         the source provides no symbol list for the exchange.
-      required: [symbol, ticker, exchange, name, market, logoUrl]
+      required: [symbol, ticker, exchange, name, market, type, stock, logoUrl]
       properties:
         symbol:
           $ref: '#/components/schemas/Symbol'
@@ -745,6 +745,19 @@ components:
             - $ref: '#/components/schemas/Market'
           nullable: true
           description: Null for exchanges outside the US and EU markets (no flag; shown only with the "all" market filter).
+        type:
+          type: string
+          nullable: true
+          description: |
+            Security type as provided by the source's exchange directory (for a search result not listed there, by the
+            search itself), e.g. "Common Stock", "REIT", "ADR", "Preference". Null when unknown.
+          example: Common Stock
+        stock:
+          type: boolean
+          description: |
+            Whether the security is a stock: true when the type is "Common Stock" or "REIT" (case-insensitive) or unknown,
+            false for every other type (ADR, GDR, preference share, fund, ...). The app shows the names of other securities
+            in a different color (ADR-079).
         logoUrl:
           type: string
           description: Relative URL of the logo endpoint.
@@ -1109,7 +1122,7 @@ components:
 
     CompanyProfile:
       type: object
-      required: [symbol, ticker, exchange, name, market]
+      required: [symbol, ticker, exchange, name, market, type, stock, homeExchange]
       properties:
         symbol:
           $ref: '#/components/schemas/Symbol'
@@ -1124,6 +1137,24 @@ components:
             - $ref: '#/components/schemas/Market'
           nullable: true
           description: Null for exchanges outside the US and EU markets.
+        type:
+          type: string
+          nullable: true
+          description: |
+            Security type as provided by the source's exchange directory (for a search result not listed there, by the
+            search itself), e.g. "Common Stock", "REIT", "ADR", "Preference". Null when unknown.
+          example: Common Stock
+        stock:
+          type: boolean
+          description: |
+            Whether the security is a stock: true when the type is "Common Stock" or "REIT" (case-insensitive) or unknown,
+            false for every other type (ADR, GDR, preference share, fund, ...). The app shows the names of other securities
+            in a different color (ADR-079).
+        homeExchange:
+          type: boolean
+          description: |
+            Whether the exchange is the company's home exchange: the security is a stock, the exchange is a main venue and
+            its country equals the company's country (ADR-079). False when the country is unknown.
         country:
           type: string
           nullable: true
@@ -1364,7 +1395,7 @@ components:
 
     Exchange:
       type: object
-      required: [suffix, shortName, fullName, mic, currency, timeZone, market]
+      required: [suffix, shortName, fullName, mic, country, mainVenue, currency, timeZone, market]
       properties:
         suffix:
           type: string
@@ -1381,6 +1412,16 @@ components:
           type: string
           description: ISO 10383 market identifier code.
           example: XTSX
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2 country code of the exchange.
+          example: CA
+        mainVenue:
+          type: boolean
+          description: |
+            Whether domestic companies have their primary listing on the exchange; false for the German regional exchanges
+            and the US OTC markets (ADR-079).
+          example: true
         currency:
           type: string
           description: ISO 4217 currency code.

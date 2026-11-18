@@ -90,11 +90,13 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Market detection (US / EU) by exchange; UK (LSE) and Swiss (SIX) exchanges count as EU; other exchanges have no market (no flag, shown only with the 'all' filter)
 - [x] Price color: green if higher than previous cached price, red if lower, default text color (white in dark theme, black in light theme) if equal or no previous data
 - [x] Cache indicator under the price: clock symbol + number of days; hidden when data is younger than 1 hour
+- [x] Name of a security that is not a stock (type other than Common Stock or REIT, e.g. ADR, preference share) in a pale lavender color, on the watchlist, search and detailed screens
 
 ### Detailed screen
 - [x] Tabs: Price and ratio, Balance sheet, Company profile (data from the default source)
 - [x] Balance sheet tab: table with one column per year (horizontal scroll, abbreviated large values); SEC EDGAR as an additional source selectable from the dropdown, loaded on demand
 - [x] Manual refresh button refreshing all tabs
+- [x] Security type row under the header ('type: ...', red when not a stock, 'unknown' when the source gives none), followed by a checkmark and 'home exchange' when the exchange is the company's home exchange
 - [x] UX investigation: side-by-side comparison of several sources (result in `docs/UX-COMPARISON.md` for developer review, not committed; implementation not in scope)
 
 ### Sources screen
@@ -133,7 +135,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [ ] Optional: map source sector names to a fixed list of predefined sectors
 
 ### Exchanges screen
-- [x] Exchanges tab between Search and Sources: a table with one row per symbol suffix (two suffixes of one exchange give two rows) and one row per US exchange (empty suffix); columns: suffix, market flag, short exchange name, full exchange name, MIC, currency, time zone
+- [x] Exchanges tab between Search and Sources: a table with one row per symbol suffix (two suffixes of one exchange give two rows) and one row per US exchange (empty suffix); columns: suffix, market flag, short exchange name, full exchange name, MIC, country (with a checkmark for a main venue), currency, time zone
 - [x] Table served by the backend from the static exchange table (`GET /exchanges`, full names hardcoded there); no source requests
 - [x] The app requests the table once when the screen is first opened and keeps it in memory only (not stored on the device)
 - [x] Text filter above the table: case-insensitive match in any field except the flag, done in memory without backend calls
