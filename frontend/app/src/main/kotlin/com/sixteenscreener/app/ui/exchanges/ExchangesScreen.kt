@@ -71,15 +71,15 @@ object ExchangesScreenTags {
 }
 
 private val SuffixColumnWidth = 64.dp
+private val MarketColumnWidth = 64.dp
 private val ShortNameColumnWidth = 104.dp
 private val FullNameColumnWidth = 240.dp
 private val MicColumnWidth = 64.dp
 private val CurrencyColumnWidth = 80.dp
 private val TimeZoneColumnWidth = 176.dp
-private val MarketColumnWidth = 64.dp
 private val CellPadding = 8.dp
-private val TableWidth = SuffixColumnWidth + ShortNameColumnWidth + FullNameColumnWidth + MicColumnWidth +
-    CurrencyColumnWidth + TimeZoneColumnWidth + MarketColumnWidth + CellPadding * 2
+private val TableWidth = SuffixColumnWidth + MarketColumnWidth + ShortNameColumnWidth + FullNameColumnWidth +
+    MicColumnWidth + CurrencyColumnWidth + TimeZoneColumnWidth + CellPadding * 2
 
 /** Exchanges tab; loads the exchange table when opened and again when shown after a failed load. */
 @Composable
@@ -173,12 +173,12 @@ private fun HeaderRow() {
     TableRow(modifier = Modifier.semantics(mergeDescendants = true) { heading() }.testTag(ExchangesScreenTags.HEADER)) {
         val style = MaterialTheme.typography.labelLarge
         Cell(stringResource(R.string.exchange_column_suffix), SuffixColumnWidth, style)
+        Cell(stringResource(R.string.exchange_column_market), MarketColumnWidth, style, TextAlign.Center)
         Cell(stringResource(R.string.exchange_column_short_name), ShortNameColumnWidth, style)
         Cell(stringResource(R.string.exchange_column_full_name), FullNameColumnWidth, style)
         Cell(stringResource(R.string.exchange_column_mic), MicColumnWidth, style)
         Cell(stringResource(R.string.exchange_column_currency), CurrencyColumnWidth, style)
         Cell(stringResource(R.string.exchange_column_time_zone), TimeZoneColumnWidth, style)
-        Cell(stringResource(R.string.exchange_column_market), MarketColumnWidth, style, TextAlign.Center)
     }
 }
 
@@ -187,12 +187,12 @@ private fun ExchangeRow(exchange: Exchange) {
     TableRow(modifier = Modifier.semantics(mergeDescendants = true) {}.testTag(ExchangesScreenTags.ROW)) {
         val style = MaterialTheme.typography.bodyMedium
         Cell(ExchangeFilter.displaySuffix(exchange), SuffixColumnWidth, style)
+        FlagCell(exchange.market)
         Cell(exchange.shortName, ShortNameColumnWidth, style)
         Cell(exchange.fullName, FullNameColumnWidth, style)
         Cell(exchange.mic, MicColumnWidth, style)
         Cell(exchange.currency, CurrencyColumnWidth, style)
         Cell(exchange.timeZone, TimeZoneColumnWidth, style)
-        FlagCell(exchange.market)
     }
 }
 
