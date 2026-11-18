@@ -131,6 +131,22 @@ class AppNavigatorTest {
     }
 
     @Test
+    fun `detail route keeps the security type and stock flag of the company`() {
+        val route = DetailRoute(Symbol("NSRGY"), identity("NSRGY", type = "ADR", stock = false))
+
+        assertEquals(route, Json.decodeFromString<DetailRoute>(Json.encodeToString(route)))
+    }
+
+    @Test
+    fun `detail opened from a row carries the security type and stock flag`() {
+        val navigator = navigator(MainRoute)
+
+        navigator.openDetail(searchItem("NSRGY", type = "ADR", stock = false), inWatchlist = false)
+
+        assertEquals(identity("NSRGY", type = "ADR", stock = false), (navigator.currentRoute as DetailRoute).initialCompany)
+    }
+
+    @Test
     fun `detail route without company survives serialization`() {
         val route = DetailRoute(Symbol("AAPL"))
 

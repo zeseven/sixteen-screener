@@ -27,6 +27,7 @@ class SixteenThemeTest {
     private lateinit var colorScheme: ColorScheme
     private lateinit var priceColors: PriceColors
     private lateinit var indicatorColors: IndicatorColors
+    private lateinit var companyColors: CompanyColors
 
     private fun captureTheme(darkTheme: Boolean, dynamicColor: Boolean) {
         composeRule.setContent {
@@ -34,6 +35,7 @@ class SixteenThemeTest {
                 colorScheme = MaterialTheme.colorScheme
                 priceColors = SixteenTheme.priceColors
                 indicatorColors = SixteenTheme.indicatorColors
+                companyColors = SixteenTheme.companyColors
             }
         }
         composeRule.waitForIdle()
@@ -113,6 +115,24 @@ class SixteenThemeTest {
         assertTrue(contrast(IndicatorWarningDark, DarkColorScheme.surface) >= 4.5)
         assertTrue(hueDistance(IndicatorWarningLight, LoadFailedLight) >= 15f)
         assertTrue(hueDistance(IndicatorWarningDark, LoadFailedDark) >= 15f)
+    }
+
+    @Test
+    fun `not stock name color is lavender per theme`() {
+        captureTheme(darkTheme = false, dynamicColor = false)
+        assertEquals(CompanyColors(notStock = Color(0xFF7F5FA8)), companyColors)
+    }
+
+    @Test
+    fun `dark theme not stock name color is pale lavender`() {
+        captureTheme(darkTheme = true, dynamicColor = false)
+        assertEquals(CompanyColors(notStock = Color(0xFFC9B3EE)), companyColors)
+    }
+
+    @Test
+    fun `not stock name color is readable on the background`() {
+        assertTrue(contrast(NotStockNameLight, LightColorScheme.surface) >= 4.5)
+        assertTrue(contrast(NotStockNameDark, DarkColorScheme.surface) >= 4.5)
     }
 
     @Test

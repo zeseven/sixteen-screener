@@ -329,7 +329,7 @@ private fun WatchlistContentPreview() {
         WatchlistContent(
             uiState = WatchlistUiState(
                 companies = listOf(
-                    WatchlistItem(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc.", Market.US, "/logos/AAPL", "Technology", emptyList()),
+                    WatchlistItem(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc.", Market.US, "Common Stock", true, "/logos/AAPL", "Technology", emptyList()),
                 ),
                 isLoaded = true,
                 hasCompanies = true,

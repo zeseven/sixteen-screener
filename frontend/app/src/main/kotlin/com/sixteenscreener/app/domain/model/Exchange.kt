@@ -12,6 +12,10 @@ data class Exchange(
     val fullName: String,
     /** ISO 10383 market identifier code. */
     val mic: String,
+    /** ISO 3166-1 alpha-2 country code of the exchange; empty when not reported. */
+    val country: String,
+    /** Whether domestic companies have their primary listing on the exchange. */
+    val mainVenue: Boolean,
     /** ISO 4217 currency code. */
     val currency: String,
     /** IANA time zone. */

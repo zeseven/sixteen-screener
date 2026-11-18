@@ -113,6 +113,12 @@ data class CompanyProfile(
     val name: String,
     /** Market of the exchange, `null` outside the US and EU markets. */
     val market: Market?,
+    /** Security type as provided by the source, e.g. `Common Stock` or `ADR`; `null` when unknown. */
+    val type: String?,
+    /** Whether the security is a stock, as decided by the backend from [type]. */
+    val stock: Boolean,
+    /** Whether the exchange is the company's home exchange. */
+    val homeExchange: Boolean,
     /** ISO 3166-1 alpha-2 country code. */
     val country: String?,
     /** ISO 4217 currency code. */

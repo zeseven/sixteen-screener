@@ -12,6 +12,8 @@ data class SearchItem(
     override val exchange: String,
     override val name: String,
     override val market: Market?,
+    override val type: String?,
+    override val stock: Boolean,
     override val logoUrl: String,
     /** Whether the company is in the profile's watchlist. */
     val inWatchlist: Boolean,

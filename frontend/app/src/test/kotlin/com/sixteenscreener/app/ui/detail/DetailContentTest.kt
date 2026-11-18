@@ -4,6 +4,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
@@ -24,6 +26,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sixteenscreener.app.domain.BalanceSheetTable
 import com.sixteenscreener.app.domain.model.ApiError
@@ -45,6 +48,7 @@ import com.sixteenscreener.app.ui.component.LocalClock
 import com.sixteenscreener.app.ui.detail.balancesheet.BalanceSheetTags
 import com.sixteenscreener.app.ui.detail.priceratios.PriceAndRatiosTags
 import com.sixteenscreener.app.ui.detail.profile.CompanyProfileTags
+import com.sixteenscreener.app.ui.theme.LightColorScheme
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 import java.time.Duration
 import org.junit.Assert.assertEquals
@@ -63,6 +67,8 @@ class DetailContentTest {
     private val sourceNames = mapOf(SourceId.FINNHUB to "Finnhub", SourceId.SEC_EDGAR to "SEC EDGAR")
 
     private val events = mutableListOf<String>()
+    private val weakColor = LightColorScheme.onSurfaceVariant
+    private val errorColor = LightColorScheme.error
     private var uiState by mutableStateOf(DetailUiState(symbol = apple.symbol))
 
     private fun setContent(state: DetailUiState) {
@@ -112,6 +118,12 @@ class DetailContentTest {
 
     private fun tagged(tag: String): SemanticsNodeInteraction = composeRule.onNodeWithTag(tag, useUnmergedTree = true)
 
+    private fun SemanticsNodeInteraction.textColor(): Color {
+        val results = mutableListOf<TextLayoutResult>()
+        fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+        return results.single().layoutInput.style.color
+    }
+
     @Test
     fun `header shows the company row`() {
         setContent(state())
@@ -119,6 +131,54 @@ class DetailContentTest {
         composeRule.onNodeWithText("NASDAQ").assertExists()
         composeRule.onNodeWithContentDescription("Add Apple Inc. to the watchlist").performClick()
         assertEquals(listOf("toggle"), events)
+    }
+
+    @Test
+    fun `type of a common stock is shown under the header in the weak color`() {
+        setContent(state())
+
+        tagged(DetailScreenTags.HEADER_TYPE).assertTextEquals("type: Common Stock")
+        assertEquals(weakColor, tagged(DetailScreenTags.HEADER_TYPE).textColor())
+    }
+
+    @Test
+    fun `type of a security that is not a stock is shown in the error color`() {
+        setContent(state().copy(header = Companies.identity("NSRGY", type = "ADR", stock = false)))
+
+        tagged(DetailScreenTags.HEADER_TYPE).assertTextEquals("type: ADR")
+        assertEquals(errorColor, tagged(DetailScreenTags.HEADER_TYPE).textColor())
+    }
+
+    @Test
+    fun `unknown type is shown in the weak color`() {
+        setContent(state().copy(header = Companies.identity(type = null)))
+
+        tagged(DetailScreenTags.HEADER_TYPE).assertTextEquals("type: unknown")
+        assertEquals(weakColor, tagged(DetailScreenTags.HEADER_TYPE).textColor())
+    }
+
+    @Test
+    fun `home exchange is marked after the type`() {
+        setContent(state().copy(homeExchange = true))
+
+        tagged(DetailScreenTags.HEADER_TYPE).assertTextEquals("type: Common Stock (\u2705 home exchange)")
+    }
+
+    @Test
+    fun `home exchange mark appears only when the loaded profile reports it`() {
+        setContent(state())
+        tagged(DetailScreenTags.HEADER_TYPE).assertTextEquals("type: Common Stock")
+
+        uiState = uiState.copy(homeExchange = true)
+
+        tagged(DetailScreenTags.HEADER_TYPE).assertTextEquals("type: Common Stock (\u2705 home exchange)")
+    }
+
+    @Test
+    fun `no type row while the company is unknown`() {
+        setContent(DetailUiState(symbol = Symbol("MSFT")))
+
+        tagged(DetailScreenTags.HEADER_TYPE).assertDoesNotExist()
     }
 
     @Test

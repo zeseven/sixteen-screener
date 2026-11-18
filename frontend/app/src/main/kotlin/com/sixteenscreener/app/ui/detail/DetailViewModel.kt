@@ -71,6 +71,8 @@ data class DetailUiState(
     val symbol: Symbol,
     /** Company of the header: the route's company until the company profile arrives; `null` while neither is known. */
     val header: CompanyIdentity? = null,
+    /** Whether the loaded company profile reports the company's exchange as its home exchange; `false` until it arrives. */
+    val homeExchange: Boolean = false,
     /** Price of the header: the loaded price, or the last watchlist market data of the company until it arrives. */
     val headerQuote: Quote? = null,
     val inWatchlist: Boolean = false,
@@ -253,6 +255,7 @@ class DetailViewModel @AssistedInject constructor(
         return DetailUiState(
             symbol = symbol,
             header = screen.companyProfile.value?.profile?.toIdentity() ?: route.initialCompany,
+            homeExchange = screen.companyProfile.value?.profile?.homeExchange == true,
             headerQuote = screen.priceAndRatios.value?.quote ?: rowMarketData?.quote,
             inWatchlist = inWatchlist,
             selectedTab = screen.selectedTab,
@@ -275,6 +278,8 @@ class DetailViewModel @AssistedInject constructor(
         exchange = exchange,
         name = name,
         market = market,
+        type = type,
+        stock = stock,
         logoUrl = route.initialCompany?.logoUrl ?: "$LOGO_PATH${symbol.value}",
     )
 

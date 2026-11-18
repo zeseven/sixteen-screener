@@ -33,6 +33,8 @@ object Companies {
         name: String = "Apple Inc.",
         exchange: String = "NASDAQ",
         market: Market? = Market.US,
+        type: String? = "Common Stock",
+        stock: Boolean = true,
         sector: String? = "Technology",
         tags: List<String> = emptyList(),
     ) = WatchlistItem(
@@ -41,6 +43,8 @@ object Companies {
         exchange = exchange,
         name = name,
         market = market,
+        type = type,
+        stock = stock,
         logoUrl = "/logos/$symbol",
         sector = sector,
         tags = tags,
@@ -51,6 +55,8 @@ object Companies {
         name: String = "Apple Inc.",
         exchange: String = "NASDAQ",
         market: Market? = Market.US,
+        type: String? = "Common Stock",
+        stock: Boolean = true,
         inWatchlist: Boolean = false,
     ) = SearchItem(
         symbol = Symbol(symbol),
@@ -58,6 +64,8 @@ object Companies {
         exchange = exchange,
         name = name,
         market = market,
+        type = type,
+        stock = stock,
         logoUrl = "/logos/$symbol",
         inWatchlist = inWatchlist,
     )
@@ -67,12 +75,16 @@ object Companies {
         name: String = "Apple Inc.",
         exchange: String = "NASDAQ",
         market: Market? = Market.US,
+        type: String? = "Common Stock",
+        stock: Boolean = true,
     ) = CompanyIdentity(
         symbol = Symbol(symbol),
         ticker = symbol.substringBefore('.'),
         exchange = exchange,
         name = name,
         market = market,
+        type = type,
+        stock = stock,
         logoUrl = "/logos/$symbol",
     )
 

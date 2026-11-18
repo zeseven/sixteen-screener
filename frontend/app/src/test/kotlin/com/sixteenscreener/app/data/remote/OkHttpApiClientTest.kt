@@ -47,6 +47,7 @@ import mockwebserver3.RecordedRequest
 import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -282,10 +283,10 @@ class OkHttpApiClientTest {
         assertEquals("/profiles/${profileId.value}/watchlist", request.pathAndQuery())
         assertEquals(
             listOf(
-                WatchlistItem(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc", Market.US, "/logos/AAPL", "Technology", listOf("core", "dividend")),
-                WatchlistItem(Symbol("SAP.DE"), "SAP", "XETRA", "SAP SE", Market.EU, "/logos/SAP.DE", "Technology", emptyList()),
-                WatchlistItem(Symbol("7203.T"), "7203", "TSE", "Toyota Motor Corp", null, "/logos/7203.T", null, emptyList()),
-                WatchlistItem(Symbol("NESN.SW"), "NESN", "SIX", "Nestle SA", Market.EU, "/logos/NESN.SW", null, emptyList()),
+                WatchlistItem(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc", Market.US, "Common Stock", true, "/logos/AAPL", "Technology", listOf("core", "dividend")),
+                WatchlistItem(Symbol("SAP.DE"), "SAP", "XETRA", "SAP SE", Market.EU, null, true, "/logos/SAP.DE", "Technology", emptyList()),
+                WatchlistItem(Symbol("7203.T"), "7203", "TSE", "Toyota Motor Corp", null, null, true, "/logos/7203.T", null, emptyList()),
+                WatchlistItem(Symbol("NESN.SW"), "NESN", "SIX", "Nestle SA", Market.EU, "ADR", false, "/logos/NESN.SW", null, emptyList()),
             ),
             items,
         )
@@ -385,7 +386,7 @@ class OkHttpApiClientTest {
         val request = server.takeRequest()
         assertEquals("PUT", request.method)
         assertEquals("/profiles/${profileId.value}/watchlist/SAP.DE", request.pathAndQuery())
-        assertEquals(WatchlistItem(Symbol("SAP.DE"), "SAP", "XETRA", "SAP SE", Market.EU, "/logos/SAP.DE", "Technology", emptyList()), item)
+        assertEquals(WatchlistItem(Symbol("SAP.DE"), "SAP", "XETRA", "SAP SE", Market.EU, null, true, "/logos/SAP.DE", "Technology", emptyList()), item)
     }
 
     @Test
@@ -501,8 +502,8 @@ class OkHttpApiClientTest {
         assertEquals(SearchStatus.OK, results.status)
         assertEquals(
             listOf(
-                SearchItem(Symbol("SHEL.L"), "SHEL", "LSE", "Shell PLC", Market.EU, "/logos/SHEL.L", inWatchlist = false),
-                SearchItem(Symbol("SHW"), "SHW", "NYSE", "Sherwin-Williams Co", null, "/logos/SHW", inWatchlist = true),
+                SearchItem(Symbol("SHEL.L"), "SHEL", "LSE", "Shell PLC", Market.EU, "ADR", false, "/logos/SHEL.L", inWatchlist = false),
+                SearchItem(Symbol("SHW"), "SHW", "NYSE", "Sherwin-Williams Co", null, "Common Stock", true, "/logos/SHW", inWatchlist = true),
             ),
             results.items,
         )
@@ -518,6 +519,8 @@ class OkHttpApiClientTest {
 
         assertEquals(false, item.inWatchlist)
         assertNull(item.market)
+        assertNull(item.type)
+        assertTrue(item.stock)
     }
 
     @Test
@@ -633,6 +636,9 @@ class OkHttpApiClientTest {
         val profile = data.profile!!
         assertEquals(DataStatus.CACHED, data.meta.status)
         assertEquals(Market.US, profile.market)
+        assertEquals("Common Stock", profile.type)
+        assertTrue(profile.stock)
+        assertTrue(profile.homeExchange)
         assertEquals("US", profile.country)
         assertEquals("USD", profile.currency)
         assertEquals("Technology", profile.sector)
@@ -664,6 +670,9 @@ class OkHttpApiClientTest {
         assertEquals(SourceDataMeta(SourceId.FINNHUB, DataStatus.SOURCE_ERROR, null), data.meta)
         val profile = data.profile!!
         assertNull(profile.market)
+        assertNull(profile.type)
+        assertTrue(profile.stock)
+        assertFalse(profile.homeExchange)
         assertNull(profile.ipoDate)
         assertNull(profile.employees)
         assertNull(profile.description)
@@ -718,9 +727,9 @@ class OkHttpApiClientTest {
         assertEquals("/exchanges", request.pathAndQuery())
         assertEquals(
             listOf(
-                Exchange("", "NYSE", "New York Stock Exchange", "XNYS", "USD", "America/New_York", Market.US),
-                Exchange("DE", "XETRA", "Deutsche Boerse Xetra", "XETR", "EUR", "Europe/Berlin", Market.EU),
-                Exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", "CAD", "America/Toronto", null),
+                Exchange("", "NYSE", "New York Stock Exchange", "XNYS", "US", true, "USD", "America/New_York", Market.US),
+                Exchange("DE", "XETRA", "Deutsche Boerse Xetra", "XETR", "DE", true, "EUR", "Europe/Berlin", Market.EU),
+                Exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", "CA", false, "CAD", "America/Toronto", null),
             ),
             exchanges,
         )
@@ -736,6 +745,21 @@ class OkHttpApiClientTest {
         )
 
         assertNull(client.getExchanges().value().single().market)
+    }
+
+    @Test
+    fun `getExchanges defaults country and main venue when absent`() = runTest {
+        enqueue(
+            body = """
+                {"items":[{"suffix":"HK","shortName":"HKEX","fullName":"Hong Kong Exchanges","mic":"XHKG","currency":"HKD",
+                  "timeZone":"Asia/Hong_Kong","market":null}]}
+            """.trimIndent(),
+        )
+
+        val exchange = client.getExchanges().value().single()
+
+        assertEquals("", exchange.country)
+        assertFalse(exchange.mainVenue)
     }
 
     @Test

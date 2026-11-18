@@ -144,6 +144,39 @@ class DetailViewModelTest {
     }
 
     @Test
+    fun `header carries the security type of the route company and no home exchange before the profile arrives`() = runTest {
+        val adr = Companies.identity("NSRGY", name = "Nestle SA", type = "ADR", stock = false)
+
+        val viewModel = viewModel(DetailRoute(adr.symbol, adr))
+
+        assertEquals("ADR", viewModel.state.header?.type)
+        assertEquals(false, viewModel.state.header?.stock)
+        assertFalse(viewModel.state.homeExchange)
+    }
+
+    @Test
+    fun `header takes the security type and home exchange from the loaded company profile`() = runTest {
+        apiClient.getCompanyProfile = { _, _, _, _ ->
+            ApiResult.Success(CompanyData.companyProfileData(CompanyData.companyProfile(type = "ADR", stock = false, homeExchange = true)))
+        }
+        val viewModel = viewModel()
+
+        viewModel.onTabSelected(DetailTab.COMPANY_PROFILE)
+
+        assertEquals("ADR", viewModel.state.header?.type)
+        assertEquals(false, viewModel.state.header?.stock)
+        assertTrue(viewModel.state.homeExchange)
+    }
+
+    @Test
+    fun `profile outside the home exchange has no home exchange mark`() = runTest {
+        val viewModel = viewModel(DetailRoute(Symbol("AAPL")))
+
+        assertEquals("Common Stock", viewModel.state.header?.type)
+        assertFalse(viewModel.state.homeExchange)
+    }
+
+    @Test
     fun `refresh sends refresh for all three tabs including tabs not opened yet`() = runTest {
         val viewModel = viewModel()
         apiClient.calls.clear()

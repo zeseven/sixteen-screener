@@ -67,6 +67,7 @@ object ExchangesScreenTags {
     const val HEADER = "exchanges_header"
     const val ROW = "exchanges_row"
     const val FLAG = "exchanges_flag"
+    const val COUNTRY = "exchanges_country"
     const val RETRY = "exchanges_retry"
 }
 
@@ -75,11 +76,12 @@ private val MarketColumnWidth = 64.dp
 private val ShortNameColumnWidth = 104.dp
 private val FullNameColumnWidth = 240.dp
 private val MicColumnWidth = 64.dp
+private val CountryColumnWidth = 80.dp
 private val CurrencyColumnWidth = 80.dp
 private val TimeZoneColumnWidth = 176.dp
 private val CellPadding = 8.dp
 private val TableWidth = SuffixColumnWidth + MarketColumnWidth + ShortNameColumnWidth + FullNameColumnWidth +
-    MicColumnWidth + CurrencyColumnWidth + TimeZoneColumnWidth + CellPadding * 2
+    MicColumnWidth + CountryColumnWidth + CurrencyColumnWidth + TimeZoneColumnWidth + CellPadding * 2
 
 /** Exchanges tab; loads the exchange table when opened and again when shown after a failed load. */
 @Composable
@@ -173,10 +175,11 @@ private fun HeaderRow() {
     TableRow(modifier = Modifier.semantics(mergeDescendants = true) { heading() }.testTag(ExchangesScreenTags.HEADER)) {
         val style = MaterialTheme.typography.labelLarge
         Cell(stringResource(R.string.exchange_column_suffix), SuffixColumnWidth, style)
-        Cell(stringResource(R.string.exchange_column_market), MarketColumnWidth, style, TextAlign.Center)
+        Cell(stringResource(R.string.exchange_column_market), MarketColumnWidth, style, textAlign = TextAlign.Center)
         Cell(stringResource(R.string.exchange_column_short_name), ShortNameColumnWidth, style)
         Cell(stringResource(R.string.exchange_column_full_name), FullNameColumnWidth, style)
         Cell(stringResource(R.string.exchange_column_mic), MicColumnWidth, style)
+        Cell(stringResource(R.string.exchange_column_country), CountryColumnWidth, style)
         Cell(stringResource(R.string.exchange_column_currency), CurrencyColumnWidth, style)
         Cell(stringResource(R.string.exchange_column_time_zone), TimeZoneColumnWidth, style)
     }
@@ -191,6 +194,12 @@ private fun ExchangeRow(exchange: Exchange) {
         Cell(exchange.shortName, ShortNameColumnWidth, style)
         Cell(exchange.fullName, FullNameColumnWidth, style)
         Cell(exchange.mic, MicColumnWidth, style)
+        Cell(
+            text = if (exchange.mainVenue) stringResource(R.string.exchange_country_main_venue, exchange.country) else exchange.country,
+            width = CountryColumnWidth,
+            style = style,
+            modifier = Modifier.testTag(ExchangesScreenTags.COUNTRY),
+        )
         Cell(exchange.currency, CurrencyColumnWidth, style)
         Cell(exchange.timeZone, TimeZoneColumnWidth, style)
     }
@@ -209,14 +218,20 @@ private fun TableRow(modifier: Modifier = Modifier, content: @Composable () -> U
 }
 
 @Composable
-private fun Cell(text: String, width: Dp, style: TextStyle, textAlign: TextAlign = TextAlign.Start) {
+private fun Cell(
+    text: String,
+    width: Dp,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    textAlign: TextAlign = TextAlign.Start,
+) {
     Text(
         text = text,
         style = style,
         textAlign = textAlign,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = Modifier
+        modifier = modifier
             .width(width)
             .padding(end = CellPadding),
     )
@@ -279,9 +294,9 @@ private fun ExchangesContentPreview() {
         ExchangesContent(
             uiState = ExchangesUiState(
                 exchanges = listOf(
-                    Exchange("", "NYSE", "New York Stock Exchange", "XNYS", "USD", "America/New_York", Market.US),
-                    Exchange("DE", "XETRA", "Deutsche Boerse Xetra", "XETR", "EUR", "Europe/Berlin", Market.EU),
-                    Exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", "CAD", "America/Toronto", null),
+                    Exchange("", "NYSE", "New York Stock Exchange", "XNYS", "US", true, "USD", "America/New_York", Market.US),
+                    Exchange("DE", "XETRA", "Deutsche Boerse Xetra", "XETR", "DE", true, "EUR", "Europe/Berlin", Market.EU),
+                    Exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", "CA", true, "CAD", "America/Toronto", null),
                 ),
             ),
             onQueryChange = {},

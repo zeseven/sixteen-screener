@@ -114,6 +114,8 @@
     <string name="exchange_column_currency">Currency</string>
     <string name="exchange_column_time_zone">Time zone</string>
     <string name="exchange_column_market">Market</string>
+    <string name="exchange_column_country">Country</string>
+    <string name="exchange_country_main_venue">%1$s \u2705</string>
 
     <string name="tab_watchlist">Watchlist</string>
     <string name="tab_search">Search</string>
@@ -150,6 +152,9 @@
     <string name="ratio_category_per_share">Per share</string>
     <string name="ratio_category_other">Other</string>
     <string name="detail_refresh">Refresh from sources</string>
+    <string name="detail_type">type: %1$s</string>
+    <string name="detail_type_unknown">unknown</string>
+    <string name="detail_type_home_exchange">%1$s (\u2705 home exchange)</string>
     <string name="detail_tab_price_and_ratios">Price and ratio</string>
     <string name="detail_tab_balance_sheet">Balance sheet</string>
     <string name="detail_tab_company_profile">Company profile</string>

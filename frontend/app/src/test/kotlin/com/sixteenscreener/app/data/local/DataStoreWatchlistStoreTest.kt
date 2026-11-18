@@ -28,7 +28,8 @@ class DataStoreWatchlistStoreTest {
 
     private val apple = item("AAPL", tags = listOf("core", "dividend"))
     private val sap = item("SAP.DE", name = "SAP SE", market = Market.EU, sector = null)
-    private val toyota = item("7203.T", name = "Toyota", market = null)
+    private val toyota = item("7203.T", name = "Toyota", market = null, type = null)
+    private val nestleAdr = item("NSRGY", name = "Nestle SA", market = Market.US, type = "ADR", stock = false)
 
     private lateinit var dataStore: DataStore<Preferences>
 
@@ -53,9 +54,21 @@ class DataStoreWatchlistStoreTest {
     fun `saved watchlist is read back with all fields`() = runTest {
         val store = store()
 
-        assertTrue(store.save(profileId, listOf(apple, sap, toyota)))
+        assertTrue(store.save(profileId, listOf(apple, sap, toyota, nestleAdr)))
 
-        assertEquals(listOf(apple, sap, toyota), store.read(profileId))
+        assertEquals(listOf(apple, sap, toyota, nestleAdr), store.read(profileId))
+    }
+
+    @Test
+    fun `watchlist stored by the previous app version is read as stocks of unknown type`() = runTest {
+        val store = store()
+        storeRaw(
+            profileId,
+            "[{\"symbol\":\"SAP.DE\",\"ticker\":\"SAP\",\"exchange\":\"XETRA\",\"name\":\"SAP SE\",\"market\":\"EU\"," +
+                "\"logoUrl\":\"/logos/SAP.DE\",\"sector\":\"Technology\",\"tags\":[\"core\"]}]",
+        )
+
+        assertEquals(listOf(item("SAP.DE", name = "SAP SE", exchange = "XETRA", market = Market.EU, type = null, tags = listOf("core"))), store.read(profileId))
     }
 
     @Test

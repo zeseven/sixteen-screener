@@ -6,7 +6,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -20,6 +21,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.testing.Exchanges.all
 import com.sixteenscreener.app.testing.Exchanges.nyse
+import com.sixteenscreener.app.testing.Exchanges.paris
+import com.sixteenscreener.app.testing.Exchanges.stuttgart
 import com.sixteenscreener.app.testing.Exchanges.tsxVenture
 import com.sixteenscreener.app.testing.Exchanges.xetra
 import com.sixteenscreener.app.ui.theme.SixteenTheme
@@ -53,9 +56,9 @@ class ExchangesContentTest {
 
     private fun rows() = composeRule.onAllNodesWithTag(ExchangesScreenTags.ROW)
 
-    private fun leftOfText(text: String) = composeRule.onNodeWithText(text, useUnmergedTree = true).getBoundsInRoot().left
+    private fun leftOfText(text: String) = composeRule.onNodeWithText(text, useUnmergedTree = true).getUnclippedBoundsInRoot().left
 
-    private fun leftOfTag(tag: String) = composeRule.onNodeWithTag(tag, useUnmergedTree = true).getBoundsInRoot().left
+    private fun leftOfTag(tag: String) = composeRule.onNodeWithTag(tag, useUnmergedTree = true).getUnclippedBoundsInRoot().left
 
     @Test
     fun `table shows a header and one row per exchange`() {
@@ -94,6 +97,55 @@ class ExchangesContentTest {
         assertTrue(suffix < flag)
         assertTrue(flag < shortName)
         assertTrue(shortName < fullName)
+    }
+
+    @Test
+    fun `header shows the country column between MIC and currency`() {
+        setContent(ExchangesUiState(exchanges = listOf(xetra)))
+
+        val mic = leftOfText("MIC")
+        val country = leftOfText("Country")
+        val currency = leftOfText("Currency")
+
+        assertTrue(mic < country)
+        assertTrue(country < currency)
+        assertTrue(leftOfText("Market") < leftOfText("Short name"))
+    }
+
+    @Test
+    fun `row shows the country between MIC and currency`() {
+        setContent(ExchangesUiState(exchanges = listOf(xetra)))
+
+        val mic = leftOfText("XETR")
+        val country = leftOfTag(ExchangesScreenTags.COUNTRY)
+        val currency = leftOfText("EUR")
+
+        assertTrue(mic < country)
+        assertTrue(country < currency)
+    }
+
+    @Test
+    fun `country of a main venue is followed by a check mark`() {
+        setContent(ExchangesUiState(exchanges = listOf(xetra)))
+
+        composeRule.onNodeWithTag(ExchangesScreenTags.COUNTRY, useUnmergedTree = true).assertTextEquals("DE \u2705")
+    }
+
+    @Test
+    fun `country of an exchange that is not a main venue has no check mark`() {
+        setContent(ExchangesUiState(exchanges = listOf(stuttgart)))
+
+        composeRule.onNodeWithTag(ExchangesScreenTags.COUNTRY, useUnmergedTree = true).assertTextEquals("DE")
+    }
+
+    @Test
+    fun `typing a country code filters the rows`() {
+        setContent(ExchangesUiState(exchanges = all))
+
+        composeRule.onNodeWithTag(ExchangesScreenTags.QUERY_FIELD).performTextInput("fr")
+
+        rows().assertCountEquals(1)
+        composeRule.onNodeWithText(paris.fullName, useUnmergedTree = true).assertExists()
     }
 
     @Test

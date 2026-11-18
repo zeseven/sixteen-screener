@@ -6,6 +6,8 @@
       "exchange": "NASDAQ",
       "name": "Apple Inc",
       "market": "US",
+      "type": "Common Stock",
+      "stock": true,
       "logoUrl": "/logos/AAPL",
       "sector": "Technology",
       "sectorGroup": "Information Technology",
@@ -27,6 +29,8 @@
       "exchange": "TSE",
       "name": "Toyota Motor Corp",
       "market": null,
+      "type": null,
+      "stock": true,
       "logoUrl": "/logos/7203.T",
       "sector": null,
       "sectorGroup": null,
@@ -38,6 +42,8 @@
       "exchange": "SIX",
       "name": "Nestle SA",
       "market": "EU",
+      "type": "ADR",
+      "stock": false,
       "logoUrl": "/logos/NESN.SW"
     }
   ]

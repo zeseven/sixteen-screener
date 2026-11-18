@@ -22,6 +22,7 @@ fun SixteenTheme(
     CompositionLocalProvider(
         LocalPriceColors provides priceColors(darkTheme, colorScheme.onSurface),
         LocalIndicatorColors provides indicatorColors(darkTheme),
+        LocalCompanyColors provides companyColors(darkTheme),
     ) {
         MaterialTheme(colorScheme = colorScheme, content = content)
     }
@@ -37,6 +38,11 @@ object SixteenTheme {
         @Composable
         @ReadOnlyComposable
         get() = LocalIndicatorColors.current
+
+    val companyColors: CompanyColors
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalCompanyColors.current
 }
 
 @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.S)

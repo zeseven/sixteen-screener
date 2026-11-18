@@ -12,7 +12,7 @@ import org.junit.Test
 
 class ExchangeFilterTest {
 
-    private val onlyMarketMentions = Exchange("CO", "CPH", "Copenhagen", "XCSE", "DKK", "CET", Market.US)
+    private val onlyMarketMentions = Exchange("CO", "CPH", "Copenhagen", "XCSE", "DK", true, "DKK", "CET", Market.US)
 
     private fun filtered(query: String): List<Exchange> = ExchangeFilter.apply(all, query)
 
@@ -56,6 +56,17 @@ class ExchangeFilterTest {
     @Test
     fun `matches the MIC`() {
         assertEquals(listOf(tsxVenture), filtered("xtsx"))
+    }
+
+    @Test
+    fun `matches the country code`() {
+        assertEquals(listOf(paris), filtered("fr"))
+        assertEquals(listOf(paris), filtered("FR"))
+    }
+
+    @Test
+    fun `main venue mark is not matched`() {
+        assertEquals(emptyList<Exchange>(), filtered("\u2705"))
     }
 
     @Test

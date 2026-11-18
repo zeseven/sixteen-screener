@@ -8,6 +8,8 @@
       "exchange": "LSE",
       "name": "Shell PLC",
       "market": "EU",
+      "type": "ADR",
+      "stock": false,
       "logoUrl": "/logos/SHEL.L",
       "inWatchlist": false
     },
@@ -17,6 +19,8 @@
       "exchange": "NYSE",
       "name": "Sherwin-Williams Co",
       "market": null,
+      "type": "Common Stock",
+      "stock": true,
       "logoUrl": "/logos/SHW",
       "inWatchlist": true
     }

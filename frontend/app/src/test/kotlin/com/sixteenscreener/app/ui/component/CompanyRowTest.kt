@@ -33,11 +33,13 @@ import com.sixteenscreener.app.testing.Companies.item
 import com.sixteenscreener.app.testing.Companies.quote
 import com.sixteenscreener.app.testing.Companies.searchItem
 import com.sixteenscreener.app.testing.MutableClock
+import com.sixteenscreener.app.ui.theme.CompanyColors
 import com.sixteenscreener.app.ui.theme.IndicatorColors
 import com.sixteenscreener.app.ui.theme.PriceColors
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -58,6 +60,7 @@ class CompanyRowTest {
     private val now = Instant.parse("2026-11-14T12:00:00Z")
     private lateinit var priceColors: PriceColors
     private lateinit var indicatorColors: IndicatorColors
+    private lateinit var companyColors: CompanyColors
 
     private val roe = Indicator("ROE", "ROE", IndicatorLevel.GOOD)
     private val pe = Indicator("PE", "P/E", IndicatorLevel.WARNING)
@@ -78,6 +81,7 @@ class CompanyRowTest {
         SixteenTheme(darkTheme = darkTheme, dynamicColor = false) {
             priceColors = SixteenTheme.priceColors
             indicatorColors = SixteenTheme.indicatorColors
+            companyColors = SixteenTheme.companyColors
             CompositionLocalProvider(LocalClock provides MutableClock(now)) {
                 CompanyRow(company = company, onClick = onClick, modifier = Modifier.width(rowWidth), marketData = marketData, action = action)
             }
@@ -157,6 +161,43 @@ class CompanyRowTest {
         val flagLeft = node(CompanyRowTags.FLAG).getUnclippedBoundsInRoot().left
         assertTrue(abs((flagLeft - nameRight - 4.dp).value) < 0.5f)
         node(CompanyRowTags.FLAG).assertTextEquals("\uD83C\uDDEA\uD83C\uDDFA").assertContentDescriptionEquals("EU market")
+    }
+
+    @Test
+    fun `name of a stock uses the default text color`() {
+        setRow(item(type = "Common Stock", stock = true))
+
+        assertEquals(Color.Black, node(CompanyRowTags.NAME).textColor())
+    }
+
+    @Test
+    fun `name of a security that is not a stock is lavender`() {
+        setRow(item(type = "ADR", stock = false))
+
+        assertEquals(Color(0xFF7F5FA8), node(CompanyRowTags.NAME).textColor())
+        assertEquals(companyColors.notStock, node(CompanyRowTags.NAME).textColor())
+    }
+
+    @Test
+    fun `name of a security that is not a stock is pale lavender in the dark theme`() {
+        setRow(item(type = "ADR", stock = false), darkTheme = true)
+
+        assertEquals(Color(0xFFC9B3EE), node(CompanyRowTags.NAME).textColor())
+    }
+
+    @Test
+    fun `name of a stock uses the default text color in the dark theme`() {
+        setRow(item(stock = true), darkTheme = true)
+
+        assertNotEquals(companyColors.notStock, node(CompanyRowTags.NAME).textColor())
+    }
+
+    @Test
+    fun `search row of a security that is not a stock is lavender and keeps its flag`() {
+        setRow(company = searchItem(type = "Preference", stock = false), marketData = null)
+
+        assertEquals(companyColors.notStock, node(CompanyRowTags.NAME).textColor())
+        node(CompanyRowTags.FLAG).assertTextEquals("\uD83C\uDDFA\uD83C\uDDF8")
     }
 
     @Test

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sixteenscreener.app.R
+import com.sixteenscreener.app.domain.model.Company
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
 import com.sixteenscreener.app.ui.component.AddToWatchlistButton
@@ -43,6 +45,7 @@ import com.sixteenscreener.app.ui.theme.SixteenTheme
 object DetailScreenTags {
     const val REFRESH = "detail_refresh"
     const val HEADER_SYMBOL = "detail_header_symbol"
+    const val HEADER_TYPE = "detail_header_type"
 }
 
 /** Detailed screen of a company with the price and ratio, balance sheet and company profile tabs. */
@@ -115,13 +118,30 @@ private fun Header(uiState: DetailUiState, onToggleWatchlist: () -> Unit) {
         )
         return
     }
-    CompanyRow(company = header, onClick = null, marketData = { QuotePriceAndCacheIndicator(uiState.headerQuote) }) {
-        if (uiState.inWatchlist) {
-            RemoveFromWatchlistButton(companyName = header.name, onClick = onToggleWatchlist)
-        } else {
-            AddToWatchlistButton(companyName = header.name, inWatchlist = false, onClick = onToggleWatchlist)
+    Column {
+        CompanyRow(company = header, onClick = null, marketData = { QuotePriceAndCacheIndicator(uiState.headerQuote) }) {
+            if (uiState.inWatchlist) {
+                RemoveFromWatchlistButton(companyName = header.name, onClick = onToggleWatchlist)
+            } else {
+                AddToWatchlistButton(companyName = header.name, inWatchlist = false, onClick = onToggleWatchlist)
+            }
         }
+        SecurityType(company = header, homeExchange = uiState.homeExchange)
     }
+}
+
+/** Security type of [company] under the header, in the error color when it is not a stock, with the home exchange mark. */
+@Composable
+private fun SecurityType(company: Company, homeExchange: Boolean) {
+    val type = stringResource(R.string.detail_type, company.type ?: stringResource(R.string.detail_type_unknown))
+    Text(
+        text = if (homeExchange) stringResource(R.string.detail_type_home_exchange, type) else type,
+        style = MaterialTheme.typography.labelSmall,
+        color = if (company.stock) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+        modifier = Modifier
+            .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+            .testTag(DetailScreenTags.HEADER_TYPE),
+    )
 }
 
 @Composable

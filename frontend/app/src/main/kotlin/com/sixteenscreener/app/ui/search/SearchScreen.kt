@@ -171,7 +171,7 @@ private fun SearchContentPreview() {
             uiState = SearchUiState(
                 query = "app",
                 results = listOf(
-                    SearchItem(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc.", Market.US, "/logos/AAPL", false),
+                    SearchItem(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc.", Market.US, "Common Stock", true, "/logos/AAPL", false),
                 ),
             ),
             onQueryChange = {},

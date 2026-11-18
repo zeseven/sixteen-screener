@@ -47,6 +47,12 @@ interface Company {
     /** Market of the exchange, `null` outside the US and EU markets. */
     val market: Market?
 
+    /** Security type as provided by the source, e.g. `Common Stock` or `ADR`; `null` when unknown. */
+    val type: String?
+
+    /** Whether the security is a stock, as decided by the backend from [type]. */
+    val stock: Boolean
+
     /** Logo endpoint URL relative to the backend URL. */
     val logoUrl: String
 }
@@ -61,11 +67,13 @@ data class CompanyIdentity(
     override val exchange: String,
     override val name: String,
     override val market: Market?,
+    override val type: String?,
+    override val stock: Boolean,
     override val logoUrl: String,
 ) : Company
 
 /** Identity of this company without the data of its row. */
-fun Company.identity(): CompanyIdentity = this as? CompanyIdentity ?: CompanyIdentity(symbol, ticker, exchange, name, market, logoUrl)
+fun Company.identity(): CompanyIdentity = this as? CompanyIdentity ?: CompanyIdentity(symbol, ticker, exchange, name, market, type, stock, logoUrl)
 
 /**
  * Watchlist row without market data.
@@ -76,6 +84,8 @@ data class WatchlistItem(
     override val exchange: String,
     override val name: String,
     override val market: Market?,
+    override val type: String?,
+    override val stock: Boolean,
     override val logoUrl: String,
     /** Sector as provided by the profile's default source, `null` when unknown. */
     val sector: String?,
@@ -90,6 +100,8 @@ data class WatchlistItem(
             exchange = company.exchange,
             name = company.name,
             market = company.market,
+            type = company.type,
+            stock = company.stock,
             logoUrl = company.logoUrl,
             sector = sector,
             tags = emptyList(),

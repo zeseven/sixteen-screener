@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -50,6 +51,7 @@ object CompanyRowTags {
 
 /**
  * Company row: logo | ticker over exchange | name (at most half the row width) with the market flag | [marketData] | [action].
+ * The name of a security that is not a stock is drawn in the not-stock color of the theme.
  * [marketData] shows the price and the indicators to its right, e.g. [WatchlistMarketData]; search rows have none.
  * The row opens the detailed screen with [onClick]; it is not clickable when [onClick] is `null`.
  */
@@ -86,6 +88,7 @@ fun CompanyRow(
             TickerAndExchange(ticker = company.ticker, exchange = company.exchange)
             NameAndFlag(
                 name = company.name,
+                stock = company.stock,
                 market = company.market,
                 nameMaxWidth = nameMaxWidth,
                 modifier = Modifier.weight(1f),
@@ -112,6 +115,7 @@ private fun TickerAndExchange(ticker: String, exchange: String) {
 @Composable
 private fun NameAndFlag(
     name: String,
+    stock: Boolean,
     market: Market?,
     nameMaxWidth: Dp,
     modifier: Modifier = Modifier,
@@ -120,6 +124,7 @@ private fun NameAndFlag(
         Text(
             text = name,
             style = MaterialTheme.typography.bodyMedium,
+            color = if (stock) Color.Unspecified else SixteenTheme.companyColors.notStock,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
@@ -154,7 +159,7 @@ private fun CompanyRowPreview() {
     SixteenTheme(dynamicColor = false) {
         Surface {
             CompanyRow(
-                company = CompanyIdentity(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc.", Market.US, "/logos/AAPL"),
+                company = CompanyIdentity(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc.", Market.US, "Common Stock", true, "/logos/AAPL"),
                 onClick = {},
                 marketData = {
                     WatchlistMarketData(
