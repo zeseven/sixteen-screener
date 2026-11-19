@@ -127,6 +127,23 @@ printf '%s' "$FINNHUB_API_KEY" | gcloud secrets create finnhub-api-key \
 unset FINNHUB_API_KEY
 ```
 
+### EODHD API key
+
+Get the key manually:
+1. Sign up or log in at https://eodhd.com (the free plan is enough: 20 requests per day)
+2. Open the user dashboard (https://eodhd.com/cp/settings)
+3. Copy the API token
+
+Store it in Secret Manager:
+
+```bash
+read -rs EODHD_API_KEY
+printf '%s' "$EODHD_API_KEY" | gcloud secrets create eodhd-api-key \
+  --replication-policy=automatic \
+  --data-file=-
+unset EODHD_API_KEY
+```
+
 ### SEC EDGAR User-Agent
 
 The SEC requires a `User-Agent` header with an application name and a contact email.
@@ -151,7 +168,7 @@ unset FINNHUB_API_KEY
 ## 8. Runtime service account
 
 The Cloud Run service runs as a dedicated service account with access to the backend's Firestore database,
-the logo bucket and the two secrets only. The IAM condition limits `roles/datastore.user` to that database.
+the logo bucket and the three secrets only. The IAM condition limits `roles/datastore.user` to that database.
 
 ```bash
 gcloud iam service-accounts create "$RUNTIME_SA" \
@@ -168,11 +185,19 @@ gcloud storage buckets add-iam-policy-binding "gs://${LOGO_BUCKET}" \
   --member="serviceAccount:${RUNTIME_SA_EMAIL}" \
   --role="roles/storage.objectAdmin"
 
-for SECRET in finnhub-api-key sec-edgar-user-agent; do
+for SECRET in finnhub-api-key eodhd-api-key sec-edgar-user-agent; do
   gcloud secrets add-iam-policy-binding "$SECRET" \
     --member="serviceAccount:${RUNTIME_SA_EMAIL}" \
     --role="roles/secretmanager.secretAccessor"
 done
+```
+
+A project set up before EODHD was added needs only the new secret (section 7) and its binding:
+
+```bash
+gcloud secrets add-iam-policy-binding eodhd-api-key \
+  --member="serviceAccount:${RUNTIME_SA}@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
 ```
 
 ## 9. Build service account

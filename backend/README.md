@@ -16,16 +16,19 @@ One-time configuration of the GCP project (Firestore, bucket, secrets, service a
 ## Configuration
 
 Static configuration is in `src/main/resources/application.conf`: the list of sources with their base URLs,
-capabilities, request limits and timeouts, and optionally `directoryExchanges`, the exchange codes whose symbol lists
-a source is asked for (`[US]` for the Finnhub free plan; without it, any exchange). Environment variables override or complete it:
+capabilities, roles (`SEARCH`, `US`, `INTERNATIONAL`), `automaticRequests` (off for sources called only on a manual
+refresh, such as EODHD), request limits and timeouts, and optionally `directoryExchanges`, the exchange codes whose
+symbol lists a source is asked for (`[US]` for the Finnhub free plan, `[]` for none; without it, any exchange).
+`defaultSources` names the default source of each role (`search`, `us`, `international`); each must be enabled and
+configured for its role. Environment variables override or complete it:
 
 | Variable                  | Required           | Description                                                                 |
 |---------------------------|--------------------|-----------------------------------------------------------------------------|
 | `GCP_PROJECT_ID`          | yes                | GCP project with Firestore and the bucket                                   |
 | `FIRESTORE_DATABASE`      | no                 | Named Firestore database (default `sixteen-screener`)                       |
 | `LOGO_BUCKET`             | yes                | Bucket for cached logos and exchange directories                            |
-| `DEFAULT_SOURCE`          | no                 | Default source ID (default `finnhub`)                                       |
 | `FINNHUB_API_KEY`         | if Finnhub enabled | Finnhub API key (Secret Manager on Cloud Run)                               |
+| `EODHD_API_KEY`           | if EODHD enabled   | EODHD API token (Secret Manager on Cloud Run)                               |
 | `SEC_EDGAR_USER_AGENT`    | if SEC enabled     | `User-Agent` for SEC EDGAR: app name and contact email (Secret Manager)     |
 | `PORT`                    | no                 | HTTP port (default `8080`; set by Cloud Run)                                |
 | `FIRESTORE_EMULATOR_HOST` | no                 | Use the Firestore emulator, e.g. `localhost:8085` (local runs and tests)    |
@@ -82,6 +85,7 @@ LOGO_BUCKET=local-logos \
 FIRESTORE_EMULATOR_HOST=localhost:8085 \
 STORAGE_EMULATOR_HOST=http://localhost:4443 \
 FINNHUB_API_KEY=your-finnhub-key \
+EODHD_API_KEY=your-eodhd-key \
 SEC_EDGAR_USER_AGENT="SixteenScreener you@example.com" \
 ./gradlew run
 ```
@@ -91,7 +95,7 @@ Against a real project: log in with Application Default Credentials and drop the
 ```bash
 gcloud auth application-default login
 GCP_PROJECT_ID="$PROJECT_ID" LOGO_BUCKET="$LOGO_BUCKET" \
-FINNHUB_API_KEY=your-finnhub-key SEC_EDGAR_USER_AGENT="SixteenScreener you@example.com" \
+FINNHUB_API_KEY=your-finnhub-key EODHD_API_KEY=your-eodhd-key SEC_EDGAR_USER_AGENT="SixteenScreener you@example.com" \
 ./gradlew run
 ```
 
@@ -119,6 +123,7 @@ docker run --rm -p 8080:8080 \
   -e FIRESTORE_EMULATOR_HOST=host.docker.internal:8085 \
   -e STORAGE_EMULATOR_HOST=http://host.docker.internal:4443 \
   -e FINNHUB_API_KEY=your-finnhub-key \
+  -e EODHD_API_KEY=your-eodhd-key \
   -e SEC_EDGAR_USER_AGENT="SixteenScreener you@example.com" \
   sixteen-screener-backend
 ```
@@ -154,8 +159,8 @@ gcloud run deploy "$SERVICE_NAME" \
   --cpu-boost \
   --cpu=1 \
   --memory=512Mi \
-  --set-env-vars=GCP_PROJECT_ID="$PROJECT_ID",LOGO_BUCKET="$LOGO_BUCKET",DEFAULT_SOURCE=finnhub \
-  --set-secrets=FINNHUB_API_KEY=finnhub-api-key:latest,SEC_EDGAR_USER_AGENT=sec-edgar-user-agent:latest
+  --set-env-vars=GCP_PROJECT_ID="$PROJECT_ID",LOGO_BUCKET="$LOGO_BUCKET" \
+  --set-secrets=FINNHUB_API_KEY=finnhub-api-key:latest,EODHD_API_KEY=eodhd-api-key:latest,SEC_EDGAR_USER_AGENT=sec-edgar-user-agent:latest
 ```
 
 - `--no-allow-unauthenticated`: only principals with `roles/run.invoker` can call the service (`SETUP.md` section 11)
