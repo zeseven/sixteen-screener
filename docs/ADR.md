@@ -872,3 +872,16 @@ The static exchange table (ADR-062) gets an ISO 3166-1 alpha-2 country and a mai
 - FMP, Tiingo and Alpha Vantage, the source comparison and the switching of defaults move to RC.
 
 **Consequences:** International companies get prices and dividends, but no ratios, indicators, profiles or balance sheets on the free plans. Their watchlist prices change only after a manual refresh on the detailed screen (the cache is shared between users). US companies get no dividends until a US dividends source is added. A source routing per market and data type (e.g. dividends of US companies from another source) is not supported; the configuration has one source per role.
+
+## ADR-084: EODHD exchange codes taken from the EODHD exchange list, and minor-unit prices
+
+**Date:** 2026-11-19
+**Status:** Accepted
+
+**Context:** The EODHD exchange list (`/exchanges-list`) no longer contains Berlin, Iceland, Hong Kong and Tel Aviv, which had EODHD codes in the static exchange table, and contains Hamburg, Hanover, Johannesburg and Casablanca, which had none. A real-time quote of `SHEL.LSE` returned 3574.5: London prices come in pence although the list gives GBP as the exchange currency, so the quotes were 100 times too high. Johannesburg prices likewise come in ZA cents.
+
+**Decision:**
+- The EODHD codes of the static exchange table follow the EODHD exchange list: `BE`, `IC`, `HK` and `TA` have no EODHD code (`NOT_SUPPORTED` without a request); `HM` is `HM`, `HA` is `HA`, `JO` is `JSE` and `CS` is `BC`. `IL` (London international order book) stays without a code.
+- The EODHD client divides the quote price of the EODHD exchanges `LSE` and `JSE` by 100, so the quote is in the currency of the static exchange table (GBP, ZAR). Which EODHD exchanges quote in minor units is kept in the EODHD client, as a property of the source. Dividends are not converted.
+
+**Consequences:** London and Johannesburg prices from EODHD match the prices of the other sources. Companies of Berlin, Iceland, Hong Kong and Tel Aviv get no international prices or dividends. Dividend amounts of London and Johannesburg may still be in minor units if EODHD reports them that way; this is checked when a real dividends response is available.

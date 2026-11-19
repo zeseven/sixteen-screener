@@ -122,6 +122,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Request trigger sent by the app with company data requests (`trigger=MANUAL|AUTO`, replacing `refresh`)
 - [x] EODHD client (free plan): delayed quote with previous close, dividends (last year); limits 20 requests per day and per minute; no symbol lists downloaded; `402` (daily limit reached) handled like `429`
 - [x] EODHD exchange code per symbol suffix in the static exchange table (`.DE` is `XETRA`), used to build EODHD symbols
+- [x] EODHD prices of London and Johannesburg converted from pence and ZA cents into GBP and ZAR
 - [x] International (EU and other non-US) prices and dividends through EODHD; ratios, profiles and balance sheets of international stocks `NOT_SUPPORTED` on the free plans
 - [x] Sources screen: default search source marked 'default', roles each source is the default for, 'manual only' mark, counters for all configured intervals
 - [x] Backup logo source when logoapi.sh has no SVG logo: PNG logo from static2.finnhub.io (URL from the cached Finnhub company profile, otherwise built from the ticker; no Finnhub API calls), stored in the bucket under `finnhub-logos/`; the app renders SVG and PNG logos
