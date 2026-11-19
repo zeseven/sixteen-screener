@@ -64,6 +64,7 @@ fun SearchScreen(
     SearchContent(
         uiState = uiState,
         onQueryChange = viewModel::onQueryChange,
+        onSearch = viewModel::onSearch,
         onAdd = viewModel::onAdd,
         onMessageShown = viewModel::onMessageShown,
         onOpenDetail = onOpenDetail,
@@ -75,6 +76,7 @@ fun SearchScreen(
 fun SearchContent(
     uiState: SearchUiState,
     onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
     onAdd: (SearchItem) -> Unit,
     onMessageShown: (AddFailedMessage) -> Unit,
     onOpenDetail: (SearchItem) -> Unit,
@@ -94,7 +96,7 @@ fun SearchContent(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding)) {
-            QueryField(query = uiState.query, onQueryChange = onQueryChange)
+            QueryField(query = uiState.query, onQueryChange = onQueryChange, onSearch = onSearch)
             uiState.notice?.let { SearchNoticeText(it) }
             Box(modifier = Modifier.fillMaxWidth().height(4.dp)) {
                 if (uiState.isSearching) {
@@ -118,7 +120,7 @@ fun SearchContent(
 }
 
 @Composable
-private fun QueryField(query: String, onQueryChange: (String) -> Unit) {
+private fun QueryField(query: String, onQueryChange: (String) -> Unit, onSearch: () -> Unit) {
     val keyboardController = LocalSoftwareKeyboardController.current
     OutlinedTextField(
         value = query,
@@ -135,7 +137,12 @@ private fun QueryField(query: String, onQueryChange: (String) -> Unit) {
             }
         },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
+        keyboardActions = KeyboardActions(
+            onSearch = {
+                onSearch()
+                keyboardController?.hide()
+            },
+        ),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -175,6 +182,7 @@ private fun SearchContentPreview() {
                 ),
             ),
             onQueryChange = {},
+            onSearch = {},
             onAdd = {},
             onMessageShown = {},
             onOpenDetail = {},

@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sixteenscreener.app.domain.model.ApiError
@@ -31,6 +32,7 @@ class SearchContentTest {
     private val microsoft = searchItem("MSFT", name = "Microsoft", inWatchlist = true)
 
     private val typed = mutableListOf<String>()
+    private var searchActions = 0
     private val added = mutableListOf<SearchItem>()
     private val opened = mutableListOf<SearchItem>()
     private val shown = mutableListOf<AddFailedMessage>()
@@ -40,6 +42,7 @@ class SearchContentTest {
             SearchContent(
                 uiState = uiState,
                 onQueryChange = { typed += it },
+                onSearch = { searchActions++ },
                 onAdd = { added += it },
                 onMessageShown = { shown += it },
                 onOpenDetail = { opened += it },
@@ -60,6 +63,15 @@ class SearchContentTest {
         composeRule.onNodeWithTag(SearchScreenTags.QUERY_FIELD).performTextInput("app")
 
         assertEquals(listOf("app"), typed)
+    }
+
+    @Test
+    fun `keyboard search action is forwarded`() {
+        setContent(SearchUiState(query = "app"))
+
+        composeRule.onNodeWithTag(SearchScreenTags.QUERY_FIELD).performImeAction()
+
+        assertEquals(1, searchActions)
     }
 
     @Test
