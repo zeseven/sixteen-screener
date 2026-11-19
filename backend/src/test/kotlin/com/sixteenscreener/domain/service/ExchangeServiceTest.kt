@@ -129,11 +129,23 @@ class ExchangeServiceTest : FunSpec({
         entry("WA").eodhdCode shouldBe "WAR"
         entry("SG").eodhdCode shouldBe "STU"
         entry("AX").eodhdCode shouldBe "AU"
+        entry("JO").eodhdCode shouldBe "JSE"
+        entry("CS").eodhdCode shouldBe "BC"
+    }
+
+    test("exchanges EODHD names like the suffix carry the suffix as EODHD code") {
+        entry("HM").eodhdCode shouldBe "HM"
+        entry("HA").eodhdCode shouldBe "HA"
     }
 
     test("exchanges EODHD doesn't cover have no EODHD code") {
         entry("IL").eodhdCode shouldBe null
         entry("T").eodhdCode shouldBe null
+        entry("BC").eodhdCode shouldBe null
+    }
+
+    test("exchanges EODHD no longer lists have no EODHD code") {
+        listOf("BE", "IC", "HK", "TA").map { suffix -> entry(suffix).eodhdCode }.toSet() shouldBe setOf(null)
     }
 
     test("the table is the same on every call") {

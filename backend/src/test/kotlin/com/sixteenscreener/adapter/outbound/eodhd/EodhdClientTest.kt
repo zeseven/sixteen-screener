@@ -94,9 +94,12 @@ class EodhdClientTest : FunSpec({
             "SHEL.L" to "SHEL.LSE",
             "PKO.WA" to "PKO.WAR",
             "MC.PA" to "MC.PA",
-            "0700.HK" to "0700.HK",
             "AAPL" to "AAPL.US",
             "BRK.B" to "BRK-B.US",
+            "X.HM" to "X.HM",
+            "X.HA" to "X.HA",
+            "NPN.JO" to "NPN.JSE",
+            "X.CS" to "X.BC",
         ) { (symbol, expected) ->
             EodhdClient.eodhdSymbolOf(Symbol.of(symbol)) shouldBe expected
         }
@@ -104,6 +107,17 @@ class EodhdClientTest : FunSpec({
         test("a symbol of an exchange without an EODHD code has no EODHD symbol") {
             EodhdClient.eodhdSymbolOf(toyota) shouldBe null
             EodhdClient.eodhdSymbolOf(Symbol.of("SHEL.IL")) shouldBe null
+            EodhdClient.eodhdSymbolOf(Symbol.of("X.BC")) shouldBe null
+        }
+
+        withData(
+            nameFn = { "$it, which EODHD no longer lists, has no EODHD symbol" },
+            "BAS.BE",
+            "MAREL.IC",
+            "0700.HK",
+            "TEVA.TA",
+        ) { symbol ->
+            EodhdClient.eodhdSymbolOf(Symbol.of(symbol)) shouldBe null
         }
     }
 
@@ -153,6 +167,14 @@ class EodhdClientTest : FunSpec({
             val eodhd = MockEodhd()
 
             eodhd.client.quote(toyotaListing) shouldBe SourceResult.NotSupported(outcome = null)
+            eodhd.requests.shouldBeEmpty()
+        }
+
+        test("a symbol of an exchange EODHD no longer lists is not supported without a request") {
+            val eodhd = MockEodhd()
+            val tencent = ListedSymbol(Symbol.of("0700.HK"), "TENCENT HOLDINGS LTD", "XHKG", "HKD", "Common Stock")
+
+            eodhd.client.quote(tencent) shouldBe SourceResult.NotSupported(outcome = null)
             eodhd.requests.shouldBeEmpty()
         }
     }
