@@ -15,6 +15,7 @@ The steps are run once per GCP project, in the order below. All commands use the
   ```
 
 - A Finnhub account (free plan)
+- An EODHD account (free plan)
 - A contact email for the SEC EDGAR `User-Agent` header (required by the SEC fair access policy)
 
 ## 2. Variables
@@ -157,12 +158,13 @@ printf '%s' "SixteenScreener ${DEVELOPER_EMAIL}" | gcloud secrets create sec-edg
 
 ### Rotating a secret
 
-Add a new version; the next deployment (or a new Cloud Run revision) picks up `latest`:
+Add a new version; the next deployment (or a new Cloud Run revision) picks up `latest`. For example, for the
+EODHD token (the same for `finnhub-api-key` with `FINNHUB_API_KEY`):
 
 ```bash
-read -rs FINNHUB_API_KEY
-printf '%s' "$FINNHUB_API_KEY" | gcloud secrets versions add finnhub-api-key --data-file=-
-unset FINNHUB_API_KEY
+read -rs EODHD_API_KEY
+printf '%s' "$EODHD_API_KEY" | gcloud secrets versions add eodhd-api-key --data-file=-
+unset EODHD_API_KEY
 ```
 
 ## 8. Runtime service account
@@ -281,7 +283,7 @@ echo "$PROFILE_RESPONSE"
 
 PROFILE_ID="$(printf '%s' "$PROFILE_RESPONSE" | sed -E 's/.*"id":"([^"]+)".*/\1/')"
 
-# 2. Query sources using the profile UUID
+# 2. Query sources using the profile UUID (EODHD is listed with "automaticRequests": false)
 curl -s -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   "${SERVICE_URL}/profiles/${PROFILE_ID}/sources"
 ```

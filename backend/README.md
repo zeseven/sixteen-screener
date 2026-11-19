@@ -1,6 +1,6 @@
 # Sixteen Screener backend
 
-Kotlin service built with Ktor. It collects stock data from external sources (Finnhub, SEC EDGAR, logoapi.sh, Finnhub logos),
+Kotlin service built with Ktor. It collects stock data from external sources (Finnhub, EODHD, SEC EDGAR, logoapi.sh, Finnhub logos),
 caches it in Firestore and Cloud Storage, and serves the REST API described in `docs/openapi.yaml`.
 The service is compiled into a GraalVM native image and runs on Cloud Run.
 
@@ -183,10 +183,17 @@ curl -s -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' 
 curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/profiles/${PROFILE_ID}/search?query=apple"
 curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/profiles/${PROFILE_ID}/companies/AAPL/price-ratios"
 curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/profiles/${PROFILE_ID}/sources"
+
+# International company (EODHD, automatic requests off): AUTO returns cached data or NOT_REQUESTED,
+# MANUAL calls EODHD when nothing is cached or the cache is older than 1 hour (1 of 20 requests per day)
+curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/profiles/${PROFILE_ID}/companies/SAP.DE/price-ratios?trigger=AUTO"
+curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/profiles/${PROFILE_ID}/companies/SAP.DE/price-ratios?trigger=MANUAL"
+curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/profiles/${PROFILE_ID}/companies/SAP.DE/dividends?trigger=MANUAL"
 curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/logos/AAPL"
 ```
 
 `PROFILE_ID` is the `id` returned by `POST /profiles`. Identity tokens expire after one hour.
+The EODHD free plan allows 20 requests per day; requests to EODHD are made only with `trigger=MANUAL`.
 
 ## Native image notes
 
