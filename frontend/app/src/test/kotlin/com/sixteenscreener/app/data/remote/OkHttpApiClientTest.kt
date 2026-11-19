@@ -7,6 +7,7 @@ import com.sixteenscreener.app.domain.model.BalanceSheetItem
 import com.sixteenscreener.app.domain.model.CallResult
 import com.sixteenscreener.app.domain.model.Capability
 import com.sixteenscreener.app.domain.model.DataStatus
+import com.sixteenscreener.app.domain.model.DefaultSources
 import com.sixteenscreener.app.domain.model.Exchange
 import com.sixteenscreener.app.domain.model.FiscalPeriod
 import com.sixteenscreener.app.domain.model.Indicator
@@ -103,7 +104,7 @@ class OkHttpApiClientTest {
         is ApiResult.Failure -> error
     }
 
-    private val alice = Profile(profileId, "Alice", SourceId.FINNHUB)
+    private val alice = Profile(profileId, "Alice", DefaultSources(SourceId.FINNHUB, SourceId.FINNHUB, SourceId.EODHD))
 
     private val peSetting = IndicatorSetting(
         ratioCode = "PE",
@@ -259,6 +260,13 @@ class OkHttpApiClientTest {
         val request = server.takeRequest()
         assertEquals("GET", request.method)
         assertEquals("/profiles/${profileId.value}", request.pathAndQuery())
+    }
+
+    @Test
+    fun `getProfile fails to parse a profile with the single default source of the old contract`() = runTest {
+        enqueue(body = """{"id":"${profileId.value}","name":"Alice","defaultSource":"finnhub"}""")
+
+        assertTrue(client.getProfile(profileId).error() is ApiError.Parse)
     }
 
     @Test

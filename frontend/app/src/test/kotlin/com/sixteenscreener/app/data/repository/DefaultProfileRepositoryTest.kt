@@ -6,6 +6,7 @@ import com.sixteenscreener.app.domain.ProfileNameValidation
 import com.sixteenscreener.app.domain.model.ActiveProfile
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
+import com.sixteenscreener.app.domain.model.DefaultSources
 import com.sixteenscreener.app.domain.model.Profile
 import com.sixteenscreener.app.domain.model.ProfileId
 import com.sixteenscreener.app.domain.model.SourceId
@@ -21,6 +22,7 @@ import org.junit.Test
 class DefaultProfileRepositoryTest {
 
     private val profileId = ProfileId("3f2b8c1e-6d4a-4f7e-9b1a-2c5d8e7f9a10")
+    private val defaultSources = DefaultSources(SourceId.FINNHUB, SourceId.FINNHUB, SourceId.EODHD)
     private val apiClient = FakeApiClient()
     private val store = InMemoryProfileStore()
     private val repository = DefaultProfileRepository(apiClient, store)
@@ -43,7 +45,7 @@ class DefaultProfileRepositoryTest {
 
     @Test
     fun `selecting a profile sends the trimmed name and stores ID and name`() = runTest {
-        apiClient.getOrCreateProfile = { ApiResult.Success(Profile(profileId, it, SourceId.FINNHUB)) }
+        apiClient.getOrCreateProfile = { ApiResult.Success(Profile(profileId, it, defaultSources)) }
 
         val result = repository.selectProfile(name("  Viktor "))
 
@@ -55,7 +57,7 @@ class DefaultProfileRepositoryTest {
 
     @Test
     fun `stored name is the one returned by the backend`() = runTest {
-        apiClient.getOrCreateProfile = { ApiResult.Success(Profile(profileId, "Viktor", SourceId.FINNHUB)) }
+        apiClient.getOrCreateProfile = { ApiResult.Success(Profile(profileId, "Viktor", defaultSources)) }
 
         repository.selectProfile(name("viktor"))
 

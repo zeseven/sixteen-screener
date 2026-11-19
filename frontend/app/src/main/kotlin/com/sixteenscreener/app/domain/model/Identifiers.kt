@@ -19,5 +19,6 @@ value class SourceId(val value: String) {
     companion object {
         val FINNHUB = SourceId("finnhub")
         val SEC_EDGAR = SourceId("sec-edgar")
+        val EODHD = SourceId("eodhd")
     }
 }

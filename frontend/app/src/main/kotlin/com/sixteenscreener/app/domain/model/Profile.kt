@@ -8,8 +8,20 @@ data class Profile(
     val id: ProfileId,
     /** Profile name as first entered, trimmed. */
     val name: String,
-    /** Source used when a request names no source. */
-    val defaultSource: SourceId,
+    /** Default source of each role, used when a request names no source. */
+    val defaultSources: DefaultSources,
+)
+
+/**
+ * Default source of each source role of a profile.
+ */
+data class DefaultSources(
+    /** Source of the company search. */
+    val search: SourceId,
+    /** Source of the data of companies listed on US exchanges. */
+    val us: SourceId,
+    /** Source of the data of companies listed on any other exchange. */
+    val international: SourceId,
 )
 
 /**
