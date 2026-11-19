@@ -539,7 +539,7 @@ External sources are distributed as follows:
 
 **Context:** Some tickers have one or two letters (e.g. `F`, `GM`). With a 3-character minimum (ADR-029, REQUIREMENTS) they can't be found.
 
-**Decision:** The app sends a search request from the first typed character, at most one request per second: the first request goes out immediately, then the latest query once the second has passed, and a newer query cancels the request in flight. An empty input (after trimming) clears the results without a request. The backend accepts queries of 1 to 50 characters after trimming. Queries of 1 or 2 characters match tickers only: the backend keeps the source's hits whose ticker starts with the query, exact ticker matches first; longer queries match tickers and company names as before. Every search response is limited to 25 results.
+**Decision:** (Request timing superseded by ADR-082.) The app sends a search request from the first typed character, at most one request per second: the first request goes out immediately, then the latest query once the second has passed, and a newer query cancels the request in flight. An empty input (after trimming) clears the results without a request. The backend accepts queries of 1 to 50 characters after trimming. Queries of 1 or 2 characters match tickers only: the backend keeps the source's hits whose ticker starts with the query, exact ticker matches first; longer queries match tickers and company names as before. Every search response is limited to 25 results.
 
 **Consequences:** Typing spends up to one source request per second from the first letter. The 5-minute in-memory search cache and the 25-result limit keep responses small for short queries.
 
@@ -822,3 +822,36 @@ The first snapshot replacing a cached list does not reload market data of rows a
 The static exchange table (ADR-062) gets an ISO 3166-1 alpha-2 country and a main-venue flag per exchange. A main venue is an exchange where domestic companies have their primary listing; the German regional exchanges (Frankfurt, Berlin, Munich, Stuttgart, Dusseldorf, Hamburg, Hanover) and the US OTC markets are not, every other exchange is. The company profile response gets `homeExchange`: true when the security is a stock, its exchange is a main venue and the exchange country equals the company's country from the profile of the selected source. The detailed screen shows `type: <type>` under the header (red for a non-stock) followed by a checkmark and "home exchange" when `homeExchange` is true. The mark is shown on the detailed screen only: on the search screen it would need one company profile request per result. The detailed screen requests the company profile as soon as it opens, whatever tab is selected, and shows the mark when it arrives; the backend serves the profile from its cache (90 days, shared by all profiles), so the source is called only for the first request of a company.
 
 **Consequences:** ADRs, preference shares and funds are recognisable at a glance, and a foreign quotation of a stock (Apple on Xetra, Coca-Cola on Vienna) gets no home-exchange mark. The mark is an approximation: a US stock can be marked on two US exchanges, and a company listed outside its country of incorporation gets no mark at all (Ferrari and Stellantis are Dutch companies listed in Milan and New York; Linde is Irish and listed in New York). If a source reports the country of the quoting venue instead of the issuer for a foreign quotation, that quotation is marked wrongly. A source without a country gives no mark. New exchanges in the static table need a country and a main-venue flag.
+
+## ADR-080: Exchange symbol lists only for exchanges covered by the plan
+
+**Date:** 2026-11-19
+**Status:** Accepted
+
+**Context:** A search for a company name returns listings on many exchanges. The backend downloaded the symbol list of every exchange it had not seen yet, one `/stock/symbol` request per exchange. The Finnhub free plan answers only the US list and `403` for every other exchange, and that "not covered" answer was kept in memory only, so every Cloud Run cold start spent the requests again. One search could spend 15 to 25 of the 60 requests per minute.
+
+**Decision:** A source gets an optional `directoryExchanges` setting: the exchange codes whose symbol lists the source is asked for (`[US]` for Finnhub). Every other exchange is not covered by the source (ADR-062) without a request. Without the setting, the symbol list of any exchange is requested, as before. The app is unaware of it: it requests data as usual and the backend answers `NOT_SUPPORTED` at once for symbols of not covered exchanges.
+
+**Consequences:** Search and watchlist spend no requests on exchanges the plan does not cover, also after a cold start. A paid plan or a new source that covers more exchanges needs its list extended in the configuration.
+
+## ADR-081: At most 10 parallel requests per source
+
+**Date:** 2026-11-19
+**Status:** Accepted
+
+**Context:** Besides 60 requests per minute, Finnhub rejects more than 30 requests per second on every plan. Symbol list downloads ran in parallel without a bound, and a `429` sets the request counters to their limits for the rest of the minute.
+
+**Decision:** Each backend instance sends at most 10 requests at a time to the same source, whatever the request (search, quote, ratios, profile, balance sheet, symbol list, logo). Further requests wait for a free slot; time spent waiting does not count toward the request timeout.
+
+**Consequences:** Bursts of requests are spread out. The bound applies per instance, so several Cloud Run instances can together send more. It is not a per-second limit: fast responses can still exceed 30 requests per second, which is unlikely with the current call patterns.
+
+## ADR-082: Search sent after a pause in typing
+
+**Date:** 2026-11-19
+**Status:** Accepted
+
+**Context:** The search sent a request on the first letter and then at most one per second (ADR-054), so typing a company name spent 4 to 6 source requests, and the results jumped through every intermediate query.
+
+**Decision:** The app sends a search request only when no letter was typed for 500 ms. The keyboard's search action sends the current query at once. An empty input (after trimming) clears the results at once without a request. A newer request still cancels the one in flight. The rest of ADR-054 (query length, ticker-only matching of 1- and 2-character queries, 25 results) is unchanged.
+
+**Consequences:** Typing a name usually costs one or two requests. Results appear 500 ms after the last letter instead of while typing. A cancelled request may still have spent a source request on the backend.

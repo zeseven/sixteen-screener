@@ -35,7 +35,7 @@ There are 4 tabs on the main screen of the app:
 - Watchlist. Displays selected companies. The user can add a stock and remove any existing one.
 Contains filters (drop-down controls): Market (USA/EU/all), sector (finances/technology/etc), user tags.
 - Search. Contains input box for search; searches default source by company ticker or first letters from company name.
-Search is triggered after each letter typed, but no more than 1 request/sec.
+Search is triggered when the user stops typing for 500 ms, or at once with the keyboard's search action.
 Companies found displayed as a list of rows without stock price and indicators (logo, ticker with exchange name, company name, flag); any company can be added to the watchlist. Search makes no source requests other than the search itself.
 If the source request limit is reached or the source fails, the search shows no results and the reason under the input box.
 - Exchanges. A table of known exchanges, with a text filter above it that matches any field. Each exchange shows its country and whether it is a main venue (an exchange where domestic companies have their primary listing).

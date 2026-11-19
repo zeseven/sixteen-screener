@@ -75,7 +75,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 
 ### Search screen
 - [x] Search by ticker or first letters of a company name using the default source
-- [x] Search starts from the first letter, then on each typed letter, throttled to max 1 request per second; 1- and 2-letter queries match tickers only; at most 25 results
+- [x] Search starts from the first letter, sent after a 500 ms pause in typing or at once with the keyboard's search action; 1- and 2-letter queries match tickers only; at most 25 results
 - [x] Results displayed as a company list; each result can be added to the watchlist
 - [x] Results show directory data only (no price, indicators or sector); no cache reads
 - [x] Exchange name and market from a static exchange table when the source provides no symbol list for the exchange
