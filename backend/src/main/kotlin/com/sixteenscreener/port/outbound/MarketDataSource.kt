@@ -1,6 +1,7 @@
 package com.sixteenscreener.port.outbound
 
 import com.sixteenscreener.domain.model.CompanyProfile
+import com.sixteenscreener.domain.model.Dividends
 import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.Quote
@@ -29,6 +30,9 @@ interface MarketDataSource {
 
     /** Price and financial ratios of [symbol]; ratios missing at the source are returned with a null value. */
     suspend fun ratios(symbol: Symbol): SourceResult<Ratios>
+
+    /** Dividends of [symbol] with an ex-date within the last year, newest first. */
+    suspend fun dividends(symbol: Symbol): SourceResult<Dividends>
 
     /** Company profile of [symbol]. */
     suspend fun companyProfile(symbol: Symbol): SourceResult<CompanyProfile>

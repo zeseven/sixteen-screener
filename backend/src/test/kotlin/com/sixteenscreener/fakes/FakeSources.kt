@@ -2,6 +2,7 @@ package com.sixteenscreener.fakes
 
 import com.sixteenscreener.domain.model.BalanceSheet
 import com.sixteenscreener.domain.model.CompanyProfile
+import com.sixteenscreener.domain.model.Dividends
 import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.Quote
@@ -24,6 +25,7 @@ class FakeMarketDataSource(override val id: SourceId = SourceId.of("finnhub")) :
     val quotes = ConcurrentHashMap<Symbol, SourceResult<Quote>>()
     val ratios = ConcurrentHashMap<Symbol, SourceResult<Ratios>>()
     val profiles = ConcurrentHashMap<Symbol, SourceResult<CompanyProfile>>()
+    val dividends = ConcurrentHashMap<Symbol, SourceResult<Dividends>>()
     val exchanges = ConcurrentHashMap<ExchangeCode, SourceResult<List<ListedSymbol>>>()
     val calls: MutableList<String> = CopyOnWriteArrayList()
 
@@ -35,6 +37,9 @@ class FakeMarketDataSource(override val id: SourceId = SourceId.of("finnhub")) :
 
     override suspend fun ratios(symbol: Symbol): SourceResult<Ratios> =
         recorded("ratios:$symbol") { ratios[symbol] }
+
+    override suspend fun dividends(symbol: Symbol): SourceResult<Dividends> =
+        recorded("dividends:$symbol") { dividends[symbol] }
 
     override suspend fun companyProfile(symbol: Symbol): SourceResult<CompanyProfile> =
         recorded("profile:$symbol") { profiles[symbol] }

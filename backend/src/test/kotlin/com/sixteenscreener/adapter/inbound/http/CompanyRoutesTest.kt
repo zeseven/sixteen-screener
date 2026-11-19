@@ -10,6 +10,8 @@ import com.sixteenscreener.domain.model.CacheKey
 import com.sixteenscreener.domain.model.Capability
 import com.sixteenscreener.domain.model.CompanyProfile
 import com.sixteenscreener.domain.model.DataType
+import com.sixteenscreener.domain.model.Dividend
+import com.sixteenscreener.domain.model.Dividends
 import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.FiscalPeriod
 import com.sixteenscreener.domain.model.LimitInterval
@@ -32,6 +34,7 @@ import io.kotest.datatest.withData
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.shouldBe
 import io.ktor.client.request.get
 import io.ktor.http.HttpStatusCode
@@ -39,15 +42,17 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import java.time.Duration
 import java.time.LocalDate
 import java.util.UUID
+import kotlinx.serialization.json.jsonPrimitive
 
 private val finnhub = SourceId.of("finnhub")
 private val aapl = Symbol.of("AAPL")
-private val tabs = listOf("price-ratios", "balance-sheet", "profile")
+private val tabs = listOf("price-ratios", "dividends", "balance-sheet", "profile")
 
 private fun fullConfig(): AppConfig = testConfig().let { config ->
     val finnhubSource = config.sources.single()
@@ -84,6 +89,20 @@ private val profile = CompanyProfile(
     description = null,
 )
 
+private val dividends = Dividends(
+    listOf(
+        Dividend(
+            exDate = LocalDate.parse("2026-08-11"),
+            paymentDate = LocalDate.parse("2026-08-14"),
+            recordDate = null,
+            declarationDate = LocalDate.parse("2026-07-31"),
+            amount = 0.26,
+            currency = "USD",
+        ),
+        Dividend(LocalDate.parse("2025-08-11"), null, null, null, amount = 0.25, currency = "USD"),
+    ),
+)
+
 private val balanceSheet = BalanceSheet(
     listOf(
         BalanceSheetPeriod(
@@ -109,6 +128,7 @@ private fun TestPorts.sourceAnswersEverything() {
     marketData.quotes[aapl] = SourceResult.Success(Quote(228.5, "USD"), success())
     marketData.ratios[aapl] = SourceResult.Success(ratios, success())
     marketData.profiles[aapl] = SourceResult.Success(profile, success())
+    marketData.dividends[aapl] = SourceResult.Success(dividends, success())
     balanceSheets.balanceSheets[aapl] = SourceResult.Success(balanceSheet, success())
 }
 
@@ -117,6 +137,7 @@ private fun TestPorts.sourceFailsEverything() {
     marketData.quotes[aapl] = failure
     marketData.ratios[aapl] = failure
     marketData.profiles[aapl] = failure
+    marketData.dividends[aapl] = failure
     balanceSheets.balanceSheets[aapl] = failure
 }
 
@@ -128,6 +149,7 @@ private suspend fun TestPorts.cacheEverything(age: Duration) {
     )
     companyCache.put(CacheKey(finnhub, aapl, DataType.RATIOS), CacheEntry(ratios, fetchedAt))
     companyCache.put(CacheKey(finnhub, aapl, DataType.COMPANY_PROFILE), CacheEntry(profile, fetchedAt))
+    companyCache.put(CacheKey(finnhub, aapl, DataType.DIVIDENDS), CacheEntry(dividends, fetchedAt))
     companyCache.put(CacheKey(finnhub, aapl, DataType.BALANCE_SHEET), CacheEntry(balanceSheet, fetchedAt))
 }
 
@@ -156,6 +178,7 @@ private fun JsonObject.isEmptyData(): Boolean =
     meta()["fetchedAt"] == JsonNull && when {
         containsKey("ratios") -> get("quote") == JsonNull && getValue("ratios").jsonArray.isEmpty()
         containsKey("periods") -> getValue("periods").jsonArray.isEmpty()
+        containsKey("dividends") -> get("dividendYield") == JsonNull && getValue("dividends").jsonArray.isEmpty()
         else -> get("profile") == JsonNull
     }
 
@@ -463,6 +486,76 @@ class CompanyRoutesTest : FunSpec({
                 val body = client.get("/profiles/${saved.id}/companies/AAPL/profile?source=finnhub").json()
 
                 body shouldBe JsonObject(mapOf("meta" to meta("NO_DATA", null), "profile" to JsonNull))
+            }
+        }
+    }
+
+    context("dividends") {
+        test("cache miss answers fresh dividends in the exact shape, newest first, without a yield when no quote is cached") {
+            routeTest(config = fullConfig()) { ports ->
+                val saved = ports.savedProfile()
+                ports.listedApple()
+                ports.sourceAnswersEverything()
+
+                val body = client.get("/profiles/${saved.id}/companies/AAPL/dividends").json()
+
+                body.keys shouldBe setOf("meta", "dividendYield", "dividends")
+                body.meta() shouldBe meta("FRESH", "2026-11-14T12:00:00Z")
+                body["dividendYield"] shouldBe JsonNull
+                body["dividends"] shouldBe JsonArray(
+                    listOf(
+                        JsonObject(
+                            mapOf(
+                                "exDate" to JsonPrimitive("2026-08-11"),
+                                "paymentDate" to JsonPrimitive("2026-08-14"),
+                                "recordDate" to JsonNull,
+                                "declarationDate" to JsonPrimitive("2026-07-31"),
+                                "amount" to JsonPrimitive(0.26),
+                                "currency" to JsonPrimitive("USD"),
+                            ),
+                        ),
+                        JsonObject(
+                            mapOf(
+                                "exDate" to JsonPrimitive("2025-08-11"),
+                                "paymentDate" to JsonNull,
+                                "recordDate" to JsonNull,
+                                "declarationDate" to JsonNull,
+                                "amount" to JsonPrimitive(0.25),
+                                "currency" to JsonPrimitive("USD"),
+                            ),
+                        ),
+                    ),
+                )
+                ports.marketData.calls shouldContainExactly listOf("dividends:AAPL")
+            }
+        }
+
+        test("the yield comes from the cached quote of the source and counts the dividends of the last year") {
+            routeTest(config = fullConfig()) { ports ->
+                val saved = ports.savedProfile()
+                ports.listedApple()
+                ports.cacheEverything(age = Duration.ofDays(2))
+
+                val body = client.get("/profiles/${saved.id}/companies/AAPL/dividends").json()
+
+                body.meta() shouldBe meta("CACHED", "2026-11-12T12:00:00Z")
+                body.getValue("dividendYield").jsonPrimitive.double shouldBe (0.13 plusOrMinus 1e-9)
+                ports.sourceCallCount() shouldBe 0
+            }
+        }
+
+        test("a source without the dividends capability answers NOT_SUPPORTED without a call") {
+            routeTest { ports ->
+                val saved = ports.savedProfile()
+                ports.listedApple()
+                ports.sourceAnswersEverything()
+
+                val body = client.get("/profiles/${saved.id}/companies/AAPL/dividends").json()
+
+                body shouldBe JsonObject(
+                    mapOf("meta" to meta("NOT_SUPPORTED", null), "dividendYield" to JsonNull, "dividends" to JsonArray(emptyList())),
+                )
+                ports.sourceCallCount() shouldBe 0
             }
         }
     }

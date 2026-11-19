@@ -5,6 +5,8 @@ import com.sixteenscreener.domain.model.BalanceSheetItem
 import com.sixteenscreener.domain.model.BalanceSheetPeriod
 import com.sixteenscreener.domain.model.CompanyProfileData
 import com.sixteenscreener.domain.model.DataStatus
+import com.sixteenscreener.domain.model.Dividend
+import com.sixteenscreener.domain.model.DividendsData
 import com.sixteenscreener.domain.model.PriceAndRatios
 import com.sixteenscreener.domain.model.Ratio
 import com.sixteenscreener.domain.model.SourceData
@@ -144,4 +146,36 @@ fun CompanyProfileData.toDto() = CompanyProfileResponseDto(
             description = data.description,
         )
     },
+)
+
+@Serializable
+data class DividendDto(
+    val exDate: String,
+    val paymentDate: String?,
+    val recordDate: String?,
+    val declarationDate: String?,
+    val amount: Double,
+    val currency: String,
+)
+
+@Serializable
+data class DividendsResponseDto(
+    val meta: SourceDataMetaDto,
+    val dividendYield: Double?,
+    val dividends: List<DividendDto>,
+)
+
+private fun Dividend.toDto() = DividendDto(
+    exDate = exDate.toString(),
+    paymentDate = paymentDate?.toString(),
+    recordDate = recordDate?.toString(),
+    declarationDate = declarationDate?.toString(),
+    amount = amount,
+    currency = currency,
+)
+
+fun DividendsData.toDto() = DividendsResponseDto(
+    meta = dividends.toMetaDto(),
+    dividendYield = dividendYield,
+    dividends = dividends.data?.items.orEmpty().map { it.toDto() },
 )

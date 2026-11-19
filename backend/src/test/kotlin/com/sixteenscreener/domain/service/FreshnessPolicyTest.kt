@@ -59,7 +59,7 @@ class FreshnessPolicyTest : FunSpec({
     }
 
     context("other cache entries expire 14 days after fetch") {
-        withData(nameFn = { it.name }, DataType.QUOTE, DataType.RATIOS, DataType.BALANCE_SHEET) { type ->
+        withData(nameFn = { it.name }, DataType.QUOTE, DataType.RATIOS, DataType.DIVIDENDS, DataType.BALANCE_SHEET) { type ->
             policy.cacheExpireAt(type, now) shouldBe now + Duration.ofDays(14)
         }
     }

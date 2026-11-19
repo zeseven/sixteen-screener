@@ -31,6 +31,10 @@ fun Route.companyRoutes(companyData: CompanyDataUseCase) {
             val (profileId, symbol, source, trigger) = call.companyDataRequest()
             call.respond(companyData.priceAndRatios(profileId, symbol, source, trigger).toDto())
         }
+        get("/dividends") {
+            val (profileId, symbol, source, trigger) = call.companyDataRequest()
+            call.respond(companyData.dividends(profileId, symbol, source, trigger).toDto())
+        }
         get("/balance-sheet") {
             val (profileId, symbol, source, trigger) = call.companyDataRequest()
             call.respond(companyData.balanceSheet(profileId, symbol, source, trigger).toDto())

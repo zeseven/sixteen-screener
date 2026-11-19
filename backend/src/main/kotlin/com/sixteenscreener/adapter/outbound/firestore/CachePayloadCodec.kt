@@ -5,6 +5,8 @@ import com.sixteenscreener.domain.model.BalanceSheetItem
 import com.sixteenscreener.domain.model.BalanceSheetPeriod
 import com.sixteenscreener.domain.model.CompanyProfile
 import com.sixteenscreener.domain.model.DataType
+import com.sixteenscreener.domain.model.Dividend
+import com.sixteenscreener.domain.model.Dividends
 import com.sixteenscreener.domain.model.FiscalPeriod
 import com.sixteenscreener.domain.model.Quote
 import com.sixteenscreener.domain.model.RatioCode
@@ -15,6 +17,7 @@ object CachePayloadCodec {
 
     fun <T : Any> encode(type: DataType<T>, data: T): FirestoreMap = when (type) {
         DataType.RATIOS -> encodeRatios(data as Ratios)
+        DataType.DIVIDENDS -> encodeDividends(data as Dividends)
         DataType.BALANCE_SHEET -> encodeBalanceSheet(data as BalanceSheet)
         DataType.COMPANY_PROFILE -> encodeProfile(data as CompanyProfile)
         DataType.QUOTE -> throw IllegalArgumentException("Quotes are encoded with encodeQuote")
@@ -23,6 +26,7 @@ object CachePayloadCodec {
     @Suppress("UNCHECKED_CAST")
     fun <T : Any> decode(type: DataType<T>, payload: FirestoreMap): T = when (type) {
         DataType.RATIOS -> decodeRatios(payload)
+        DataType.DIVIDENDS -> decodeDividends(payload)
         DataType.BALANCE_SHEET -> decodeBalanceSheet(payload)
         DataType.COMPANY_PROFILE -> decodeProfile(payload)
         DataType.QUOTE -> throw IllegalArgumentException("Quotes are decoded with decodeQuote")
@@ -40,6 +44,34 @@ object CachePayloadCodec {
             payload.maps("items")
                 .mapNotNull { item -> RatioCode.parseOrNull(item.string("code"))?.let { it to item.doubleOrNull("value") } }
                 .toMap(),
+        )
+
+    private fun encodeDividends(dividends: Dividends): FirestoreMap =
+        mapOf(
+            "items" to dividends.items.map { dividend ->
+                mapOf(
+                    "exDate" to dividend.exDate.toString(),
+                    "paymentDate" to dividend.paymentDate?.toString(),
+                    "recordDate" to dividend.recordDate?.toString(),
+                    "declarationDate" to dividend.declarationDate?.toString(),
+                    "amount" to dividend.amount,
+                    "currency" to dividend.currency,
+                )
+            },
+        )
+
+    private fun decodeDividends(payload: FirestoreMap): Dividends =
+        Dividends(
+            payload.maps("items").map { item ->
+                Dividend(
+                    exDate = LocalDate.parse(item.string("exDate")),
+                    paymentDate = item.stringOrNull("paymentDate")?.let(LocalDate::parse),
+                    recordDate = item.stringOrNull("recordDate")?.let(LocalDate::parse),
+                    declarationDate = item.stringOrNull("declarationDate")?.let(LocalDate::parse),
+                    amount = item.double("amount"),
+                    currency = item.string("currency"),
+                )
+            },
         )
 
     private fun encodeBalanceSheet(balanceSheet: BalanceSheet): FirestoreMap =

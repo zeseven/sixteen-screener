@@ -6,12 +6,15 @@ import com.sixteenscreener.contract.sampleRatios
 import com.sixteenscreener.domain.model.BalanceSheet
 import com.sixteenscreener.domain.model.CompanyProfile
 import com.sixteenscreener.domain.model.DataType
+import com.sixteenscreener.domain.model.Dividend
+import com.sixteenscreener.domain.model.Dividends
 import com.sixteenscreener.domain.model.Quote
 import com.sixteenscreener.domain.model.RatioCode
 import com.sixteenscreener.domain.model.Ratios
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import java.time.LocalDate
 
 class CachePayloadCodecTest : FunSpec({
 
@@ -41,6 +44,30 @@ class CachePayloadCodecTest : FunSpec({
 
     test("the logo URL is stored in the profile payload") {
         CachePayloadCodec.encode(DataType.COMPANY_PROFILE, sampleProfile)["logoUrl"] shouldBe sampleProfile.logoUrl
+    }
+
+    test("dividends round-trip, including missing dates") {
+        val dividends = Dividends(
+            listOf(
+                Dividend(
+                    exDate = LocalDate.parse("2026-05-12"),
+                    paymentDate = LocalDate.parse("2026-05-15"),
+                    recordDate = LocalDate.parse("2026-05-12"),
+                    declarationDate = LocalDate.parse("2026-05-01"),
+                    amount = 0.26,
+                    currency = "EUR",
+                ),
+                Dividend(LocalDate.parse("2025-11-10"), null, null, null, amount = 1.0, currency = "EUR"),
+            ),
+        )
+
+        CachePayloadCodec.decode(DataType.DIVIDENDS, CachePayloadCodec.encode(DataType.DIVIDENDS, dividends)) shouldBe dividends
+    }
+
+    test("an empty dividend list round-trips") {
+        val encoded = CachePayloadCodec.encode(DataType.DIVIDENDS, Dividends(emptyList()))
+
+        CachePayloadCodec.decode(DataType.DIVIDENDS, encoded) shouldBe Dividends(emptyList())
     }
 
     test("quotes round-trip") {

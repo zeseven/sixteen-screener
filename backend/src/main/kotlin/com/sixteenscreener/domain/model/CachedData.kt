@@ -17,12 +17,15 @@ sealed class DataType<T : Any>(val name: String, val capability: Capability) {
     /** Annual balance sheet. */
     data object BALANCE_SHEET : DataType<BalanceSheet>("BALANCE_SHEET", Capability.BALANCE_SHEET)
 
+    /** Dividends of the last year. */
+    data object DIVIDENDS : DataType<Dividends>("DIVIDENDS", Capability.DIVIDENDS)
+
     /** Company profile. */
     data object COMPANY_PROFILE : DataType<CompanyProfile>("COMPANY_PROFILE", Capability.COMPANY_PROFILE)
 
     companion object {
         /** All data types. */
-        val entries: List<DataType<*>> get() = listOf(QUOTE, RATIOS, BALANCE_SHEET, COMPANY_PROFILE)
+        val entries: List<DataType<*>> get() = listOf(QUOTE, RATIOS, DIVIDENDS, BALANCE_SHEET, COMPANY_PROFILE)
     }
 }
 

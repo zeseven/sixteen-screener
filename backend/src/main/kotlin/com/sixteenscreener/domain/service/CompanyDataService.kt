@@ -1,12 +1,15 @@
 package com.sixteenscreener.domain.service
 
 import com.sixteenscreener.domain.model.BalanceSheet
+import com.sixteenscreener.domain.model.CacheEntries
 import com.sixteenscreener.domain.model.CacheEntry
 import com.sixteenscreener.domain.model.CacheKey
 import com.sixteenscreener.domain.model.CompanyProfile
 import com.sixteenscreener.domain.model.CompanyProfileData
 import com.sixteenscreener.domain.model.DataStatus
 import com.sixteenscreener.domain.model.DataType
+import com.sixteenscreener.domain.model.Dividends
+import com.sixteenscreener.domain.model.DividendsData
 import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.PriceAndRatios
 import com.sixteenscreener.domain.model.Profile
@@ -40,6 +43,7 @@ import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.concurrent.atomic.AtomicBoolean
 
 class CompanyDataService(
@@ -82,6 +86,23 @@ class CompanyDataService(
         val ratios = loaded[ratiosKey]
         val settings = indicatorSettings.settingsOf(target.profile)
         return PriceAndRatios(quote, ratios, IndicatorEvaluator.indicators(settings, ratios.data, quote.data?.quote?.price))
+    }
+
+    override suspend fun dividends(
+        profileId: ProfileId,
+        symbol: Symbol,
+        source: SourceId?,
+        trigger: RequestTrigger,
+    ): DividendsData {
+        val target = target(profileId, symbol, source)
+        val key = CacheKey(target.source, symbol, DataType.DIVIDENDS)
+        val quoteKey = CacheKey(target.source, symbol, DataType.QUOTE)
+        val cached = if (supports(key, target.lookup)) cache.getAll(listOf(key, quoteKey)) else CacheEntries(emptyMap())
+        val plan = detailedPlan(key, target.lookup, cached[key], trigger) { dividendsFetch(key, it) }
+        val dividends = load(key.source, listOf(plan))[key]
+        val quote = cached[quoteKey]?.data?.quote
+        val asOf = LocalDate.ofInstant(clock.now(), ZoneOffset.UTC)
+        return DividendsData(dividends, quote?.let { dividends.data?.trailingYield(it, asOf) })
     }
 
     override suspend fun balanceSheet(
@@ -231,6 +252,9 @@ class CompanyDataService(
     private fun ratiosFetch(key: CacheKey<Ratios>, cached: CacheEntry<Ratios>?) =
         storedAsIs(key, cached) { marketData(key.source).ratios(key.symbol) }
 
+    private fun dividendsFetch(key: CacheKey<Dividends>, cached: CacheEntry<Dividends>?) =
+        storedAsIs(key, cached) { marketData(key.source).dividends(key.symbol) }
+
     private fun profileFetch(key: CacheKey<CompanyProfile>, cached: CacheEntry<CompanyProfile>?) =
         storedAsIs(key, cached) { marketData(key.source).companyProfile(key.symbol) }
 
@@ -254,7 +278,7 @@ class CompanyDataService(
     private fun supports(key: CacheKey<*>): Boolean {
         val hasAdapter = when (key.type) {
             DataType.BALANCE_SHEET -> key.source in balanceSheetSources
-            DataType.QUOTE, DataType.RATIOS, DataType.COMPANY_PROFILE -> key.source in marketDataSources
+            DataType.QUOTE, DataType.RATIOS, DataType.DIVIDENDS, DataType.COMPANY_PROFILE -> key.source in marketDataSources
         }
         return hasAdapter && catalog.supports(key.source, key.type.capability)
     }

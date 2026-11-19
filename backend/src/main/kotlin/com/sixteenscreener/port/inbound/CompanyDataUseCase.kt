@@ -2,6 +2,7 @@ package com.sixteenscreener.port.inbound
 
 import com.sixteenscreener.domain.model.BalanceSheet
 import com.sixteenscreener.domain.model.CompanyProfileData
+import com.sixteenscreener.domain.model.DividendsData
 import com.sixteenscreener.domain.model.PriceAndRatios
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.RequestTrigger
@@ -34,6 +35,9 @@ interface CompanyDataUseCase {
      * defined by [PriceAndRatios].
      */
     suspend fun priceAndRatios(profileId: ProfileId, symbol: Symbol, source: SourceId?, trigger: RequestTrigger): PriceAndRatios
+
+    /** Dividends of [symbol] of the last year, newest first, with the trailing yield from the cached quote of the source. */
+    suspend fun dividends(profileId: ProfileId, symbol: Symbol, source: SourceId?, trigger: RequestTrigger): DividendsData
 
     /** Annual balance sheet periods of [symbol], newest first. */
     suspend fun balanceSheet(profileId: ProfileId, symbol: Symbol, source: SourceId?, trigger: RequestTrigger): SourceData<BalanceSheet>

@@ -1,8 +1,12 @@
 package com.sixteenscreener.domain.service
 
+import com.sixteenscreener.domain.model.CacheKey
 import com.sixteenscreener.domain.model.Capability
 import com.sixteenscreener.domain.model.CompanyIdentity
 import com.sixteenscreener.domain.model.DataStatus
+import com.sixteenscreener.domain.model.DataType
+import com.sixteenscreener.domain.model.Dividend
+import com.sixteenscreener.domain.model.Dividends
 import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.Indicator
 import com.sixteenscreener.domain.model.IndicatorLevel
@@ -33,12 +37,14 @@ import io.kotest.datatest.withData
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.maps.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import java.time.Duration
+import java.time.LocalDate
 
 private val AAPL = Symbol.of("AAPL")
 private val AD = Symbol.of("AD.AS")
@@ -349,6 +355,72 @@ class CompanyDataServiceTest : FunSpec({
             f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             f.sourceCalls.writes.map { it.first } shouldContainExactly listOf(FINNHUB)
+        }
+    }
+
+    context("dividends") {
+        fun dividends(vararg amounts: Double) = Dividends(
+            amounts.mapIndexed { index, amount ->
+                Dividend(LocalDate.parse("2026-10-01").minusMonths(index * 3L), null, null, null, amount, "USD")
+            },
+        )
+
+        test("cache miss requests and stores the dividends; the yield comes from the cached quote") {
+            val f = fixture(capabilities = ALL_MARKET_DATA + Capability.DIVIDENDS)
+            f.cachedQuote("AAPL", 100.0, age = Duration.ofDays(3))
+            f.source.dividends[AAPL] = SourceResult.Success(dividends(0.5, 0.5), f.success())
+
+            val result = f.service.dividends(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
+
+            result.dividends.status shouldBe DataStatus.FRESH
+            result.dividends.data shouldBe dividends(0.5, 0.5)
+            result.dividendYield.shouldNotBeNull() shouldBe (1.0 plusOrMinus 1e-9)
+            f.source.calls shouldContainExactly listOf("dividends:AAPL")
+            f.cache.get(CacheKey(FINNHUB, AAPL, DataType.DIVIDENDS))?.data shouldBe dividends(0.5, 0.5)
+        }
+
+        test("cached dividends are returned without a call; without a cached quote there is no yield") {
+            val f = fixture(capabilities = ALL_MARKET_DATA + Capability.DIVIDENDS)
+            f.cached(CacheKey(FINNHUB, AAPL, DataType.DIVIDENDS), dividends(1.0), age = Duration.ofDays(2))
+
+            val result = f.service.dividends(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
+
+            result.dividends.status shouldBe DataStatus.CACHED
+            result.dividendYield.shouldBeNull()
+            f.source.calls.shouldBeEmpty()
+        }
+
+        test("an empty dividend list is data with a yield of 0") {
+            val f = fixture(capabilities = ALL_MARKET_DATA + Capability.DIVIDENDS)
+            f.cachedQuote("AAPL", 100.0, age = Duration.ofMinutes(3))
+            f.source.dividends[AAPL] = SourceResult.Success(Dividends(emptyList()), f.success())
+
+            val result = f.service.dividends(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
+
+            result.dividends.status shouldBe DataStatus.FRESH
+            result.dividendYield shouldBe 0.0
+        }
+
+        test("source without the capability gives NOT_SUPPORTED without a call or cache read") {
+            val f = fixture()
+
+            val result = f.service.dividends(f.profile.id, AAPL, source = null, trigger = RequestTrigger.MANUAL)
+
+            result.dividends shouldBe SourceData(FINNHUB, DataStatus.NOT_SUPPORTED, data = null, fetchedAt = null)
+            result.dividendYield.shouldBeNull()
+            f.source.calls.shouldBeEmpty()
+            f.cache.getAllCalls shouldBe 0
+        }
+
+        test("failed call without cache gives SOURCE_ERROR and no yield") {
+            val f = fixture(capabilities = ALL_MARKET_DATA + Capability.DIVIDENDS)
+            f.cachedQuote("AAPL", 100.0, age = Duration.ofMinutes(3))
+            f.source.dividends[AAPL] = SourceResult.SourceError(SourceCallOutcome.httpError(500, f.now))
+
+            val result = f.service.dividends(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
+
+            result.dividends.status shouldBe DataStatus.SOURCE_ERROR
+            result.dividendYield.shouldBeNull()
         }
     }
 

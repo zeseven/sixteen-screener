@@ -5,6 +5,7 @@ import com.sixteenscreener.adapter.outbound.http.SourceHttpCall
 import com.sixteenscreener.adapter.outbound.http.SourceHttpClient
 import com.sixteenscreener.domain.model.BalanceSheet
 import com.sixteenscreener.domain.model.CompanyProfile
+import com.sixteenscreener.domain.model.Dividends
 import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.ListedSymbol
 import com.sixteenscreener.domain.model.Quote
@@ -57,6 +58,8 @@ class FinnhubClient(
         get("/stock/metric", "symbol" to symbol.value, "metric" to "all") { response ->
             FinnhubMapper.ratios(response.body(), symbol)
         }
+
+    override suspend fun dividends(symbol: Symbol): SourceResult<Dividends> = SourceResult.NotSupported(outcome = null)
 
     override suspend fun companyProfile(symbol: Symbol): SourceResult<CompanyProfile> =
         get("/stock/profile2", "symbol" to symbol.value) { response -> FinnhubMapper.companyProfile(response.body()) }

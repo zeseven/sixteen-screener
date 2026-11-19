@@ -342,6 +342,15 @@ class FinnhubClientTest : FunSpec({
         }
     }
 
+    context("dividends") {
+        test("are not supported by the free plan and make no request") {
+            val finnhub = MockFinnhub()
+
+            finnhub.client.dividends(aapl) shouldBe SourceResult.NotSupported(outcome = null)
+            finnhub.requests shouldBe emptyList()
+        }
+    }
+
     context("balance sheet") {
         test("annual periods newest first with items as provided") {
             val finnhub = fixture("financials-reported-aapl.json")
