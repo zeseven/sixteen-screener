@@ -10,6 +10,7 @@ import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.Profile
 import com.sixteenscreener.app.domain.model.ProfileId
+import com.sixteenscreener.app.domain.model.RequestTrigger
 import com.sixteenscreener.app.domain.model.SearchResults
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceId
@@ -27,11 +28,11 @@ class FakeApiClient : ApiClient {
     var addToWatchlist: suspend (ProfileId, Symbol, String) -> ApiResult<WatchlistItem> = { _, _, _ -> notStubbed() }
     var removeFromWatchlist: suspend (ProfileId, Symbol) -> ApiResult<Unit> = { _, _ -> notStubbed() }
     var search: suspend (ProfileId, String) -> ApiResult<SearchResults> = { _, _ -> notStubbed() }
-    var getPriceAndRatios: suspend (ProfileId, Symbol, SourceId?, Boolean) -> ApiResult<PriceAndRatios> =
+    var getPriceAndRatios: suspend (ProfileId, Symbol, SourceId?, RequestTrigger) -> ApiResult<PriceAndRatios> =
         { _, _, _, _ -> notStubbed() }
-    var getBalanceSheet: suspend (ProfileId, Symbol, SourceId?, Boolean) -> ApiResult<BalanceSheet> =
+    var getBalanceSheet: suspend (ProfileId, Symbol, SourceId?, RequestTrigger) -> ApiResult<BalanceSheet> =
         { _, _, _, _ -> notStubbed() }
-    var getCompanyProfile: suspend (ProfileId, Symbol, SourceId?, Boolean) -> ApiResult<CompanyProfileData> =
+    var getCompanyProfile: suspend (ProfileId, Symbol, SourceId?, RequestTrigger) -> ApiResult<CompanyProfileData> =
         { _, _, _, _ -> notStubbed() }
     var getSources: suspend (ProfileId) -> ApiResult<List<Source>> = { notStubbed() }
     var getExchanges: suspend () -> ApiResult<List<Exchange>> = { notStubbed() }
@@ -60,19 +61,19 @@ class FakeApiClient : ApiClient {
     override suspend fun search(profileId: ProfileId, query: String) =
         record("search(${profileId.value}, $query)") { search.invoke(profileId, query) }
 
-    override suspend fun getPriceAndRatios(profileId: ProfileId, symbol: Symbol, source: SourceId?, refresh: Boolean) =
-        record("getPriceAndRatios(${profileId.value}, ${symbol.value}, ${source?.value}, $refresh)") {
-            getPriceAndRatios.invoke(profileId, symbol, source, refresh)
+    override suspend fun getPriceAndRatios(profileId: ProfileId, symbol: Symbol, source: SourceId?, trigger: RequestTrigger) =
+        record("getPriceAndRatios(${profileId.value}, ${symbol.value}, ${source?.value}, ${trigger.name})") {
+            getPriceAndRatios.invoke(profileId, symbol, source, trigger)
         }
 
-    override suspend fun getBalanceSheet(profileId: ProfileId, symbol: Symbol, source: SourceId?, refresh: Boolean) =
-        record("getBalanceSheet(${profileId.value}, ${symbol.value}, ${source?.value}, $refresh)") {
-            getBalanceSheet.invoke(profileId, symbol, source, refresh)
+    override suspend fun getBalanceSheet(profileId: ProfileId, symbol: Symbol, source: SourceId?, trigger: RequestTrigger) =
+        record("getBalanceSheet(${profileId.value}, ${symbol.value}, ${source?.value}, ${trigger.name})") {
+            getBalanceSheet.invoke(profileId, symbol, source, trigger)
         }
 
-    override suspend fun getCompanyProfile(profileId: ProfileId, symbol: Symbol, source: SourceId?, refresh: Boolean) =
-        record("getCompanyProfile(${profileId.value}, ${symbol.value}, ${source?.value}, $refresh)") {
-            getCompanyProfile.invoke(profileId, symbol, source, refresh)
+    override suspend fun getCompanyProfile(profileId: ProfileId, symbol: Symbol, source: SourceId?, trigger: RequestTrigger) =
+        record("getCompanyProfile(${profileId.value}, ${symbol.value}, ${source?.value}, ${trigger.name})") {
+            getCompanyProfile.invoke(profileId, symbol, source, trigger)
         }
 
     override suspend fun getSources(profileId: ProfileId) = record("getSources(${profileId.value})") { getSources.invoke(profileId) }

@@ -31,6 +31,7 @@ import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.ProblemDetails
 import com.sixteenscreener.app.domain.model.Profile
 import com.sixteenscreener.app.domain.model.ProfileId
+import com.sixteenscreener.app.domain.model.RequestTrigger
 import com.sixteenscreener.app.domain.model.SearchResults
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceId
@@ -104,9 +105,9 @@ class OkHttpApiClient @Inject constructor(
         profileId: ProfileId,
         symbol: Symbol,
         source: SourceId?,
-        refresh: Boolean,
+        trigger: RequestTrigger,
     ): ApiResult<PriceAndRatios> =
-        get(companyDataUrl(profileId, symbol, "price-ratios", source, refresh)) {
+        get(companyDataUrl(profileId, symbol, "price-ratios", source, trigger)) {
             json.decodeFromString<PriceAndRatiosResponseDto>(it).toDomain()
         }
 
@@ -114,9 +115,9 @@ class OkHttpApiClient @Inject constructor(
         profileId: ProfileId,
         symbol: Symbol,
         source: SourceId?,
-        refresh: Boolean,
+        trigger: RequestTrigger,
     ): ApiResult<BalanceSheet> =
-        get(companyDataUrl(profileId, symbol, "balance-sheet", source, refresh)) {
+        get(companyDataUrl(profileId, symbol, "balance-sheet", source, trigger)) {
             json.decodeFromString<BalanceSheetResponseDto>(it).toDomain()
         }
 
@@ -124,9 +125,9 @@ class OkHttpApiClient @Inject constructor(
         profileId: ProfileId,
         symbol: Symbol,
         source: SourceId?,
-        refresh: Boolean,
+        trigger: RequestTrigger,
     ): ApiResult<CompanyProfileData> =
-        get(companyDataUrl(profileId, symbol, "profile", source, refresh)) {
+        get(companyDataUrl(profileId, symbol, "profile", source, trigger)) {
             json.decodeFromString<CompanyProfileResponseDto>(it).toDomain()
         }
 
@@ -167,10 +168,10 @@ class OkHttpApiClient @Inject constructor(
         symbol: Symbol,
         resource: String,
         source: SourceId?,
-        refresh: Boolean,
+        trigger: RequestTrigger,
     ): HttpUrl = profileUrl(profileId, "companies", symbol.value, resource).newBuilder()
         .apply { source?.let { addQueryParameter("source", it.value) } }
-        .addQueryParameter("refresh", refresh.toString())
+        .addQueryParameter("trigger", trigger.name)
         .build()
 
     /** Percent-encodes this value so that commas inside it don't split a comma-separated query parameter. */

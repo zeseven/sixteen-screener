@@ -26,6 +26,7 @@ import com.sixteenscreener.app.domain.model.Ratio
 import com.sixteenscreener.app.domain.model.RatioCategory
 import com.sixteenscreener.app.domain.model.RatioUnit
 import com.sixteenscreener.app.domain.model.RequestLimit
+import com.sixteenscreener.app.domain.model.RequestTrigger
 import com.sixteenscreener.app.domain.model.SearchItem
 import com.sixteenscreener.app.domain.model.SearchStatus
 import com.sixteenscreener.app.domain.model.SourceCallOutcome
@@ -534,24 +535,33 @@ class OkHttpApiClientTest {
     }
 
     @Test
-    fun `getPriceAndRatios requests the default source without refresh`() = runTest {
+    fun `getPriceAndRatios requests the default source with the automatic trigger`() = runTest {
         enqueueFixture("price_ratios.json")
 
         client.getPriceAndRatios(profileId, Symbol("AAPL"))
 
-        assertEquals("/profiles/${profileId.value}/companies/AAPL/price-ratios?refresh=false", server.takeRequest().pathAndQuery())
+        assertEquals("/profiles/${profileId.value}/companies/AAPL/price-ratios?trigger=AUTO", server.takeRequest().pathAndQuery())
     }
 
     @Test
-    fun `getPriceAndRatios passes source and refresh`() = runTest {
+    fun `getPriceAndRatios passes source and the manual trigger`() = runTest {
         enqueueFixture("price_ratios.json")
 
-        client.getPriceAndRatios(profileId, Symbol("AAPL"), source = SourceId.FINNHUB, refresh = true)
+        client.getPriceAndRatios(profileId, Symbol("AAPL"), source = SourceId.FINNHUB, trigger = RequestTrigger.MANUAL)
 
         assertEquals(
-            "/profiles/${profileId.value}/companies/AAPL/price-ratios?source=finnhub&refresh=true",
+            "/profiles/${profileId.value}/companies/AAPL/price-ratios?source=finnhub&trigger=MANUAL",
             server.takeRequest().pathAndQuery(),
         )
+    }
+
+    @Test
+    fun `getBalanceSheet sends the manual trigger`() = runTest {
+        enqueueFixture("balance_sheet.json")
+
+        client.getBalanceSheet(profileId, Symbol("AAPL"), trigger = RequestTrigger.MANUAL)
+
+        assertEquals("/profiles/${profileId.value}/companies/AAPL/balance-sheet?trigger=MANUAL", server.takeRequest().pathAndQuery())
     }
 
     @Test
@@ -598,7 +608,7 @@ class OkHttpApiClientTest {
         val data = client.getBalanceSheet(profileId, Symbol("AAPL"), source = SourceId.SEC_EDGAR).value()
 
         assertEquals(
-            "/profiles/${profileId.value}/companies/AAPL/balance-sheet?source=sec-edgar&refresh=false",
+            "/profiles/${profileId.value}/companies/AAPL/balance-sheet?source=sec-edgar&trigger=AUTO",
             server.takeRequest().pathAndQuery(),
         )
         assertEquals(SourceDataMeta(SourceId.SEC_EDGAR, DataStatus.CACHED, Instant.parse("2026-11-13T07:30:00Z")), data.meta)
@@ -630,9 +640,9 @@ class OkHttpApiClientTest {
     fun `getCompanyProfile parses all profile fields and ignores beta fields`() = runTest {
         enqueueFixture("company_profile.json")
 
-        val data = client.getCompanyProfile(profileId, Symbol("AAPL"), refresh = true).value()
+        val data = client.getCompanyProfile(profileId, Symbol("AAPL"), trigger = RequestTrigger.MANUAL).value()
 
-        assertEquals("/profiles/${profileId.value}/companies/AAPL/profile?refresh=true", server.takeRequest().pathAndQuery())
+        assertEquals("/profiles/${profileId.value}/companies/AAPL/profile?trigger=MANUAL", server.takeRequest().pathAndQuery())
         val profile = data.profile!!
         assertEquals(DataStatus.CACHED, data.meta.status)
         assertEquals(Market.US, profile.market)

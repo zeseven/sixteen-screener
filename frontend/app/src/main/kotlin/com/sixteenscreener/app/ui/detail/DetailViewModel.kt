@@ -14,6 +14,7 @@ import com.sixteenscreener.app.domain.model.CompanyProfileData
 import com.sixteenscreener.app.domain.model.CompanyIdentity
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.Quote
+import com.sixteenscreener.app.domain.model.RequestTrigger
 import com.sixteenscreener.app.domain.model.RowMarketData
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceDataMeta
@@ -153,19 +154,19 @@ class DetailViewModel @AssistedInject constructor(
     fun onSourceSelected(source: SourceId) {
         screenState.update { it.copy(selectedSource = source) }
         val kept = screenState.value.balanceSheets[source]
-        if (kept == null || (kept.value == null && !kept.isLoading)) loadBalanceSheet(source, refresh = false)
+        if (kept == null || (kept.value == null && !kept.isLoading)) loadBalanceSheet(source, RequestTrigger.AUTO)
     }
 
     /** Reloads every tab from the sources, including tabs not shown yet; other balance sheet sources are dropped (ADR-052). */
     fun refresh() {
         requestedTabs += DetailTab.entries
-        loadPriceAndRatios(refresh = true)
-        loadCompanyProfile(refresh = true)
+        loadPriceAndRatios(RequestTrigger.MANUAL)
+        loadCompanyProfile(RequestTrigger.MANUAL)
         viewModelScope.launch {
             val source = selectedSourceOrDefault()
             loadJobs.keys.filter { it is LoadKey.BalanceSheetOf && it.source != source }.forEach { loadJobs.remove(it)?.cancel() }
             screenState.update { state -> state.copy(balanceSheets = state.balanceSheets.filterKeys { it == source }) }
-            loadBalanceSheet(source, refresh = true)
+            loadBalanceSheet(source, RequestTrigger.MANUAL)
         }
     }
 
@@ -188,30 +189,30 @@ class DetailViewModel @AssistedInject constructor(
     private fun loadOnce(tab: DetailTab) {
         if (!requestedTabs.add(tab)) return
         when (tab) {
-            DetailTab.PRICE_AND_RATIOS -> loadPriceAndRatios(refresh = false)
-            DetailTab.COMPANY_PROFILE -> loadCompanyProfile(refresh = false)
-            DetailTab.BALANCE_SHEET -> viewModelScope.launch { loadBalanceSheet(selectedSourceOrDefault(), refresh = false) }
+            DetailTab.PRICE_AND_RATIOS -> loadPriceAndRatios(RequestTrigger.AUTO)
+            DetailTab.COMPANY_PROFILE -> loadCompanyProfile(RequestTrigger.AUTO)
+            DetailTab.BALANCE_SHEET -> viewModelScope.launch { loadBalanceSheet(selectedSourceOrDefault(), RequestTrigger.AUTO) }
         }
     }
 
-    private fun loadPriceAndRatios(refresh: Boolean) = launchLoad(
+    private fun loadPriceAndRatios(trigger: RequestTrigger) = launchLoad(
         key = LoadKey.Tab(DetailTab.PRICE_AND_RATIOS),
         update = { state, transform -> state.copy(priceAndRatios = transform(state.priceAndRatios)) },
-        request = { companyRepository.getPriceAndRatios(symbol, refresh) },
+        request = { companyRepository.getPriceAndRatios(symbol, trigger = trigger) },
     )
 
-    private fun loadCompanyProfile(refresh: Boolean) = launchLoad(
+    private fun loadCompanyProfile(trigger: RequestTrigger) = launchLoad(
         key = LoadKey.Tab(DetailTab.COMPANY_PROFILE),
         update = { state, transform -> state.copy(companyProfile = transform(state.companyProfile)) },
-        request = { companyRepository.getCompanyProfile(symbol, refresh) },
+        request = { companyRepository.getCompanyProfile(symbol, trigger = trigger) },
     )
 
-    private fun loadBalanceSheet(source: SourceId, refresh: Boolean) = launchLoad(
+    private fun loadBalanceSheet(source: SourceId, trigger: RequestTrigger) = launchLoad(
         key = LoadKey.BalanceSheetOf(source),
         update = { state, transform ->
             state.copy(balanceSheets = state.balanceSheets + (source to transform(state.balanceSheets[source] ?: TabData())))
         },
-        request = { companyRepository.getBalanceSheet(symbol, source, refresh).toView() },
+        request = { companyRepository.getBalanceSheet(symbol, source, trigger).toView() },
     )
 
     private suspend fun selectedSourceOrDefault(): SourceId {

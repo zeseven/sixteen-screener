@@ -3,6 +3,9 @@ package com.sixteenscreener.app.domain.model
 import java.time.Instant
 import java.time.LocalDate
 
+/** What caused a company data request: `MANUAL` for the refresh button of the detailed screen, `AUTO` for anything else. */
+enum class RequestTrigger { AUTO, MANUAL }
+
 /** Freshness or failure reason of data returned for one source. */
 enum class DataStatus { FRESH, CACHED, LIMIT_REACHED, SOURCE_ERROR, NOT_SUPPORTED, NO_DATA, UNKNOWN }
 

@@ -4,6 +4,7 @@ import com.sixteenscreener.app.domain.model.ActiveProfile
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.ProfileId
+import com.sixteenscreener.app.domain.model.RequestTrigger
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
 import com.sixteenscreener.app.testing.CompanyData
@@ -26,10 +27,10 @@ class DefaultCompanyRepositoryTest {
         val data = CompanyData.priceAndRatios()
         apiClient.getPriceAndRatios = { _, _, _, _ -> ApiResult.Success(data) }
 
-        val result = repository.getPriceAndRatios(apple, refresh = true)
+        val result = repository.getPriceAndRatios(apple, RequestTrigger.MANUAL)
 
         assertEquals(ApiResult.Success(data), result)
-        assertEquals(listOf("getPriceAndRatios(p1, AAPL, null, true)"), apiClient.calls)
+        assertEquals(listOf("getPriceAndRatios(p1, AAPL, null, MANUAL)"), apiClient.calls)
     }
 
     @Test
@@ -40,18 +41,18 @@ class DefaultCompanyRepositoryTest {
         val result = repository.getBalanceSheet(apple, SourceId.SEC_EDGAR)
 
         assertEquals(ApiResult.Success(data), result)
-        assertEquals(listOf("getBalanceSheet(p1, AAPL, sec-edgar, false)"), apiClient.calls)
+        assertEquals(listOf("getBalanceSheet(p1, AAPL, sec-edgar, AUTO)"), apiClient.calls)
     }
 
     @Test
-    fun `company profile is requested without refresh by default`() = runTest {
+    fun `company profile is requested with the automatic trigger by default`() = runTest {
         val data = CompanyData.companyProfileData()
         apiClient.getCompanyProfile = { _, _, _, _ -> ApiResult.Success(data) }
 
         val result = repository.getCompanyProfile(apple)
 
         assertEquals(ApiResult.Success(data), result)
-        assertEquals(listOf("getCompanyProfile(p1, AAPL, null, false)"), apiClient.calls)
+        assertEquals(listOf("getCompanyProfile(p1, AAPL, null, AUTO)"), apiClient.calls)
     }
 
     @Test

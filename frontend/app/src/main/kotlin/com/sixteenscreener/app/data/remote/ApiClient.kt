@@ -9,6 +9,7 @@ import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.Profile
 import com.sixteenscreener.app.domain.model.ProfileId
+import com.sixteenscreener.app.domain.model.RequestTrigger
 import com.sixteenscreener.app.domain.model.SearchResults
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceId
@@ -47,28 +48,28 @@ interface ApiClient {
     /** `GET /profiles/{profileId}/search?query=`. */
     suspend fun search(profileId: ProfileId, query: String): ApiResult<SearchResults>
 
-    /** `GET /profiles/{profileId}/companies/{symbol}/price-ratios`; [source] `null` means the profile's default source. */
+    /** `GET /profiles/{profileId}/companies/{symbol}/price-ratios`; [source] `null` means the profile's default source of the company's role. */
     suspend fun getPriceAndRatios(
         profileId: ProfileId,
         symbol: Symbol,
         source: SourceId? = null,
-        refresh: Boolean = false,
+        trigger: RequestTrigger = RequestTrigger.AUTO,
     ): ApiResult<PriceAndRatios>
 
-    /** `GET /profiles/{profileId}/companies/{symbol}/balance-sheet`; [source] `null` means the profile's default source. */
+    /** `GET /profiles/{profileId}/companies/{symbol}/balance-sheet`; [source] `null` means the profile's default source of the company's role. */
     suspend fun getBalanceSheet(
         profileId: ProfileId,
         symbol: Symbol,
         source: SourceId? = null,
-        refresh: Boolean = false,
+        trigger: RequestTrigger = RequestTrigger.AUTO,
     ): ApiResult<BalanceSheet>
 
-    /** `GET /profiles/{profileId}/companies/{symbol}/profile`; [source] `null` means the profile's default source. */
+    /** `GET /profiles/{profileId}/companies/{symbol}/profile`; [source] `null` means the profile's default source of the company's role. */
     suspend fun getCompanyProfile(
         profileId: ProfileId,
         symbol: Symbol,
         source: SourceId? = null,
-        refresh: Boolean = false,
+        trigger: RequestTrigger = RequestTrigger.AUTO,
     ): ApiResult<CompanyProfileData>
 
     /** `GET /profiles/{profileId}/sources`. */

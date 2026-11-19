@@ -12,6 +12,7 @@ import com.sixteenscreener.app.domain.model.CompanyProfileData
 import com.sixteenscreener.app.domain.model.DataStatus
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.ProfileId
+import com.sixteenscreener.app.domain.model.RequestTrigger
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
 import com.sixteenscreener.app.domain.model.WatchlistItem
@@ -79,7 +80,7 @@ class DetailViewModelTest {
     fun `price and ratios and the company profile load when the screen opens`() = runTest {
         val viewModel = viewModel()
 
-        assertEquals(listOf("getPriceAndRatios(p1, AAPL, null, false)", "getCompanyProfile(p1, AAPL, null, false)"), apiClient.calls)
+        assertEquals(listOf("getPriceAndRatios(p1, AAPL, null, AUTO)", "getCompanyProfile(p1, AAPL, null, AUTO)"), apiClient.calls)
         assertEquals(CompanyData.priceAndRatios(), viewModel.state.priceAndRatios.value)
         assertFalse(viewModel.state.priceAndRatios.isLoading)
     }
@@ -91,9 +92,9 @@ class DetailViewModelTest {
         DetailTab.entries.forEach(viewModel::onTabSelected)
         DetailTab.entries.forEach(viewModel::onTabSelected)
 
-        assertEquals(listOf("getPriceAndRatios(p1, AAPL, null, false)"), callsOf("getPriceAndRatios"))
-        assertEquals(listOf("getBalanceSheet(p1, AAPL, finnhub, false)"), callsOf("getBalanceSheet"))
-        assertEquals(listOf("getCompanyProfile(p1, AAPL, null, false)"), callsOf("getCompanyProfile"))
+        assertEquals(listOf("getPriceAndRatios(p1, AAPL, null, AUTO)"), callsOf("getPriceAndRatios"))
+        assertEquals(listOf("getBalanceSheet(p1, AAPL, finnhub, AUTO)"), callsOf("getBalanceSheet"))
+        assertEquals(listOf("getCompanyProfile(p1, AAPL, null, AUTO)"), callsOf("getCompanyProfile"))
         assertEquals(DetailTab.COMPANY_PROFILE, viewModel.state.selectedTab)
     }
 
@@ -105,7 +106,7 @@ class DetailViewModelTest {
         val viewModel = viewModel()
 
         assertEquals(DetailTab.PRICE_AND_RATIOS, viewModel.state.selectedTab)
-        assertEquals(listOf("getCompanyProfile(p1, AAPL, null, false)"), callsOf("getCompanyProfile"))
+        assertEquals(listOf("getCompanyProfile(p1, AAPL, null, AUTO)"), callsOf("getCompanyProfile"))
         assertTrue(viewModel.state.companyProfile.isLoading)
         assertEquals("Apple Inc.", viewModel.state.header?.name)
     }
@@ -129,7 +130,7 @@ class DetailViewModelTest {
 
         viewModel.onTabSelected(DetailTab.COMPANY_PROFILE)
 
-        assertEquals(listOf("getCompanyProfile(p1, AAPL, null, false)"), callsOf("getCompanyProfile"))
+        assertEquals(listOf("getCompanyProfile(p1, AAPL, null, AUTO)"), callsOf("getCompanyProfile"))
         assertEquals(CompanyData.companyProfileData(), viewModel.state.companyProfile.value)
     }
 
@@ -163,7 +164,7 @@ class DetailViewModelTest {
     fun `header without a summary is loaded from the company profile`() = runTest {
         val viewModel = viewModel(DetailRoute(Symbol("AAPL")))
 
-        assertEquals(listOf("getCompanyProfile(p1, AAPL, null, false)"), callsOf("getCompanyProfile"))
+        assertEquals(listOf("getCompanyProfile(p1, AAPL, null, AUTO)"), callsOf("getCompanyProfile"))
         val header = viewModel.state.header
         assertEquals("Apple Inc.", header?.name)
         assertEquals("NASDAQ", header?.exchange)
@@ -228,7 +229,7 @@ class DetailViewModelTest {
     }
 
     @Test
-    fun `refresh sends refresh for all three tabs including tabs not opened yet`() = runTest {
+    fun `refresh sends the manual trigger for all three tabs including tabs not opened yet`() = runTest {
         val viewModel = viewModel()
         apiClient.calls.clear()
 
@@ -236,9 +237,9 @@ class DetailViewModelTest {
 
         assertEquals(
             setOf(
-                "getPriceAndRatios(p1, AAPL, null, true)",
-                "getCompanyProfile(p1, AAPL, null, true)",
-                "getBalanceSheet(p1, AAPL, finnhub, true)",
+                "getPriceAndRatios(p1, AAPL, null, MANUAL)",
+                "getCompanyProfile(p1, AAPL, null, MANUAL)",
+                "getBalanceSheet(p1, AAPL, finnhub, MANUAL)",
             ),
             apiClient.calls.filterNot { it.startsWith("getSources") }.toSet(),
         )
@@ -270,7 +271,7 @@ class DetailViewModelTest {
         viewModel.onTabSelected(DetailTab.BALANCE_SHEET)
 
         assertEquals(listOf(SourceId.FINNHUB, SourceId.SEC_EDGAR), viewModel.state.balanceSheet.sources.map { it.id })
-        assertEquals(listOf("getBalanceSheet(p1, AAPL, finnhub, false)"), callsOf("getBalanceSheet"))
+        assertEquals(listOf("getBalanceSheet(p1, AAPL, finnhub, AUTO)"), callsOf("getBalanceSheet"))
     }
 
     @Test
@@ -286,7 +287,7 @@ class DetailViewModelTest {
         viewModel.onSourceSelected(SourceId.SEC_EDGAR)
 
         assertEquals(
-            listOf("getBalanceSheet(p1, AAPL, finnhub, false)", "getBalanceSheet(p1, AAPL, sec-edgar, false)"),
+            listOf("getBalanceSheet(p1, AAPL, finnhub, AUTO)", "getBalanceSheet(p1, AAPL, sec-edgar, AUTO)"),
             callsOf("getBalanceSheet"),
         )
         assertEquals(SourceId.SEC_EDGAR, viewModel.state.balanceSheet.selectedSource)
@@ -300,11 +301,11 @@ class DetailViewModelTest {
         apiClient.calls.clear()
 
         viewModel.refresh()
-        assertEquals(listOf("getBalanceSheet(p1, AAPL, sec-edgar, true)"), callsOf("getBalanceSheet"))
+        assertEquals(listOf("getBalanceSheet(p1, AAPL, sec-edgar, MANUAL)"), callsOf("getBalanceSheet"))
 
         viewModel.onSourceSelected(SourceId.FINNHUB)
         assertEquals(
-            listOf("getBalanceSheet(p1, AAPL, sec-edgar, true)", "getBalanceSheet(p1, AAPL, finnhub, false)"),
+            listOf("getBalanceSheet(p1, AAPL, sec-edgar, MANUAL)", "getBalanceSheet(p1, AAPL, finnhub, AUTO)"),
             callsOf("getBalanceSheet"),
         )
     }
@@ -328,7 +329,7 @@ class DetailViewModelTest {
         val view = viewModel.state.balanceSheet.data.value
         assertEquals(DataStatus.NOT_SUPPORTED, view?.meta?.status)
         assertTrue(view?.table?.isEmpty == true)
-        assertEquals(listOf("getBalanceSheet(p1, SAP.DE, finnhub, false)", "getBalanceSheet(p1, SAP.DE, sec-edgar, false)"), callsOf("getBalanceSheet"))
+        assertEquals(listOf("getBalanceSheet(p1, SAP.DE, finnhub, AUTO)", "getBalanceSheet(p1, SAP.DE, sec-edgar, AUTO)"), callsOf("getBalanceSheet"))
     }
 
     @Test
@@ -383,8 +384,8 @@ class DetailViewModelTest {
     @Test
     fun `refresh while a tab loads replaces the running request`() = runTest {
         val firstResponse = CompletableDeferred<ApiResult<CompanyProfileData>>()
-        apiClient.getCompanyProfile = { _, _, _, refresh ->
-            if (refresh) ApiResult.Success(CompanyData.companyProfileData(CompanyData.companyProfile(name = "Fresh"))) else firstResponse.await()
+        apiClient.getCompanyProfile = { _, _, _, trigger ->
+            if (trigger == RequestTrigger.MANUAL) ApiResult.Success(CompanyData.companyProfileData(CompanyData.companyProfile(name = "Fresh"))) else firstResponse.await()
         }
         val viewModel = viewModel()
         viewModel.onTabSelected(DetailTab.COMPANY_PROFILE)
