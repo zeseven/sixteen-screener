@@ -15,6 +15,7 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import com.sixteenscreener.app.di.ImageModule
 import com.sixteenscreener.app.testing.LogoImages
+import com.sixteenscreener.app.ui.theme.SixteenTheme
 import dagger.Lazy
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -61,16 +62,35 @@ class CompanyLogoTest {
 
     private data class Bounds(val left: Int, val top: Int, val width: Int, val height: Int)
 
-    private fun drawnLogoBounds(response: MockResponse): Bounds {
+    private fun showLogo(response: MockResponse, darkTheme: Boolean = false) {
         server.enqueue(response)
         composeRule.setContent {
-            CompanyLogo(logoUrl = "/logos/TEST", contentDescription = null, modifier = Modifier.testTag(TAG))
+            SixteenTheme(darkTheme = darkTheme, dynamicColor = false) {
+                CompanyLogo(logoUrl = "/logos/TEST", contentDescription = null, modifier = Modifier.testTag(TAG))
+            }
         }
-        composeRule.waitUntil(timeoutMillis = 5_000) { capture().opaqueLogoPixels() > 0 }
+    }
+
+    private fun settle() {
         composeRule.mainClock.advanceTimeBy(1_000)
         composeRule.waitForIdle()
+    }
+
+    private fun drawnLogoBounds(response: MockResponse): Bounds {
+        showLogo(response)
+        composeRule.waitUntil(timeoutMillis = 5_000) { capture().opaqueLogoPixels() > 0 }
+        settle()
         return capture().logoBounds()
     }
+
+    private fun drawnBlackLogo(darkTheme: Boolean): ImageBitmap {
+        showLogo(LogoImages.blackSquareSvgResponse(), darkTheme)
+        composeRule.waitUntil(timeoutMillis = 5_000) { capture().pixel(SLOT_PX / 2, SLOT_PX / 2) == BLACK }
+        settle()
+        return capture()
+    }
+
+    private fun ImageBitmap.pixel(x: Int, y: Int): Int = toPixelMap()[x, y].toArgb()
 
     private fun capture(): ImageBitmap = composeRule.onNodeWithTag(TAG).captureToImage()
 
@@ -125,8 +145,41 @@ class CompanyLogoTest {
         assertEquals(Bounds(left = 30, top = 40, width = 60, height = 40), bounds)
     }
 
+    @Test
+    fun `black logo is drawn on a white tile in dark theme`() {
+        val slot = drawnBlackLogo(darkTheme = true)
+
+        assertEquals(BLACK, slot.pixel(SLOT_PX / 2, SLOT_PX / 2))
+        assertEquals(WHITE, slot.pixel(TILE_X, SLOT_PX / 2))
+    }
+
+    @Test
+    fun `black logo is drawn on a white tile in light theme`() {
+        val slot = drawnBlackLogo(darkTheme = false)
+
+        assertEquals(BLACK, slot.pixel(SLOT_PX / 2, SLOT_PX / 2))
+        assertEquals(WHITE, slot.pixel(TILE_X, SLOT_PX / 2))
+    }
+
+    @Test
+    fun `default logo is drawn on a white tile`() {
+        showLogo(MockResponse.Builder().code(500).build(), darkTheme = true)
+        composeRule.waitUntil(timeoutMillis = 5_000) { server.requestCount > 0 }
+        settle()
+
+        val slot = capture()
+        assertEquals(DEFAULT_LOGO_GRAY, slot.pixel(DEFAULT_LOGO_X, DEFAULT_LOGO_Y))
+        assertEquals(WHITE, slot.pixel(TILE_X, SLOT_PX / 2))
+    }
+
     private companion object {
         const val TAG = "logo"
         const val SLOT_PX = 120
+        const val TILE_X = 5
+        const val DEFAULT_LOGO_X = 35
+        const val DEFAULT_LOGO_Y = 20
+        const val BLACK = 0xFF000000.toInt()
+        const val WHITE = 0xFFFFFFFF.toInt()
+        const val DEFAULT_LOGO_GRAY = 0xFF9E9E9E.toInt()
     }
 }

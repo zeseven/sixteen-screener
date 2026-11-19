@@ -118,15 +118,15 @@ class SixteenThemeTest {
     }
 
     @Test
-    fun `not stock name color is lavender per theme`() {
+    fun `company colors use a lavender not stock name and a white logo tile`() {
         captureTheme(darkTheme = false, dynamicColor = false)
-        assertEquals(CompanyColors(notStock = Color(0xFF7F5FA8)), companyColors)
+        assertEquals(CompanyColors(notStock = Color(0xFF7F5FA8), logoBackground = Color.White), companyColors)
     }
 
     @Test
-    fun `dark theme not stock name color is pale lavender`() {
+    fun `dark theme company colors use a pale lavender not stock name and a white logo tile`() {
         captureTheme(darkTheme = true, dynamicColor = false)
-        assertEquals(CompanyColors(notStock = Color(0xFFC9B3EE)), companyColors)
+        assertEquals(CompanyColors(notStock = Color(0xFFC9B3EE), logoBackground = Color.White), companyColors)
     }
 
     @Test
