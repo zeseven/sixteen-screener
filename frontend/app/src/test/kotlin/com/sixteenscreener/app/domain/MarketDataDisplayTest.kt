@@ -71,12 +71,21 @@ class MarketDataDisplayTest {
     }
 
     @Test
-    fun `no data and not supported without a quote show dashes in the default color`() {
-        listOf(DataStatus.NO_DATA, DataStatus.NOT_SUPPORTED).forEach { status ->
+    fun `no data, not supported and not requested without a quote show dashes in the default color`() {
+        listOf(DataStatus.NO_DATA, DataStatus.NOT_SUPPORTED, DataStatus.NOT_REQUESTED).forEach { status ->
             val display = MarketDataDisplay.of(RowMarketData(lastLoad = loaded(status)))
 
             assertEquals(status.name, RowMarketDisplay(null, missingDefault, noIndicators, isLastLoadFailed = false), display)
         }
+    }
+
+    @Test
+    fun `not requested keeps the last value in its trend color, never orange`() {
+        val display = MarketDataDisplay.of(RowMarketData(quote(trend = Trend.UP), lastLoad = loaded(DataStatus.NOT_REQUESTED)))
+
+        assertEquals(MarketValue("$189.84", MarketValueColor.UP), display.price)
+        assertFalse(display.isLastLoadFailed)
+        assertFalse(display.indicators.isLoadFailed)
     }
 
     @Test

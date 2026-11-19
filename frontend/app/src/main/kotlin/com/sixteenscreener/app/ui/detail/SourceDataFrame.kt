@@ -102,6 +102,7 @@ private fun statusNoticeText(status: DataStatus): String? = when (status) {
     DataStatus.SOURCE_ERROR -> stringResource(R.string.status_source_error)
     DataStatus.NOT_SUPPORTED -> stringResource(R.string.status_not_supported)
     DataStatus.NO_DATA -> stringResource(R.string.status_no_data)
+    DataStatus.NOT_REQUESTED -> stringResource(R.string.status_not_requested)
     DataStatus.UNKNOWN -> stringResource(R.string.status_unknown)
 }
 

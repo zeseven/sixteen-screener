@@ -90,6 +90,40 @@ class RowMarketDataTest {
     }
 
     @Test
+    fun `not requested without a quote keeps the previous values without a failure`() {
+        val data = marketData(status = DataStatus.NOT_REQUESTED, quote = null, indicatorsStatus = DataStatus.NOT_REQUESTED)
+
+        val row = previous.loadedWith(data)
+
+        assertEquals(
+            RowMarketData(oldQuote, listOf(indicator), MarketDataLoad.Loaded(DataStatus.NOT_REQUESTED, DataStatus.NOT_REQUESTED)),
+            row,
+        )
+        assertFalse(row.isLastLoadFailed)
+        assertFalse(row.isIndicatorsLoadFailed)
+    }
+
+    @Test
+    fun `not requested without previous values has no values`() {
+        val data = marketData(status = DataStatus.NOT_REQUESTED, quote = null, indicatorsStatus = DataStatus.NOT_REQUESTED)
+
+        assertEquals(
+            RowMarketData(null, emptyList(), MarketDataLoad.Loaded(DataStatus.NOT_REQUESTED, DataStatus.NOT_REQUESTED)),
+            null.loadedWith(data),
+        )
+    }
+
+    @Test
+    fun `not requested ratios keep the previous indicators while a fresh quote replaces the price`() {
+        val data = marketData(status = DataStatus.FRESH, quote = newQuote, indicatorsStatus = DataStatus.NOT_REQUESTED)
+
+        assertEquals(
+            RowMarketData(newQuote, listOf(indicator), MarketDataLoad.Loaded(DataStatus.FRESH, DataStatus.NOT_REQUESTED)),
+            previous.loadedWith(data),
+        )
+    }
+
+    @Test
     fun `failed ratios keep the previous indicators while a fresh quote replaces the price`() {
         val data = marketData(status = DataStatus.FRESH, quote = newQuote, indicatorsStatus = DataStatus.LIMIT_REACHED)
 

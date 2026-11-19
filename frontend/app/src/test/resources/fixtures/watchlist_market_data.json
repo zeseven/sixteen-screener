@@ -49,6 +49,13 @@
       "indicators": [
         { "ratioCode": "ROE", "name": "ROE", "level": "EXCELLENT" }
       ]
+    },
+    {
+      "symbol": "SAP.F",
+      "status": "NOT_REQUESTED",
+      "indicatorsStatus": "NOT_REQUESTED",
+      "quote": null,
+      "indicators": []
     }
   ]
 }

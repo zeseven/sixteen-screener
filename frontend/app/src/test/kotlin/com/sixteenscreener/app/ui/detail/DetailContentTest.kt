@@ -252,6 +252,7 @@ class DetailContentTest {
             DataStatus.SOURCE_ERROR to "Source is not available. Showing cached data if available.",
             DataStatus.NOT_SUPPORTED to "This source does not provide this data for the company.",
             DataStatus.NO_DATA to "The source has no data for this company.",
+            DataStatus.NOT_REQUESTED to "No data yet. Tap refresh to load.",
             DataStatus.UNKNOWN to "Unknown data status.",
         )
         setContent(state())
@@ -282,6 +283,16 @@ class DetailContentTest {
             tagged(CompanyProfileTags.WEBSITE).assertTextEquals("-")
             tagged(CompanyProfileTags.DESCRIPTION).assertTextEquals("-")
         }
+    }
+
+    @Test
+    fun `not requested data shows dashes with a hint to refresh`() {
+        val data = CompanyData.priceAndRatios(quote = null, ratios = emptyList(), status = DataStatus.NOT_REQUESTED)
+        setContent(state(priceAndRatios = TabData(data.copy(meta = data.meta.copy(fetchedAt = null)))))
+
+        tagged(PriceAndRatiosTags.PRICE).assertTextEquals("-")
+        assertEquals(listOf("No data yet. Tap refresh to load."), texts(SourceDataFrameTags.STATUS_NOTICE))
+        tagged(SourceDataFrameTags.ERROR).assertDoesNotExist()
     }
 
     @Test

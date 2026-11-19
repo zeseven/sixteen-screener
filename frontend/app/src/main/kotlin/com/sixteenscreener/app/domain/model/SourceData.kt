@@ -6,8 +6,11 @@ import java.time.LocalDate
 /** What caused a company data request: `MANUAL` for the refresh button of the detailed screen, `AUTO` for anything else. */
 enum class RequestTrigger { AUTO, MANUAL }
 
-/** Freshness or failure reason of data returned for one source. */
-enum class DataStatus { FRESH, CACHED, LIMIT_REACHED, SOURCE_ERROR, NOT_SUPPORTED, NO_DATA, UNKNOWN }
+/**
+ * Freshness or failure reason of data returned for one source. `NOT_REQUESTED`: nothing is cached and the source was not called,
+ * because its automatic requests are off and the request was not manual.
+ */
+enum class DataStatus { FRESH, CACHED, LIMIT_REACHED, SOURCE_ERROR, NOT_SUPPORTED, NO_DATA, NOT_REQUESTED, UNKNOWN }
 
 /**
  * Origin and freshness of company data returned for one source.

@@ -342,6 +342,7 @@ class OkHttpApiClientTest {
                     listOf(Indicator("ROE", "ROE", IndicatorLevel.UNKNOWN)),
                     DataStatus.UNKNOWN,
                 ),
+                MarketData(Symbol("SAP.F"), DataStatus.NOT_REQUESTED, null, emptyList(), DataStatus.NOT_REQUESTED),
             ),
             items,
         )
@@ -677,6 +678,23 @@ class OkHttpApiClientTest {
 
         assertEquals(SourceDataMeta(SourceId.FINNHUB, DataStatus.NO_DATA, null), data.meta)
         assertNull(data.profile)
+    }
+
+    @Test
+    fun `getCompanyProfile parses the not requested status of a source with automatic requests off`() = runTest {
+        enqueue(body = """{"meta":{"source":"eodhd","status":"NOT_REQUESTED","fetchedAt":null},"profile":null}""")
+
+        val data = client.getCompanyProfile(profileId, Symbol("SAP.DE")).value()
+
+        assertEquals(SourceDataMeta(SourceId.EODHD, DataStatus.NOT_REQUESTED, null), data.meta)
+        assertNull(data.profile)
+    }
+
+    @Test
+    fun `getCompanyProfile parses an unknown status as unknown`() = runTest {
+        enqueue(body = """{"meta":{"source":"finnhub","status":"STALE","fetchedAt":null},"profile":null}""")
+
+        assertEquals(DataStatus.UNKNOWN, client.getCompanyProfile(profileId, Symbol("AAPL")).value().meta.status)
     }
 
     @Test

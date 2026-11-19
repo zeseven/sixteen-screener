@@ -80,13 +80,16 @@ fun RowMarketData?.failed(): RowMarketData = (this ?: RowMarketData()).copy(last
 
 /**
  * This row's data after [data] was received. A source limit or source error keeps the previous values unless the backend
- * returned cached ones; any other status replaces them. The quote follows its status and the indicators the ratio status.
+ * returned cached ones, and so does a source that was not called (`NOT_REQUESTED`), drawn in the default text color; any other
+ * status replaces them. The quote follows its status and the indicators the ratio status.
  */
 fun RowMarketData?.loadedWith(data: MarketData): RowMarketData {
     val loaded = RowMarketData(data.quote, data.indicators, MarketDataLoad.Loaded(data.status, data.indicatorsStatus))
     val previous = this ?: RowMarketData()
+    val keepsQuote = loaded.isLastLoadFailed || data.status == DataStatus.NOT_REQUESTED
+    val keepsIndicators = loaded.isIndicatorsLoadFailed || data.indicatorsStatus == DataStatus.NOT_REQUESTED
     return loaded.copy(
-        quote = if (loaded.isLastLoadFailed) data.quote ?: previous.quote else data.quote,
-        indicators = if (loaded.isIndicatorsLoadFailed) data.indicators.ifEmpty { previous.indicators } else data.indicators,
+        quote = if (keepsQuote) data.quote ?: previous.quote else data.quote,
+        indicators = if (keepsIndicators) data.indicators.ifEmpty { previous.indicators } else data.indicators,
     )
 }

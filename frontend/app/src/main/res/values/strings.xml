@@ -177,6 +177,7 @@
     <string name="status_source_error">Source is not available. Showing cached data if available.</string>
     <string name="status_not_supported">This source does not provide this data for the company.</string>
     <string name="status_no_data">The source has no data for this company.</string>
+    <string name="status_not_requested">No data yet. Tap refresh to load.</string>
     <string name="status_unknown">Unknown data status.</string>
     <string name="detail_price">Price</string>
     <string name="detail_ratios">Ratios</string>
