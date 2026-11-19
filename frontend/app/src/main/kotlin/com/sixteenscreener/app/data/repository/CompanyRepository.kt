@@ -4,6 +4,7 @@ import com.sixteenscreener.app.data.remote.ApiClient
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfileData
+import com.sixteenscreener.app.domain.model.Dividends
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.RequestTrigger
 import com.sixteenscreener.app.domain.model.SourceId
@@ -18,6 +19,9 @@ import javax.inject.Singleton
 interface CompanyRepository {
     /** Price and ratios from the profile's default source; [trigger] tells the backend whether the user asked for a refresh. */
     suspend fun getPriceAndRatios(symbol: Symbol, trigger: RequestTrigger = RequestTrigger.AUTO): ApiResult<PriceAndRatios>
+
+    /** Dividends from the profile's default source. */
+    suspend fun getDividends(symbol: Symbol, trigger: RequestTrigger = RequestTrigger.AUTO): ApiResult<Dividends>
 
     /** Balance sheet from [source], or from the profile's default source when `null`. */
     suspend fun getBalanceSheet(
@@ -38,6 +42,9 @@ class DefaultCompanyRepository @Inject constructor(
 
     override suspend fun getPriceAndRatios(symbol: Symbol, trigger: RequestTrigger): ApiResult<PriceAndRatios> =
         profileRepository.withActiveProfile { profileId -> apiClient.getPriceAndRatios(profileId, symbol, trigger = trigger) }
+
+    override suspend fun getDividends(symbol: Symbol, trigger: RequestTrigger): ApiResult<Dividends> =
+        profileRepository.withActiveProfile { profileId -> apiClient.getDividends(profileId, symbol, trigger = trigger) }
 
     override suspend fun getBalanceSheet(symbol: Symbol, source: SourceId?, trigger: RequestTrigger): ApiResult<BalanceSheet> =
         profileRepository.withActiveProfile { profileId -> apiClient.getBalanceSheet(profileId, symbol, source, trigger) }

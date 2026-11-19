@@ -6,6 +6,8 @@ import com.sixteenscreener.app.domain.model.BalanceSheetPeriod
 import com.sixteenscreener.app.domain.model.CompanyProfile
 import com.sixteenscreener.app.domain.model.CompanyProfileData
 import com.sixteenscreener.app.domain.model.DataStatus
+import com.sixteenscreener.app.domain.model.Dividend
+import com.sixteenscreener.app.domain.model.Dividends
 import com.sixteenscreener.app.domain.model.FiscalPeriod
 import com.sixteenscreener.app.domain.model.Indicator
 import com.sixteenscreener.app.domain.model.Market
@@ -49,6 +51,21 @@ object CompanyData {
         source: SourceId = SourceId.FINNHUB,
         status: DataStatus = DataStatus.CACHED,
     ) = BalanceSheet(meta = meta(source = source, status = status), periods = periods.toList())
+
+    fun dividend(exDate: LocalDate, amount: Double, currency: String = "USD", paymentDate: LocalDate? = null) = Dividend(
+        exDate = exDate,
+        paymentDate = paymentDate,
+        recordDate = null,
+        declarationDate = null,
+        amount = amount,
+        currency = currency,
+    )
+
+    fun dividends(
+        vararg dividends: Dividend,
+        dividendYield: Double? = 0.44,
+        status: DataStatus = DataStatus.CACHED,
+    ) = Dividends(meta = meta(status = status), dividendYield = dividendYield, dividends = dividends.toList())
 
     fun priceAndRatios(
         quote: Quote? = Companies.quote(),

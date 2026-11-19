@@ -60,6 +60,36 @@ data class PriceAndRatios(
     val indicators: List<Indicator> = emptyList(),
 )
 
+/**
+ * Dividend paid per share.
+ */
+data class Dividend(
+    /** Ex-dividend date. */
+    val exDate: LocalDate,
+    /** Payment date, if known. */
+    val paymentDate: LocalDate?,
+    /** Record date, if known. */
+    val recordDate: LocalDate?,
+    /** Declaration date, if known. */
+    val declarationDate: LocalDate?,
+    /** Amount per share in [currency]. */
+    val amount: Double,
+    /** ISO 4217 currency code. */
+    val currency: String,
+)
+
+/**
+ * Data of the "Dividends" tab.
+ */
+data class Dividends(
+    /** Origin and freshness. */
+    val meta: SourceDataMeta,
+    /** Trailing twelve months dividend yield in percent, `null` when the source provides none. */
+    val dividendYield: Double?,
+    /** Dividends sorted by ex-date, newest first. */
+    val dividends: List<Dividend>,
+)
+
 /** Fiscal period of a balance sheet. */
 enum class FiscalPeriod { FY, Q1, Q2, Q3, Q4, UNKNOWN }
 

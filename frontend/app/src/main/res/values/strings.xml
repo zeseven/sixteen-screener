@@ -162,6 +162,7 @@
     <string name="detail_type_unknown">unknown</string>
     <string name="detail_type_home_exchange">%1$s (\u2705 home exchange)</string>
     <string name="detail_tab_price_and_ratios">Price and ratio</string>
+    <string name="detail_tab_dividends">Dividends</string>
     <string name="detail_tab_balance_sheet">Balance sheet</string>
     <string name="detail_tab_company_profile">Company profile</string>
     <string name="detail_source">Source: %1$s</string>
@@ -187,6 +188,11 @@
     <string name="status_unknown">Unknown data status.</string>
     <string name="detail_price">Price</string>
     <string name="detail_ratios">Ratios</string>
+    <string name="detail_dividend_yield">Dividend yield</string>
+    <string name="detail_dividends">Dividends</string>
+    <string name="detail_dividend_ex_date">Ex-date %1$s</string>
+    <string name="detail_dividend_payment_date">paid %1$s</string>
+    <string name="detail_dividend_description">Ex-date %1$s, %2$s</string>
     <string name="detail_balance_sheet_source">Source</string>
     <string name="detail_balance_sheet_unit">Values in %1$s</string>
     <string name="detail_balance_sheet_label_with_unit">%1$s (%2$s)</string>

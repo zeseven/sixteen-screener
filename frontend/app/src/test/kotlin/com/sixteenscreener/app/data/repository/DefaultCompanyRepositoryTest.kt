@@ -34,6 +34,17 @@ class DefaultCompanyRepositoryTest {
     }
 
     @Test
+    fun `dividends are requested for the active profile from the default source`() = runTest {
+        val data = CompanyData.dividends()
+        apiClient.getDividends = { _, _, _, _ -> ApiResult.Success(data) }
+
+        val result = repository.getDividends(apple, RequestTrigger.MANUAL)
+
+        assertEquals(ApiResult.Success(data), result)
+        assertEquals(listOf("getDividends(p1, AAPL, null, MANUAL)"), apiClient.calls)
+    }
+
+    @Test
     fun `balance sheet is requested from the given source`() = runTest {
         val data = CompanyData.balanceSheet(source = SourceId.SEC_EDGAR)
         apiClient.getBalanceSheet = { _, _, _, _ -> ApiResult.Success(data) }

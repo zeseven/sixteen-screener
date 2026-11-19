@@ -3,6 +3,7 @@ package com.sixteenscreener.app.data.remote
 import com.sixteenscreener.app.data.remote.auth.AuthenticationException
 import com.sixteenscreener.app.data.remote.dto.BalanceSheetResponseDto
 import com.sixteenscreener.app.data.remote.dto.CompanyProfileResponseDto
+import com.sixteenscreener.app.data.remote.dto.DividendsResponseDto
 import com.sixteenscreener.app.data.remote.dto.ExchangesDto
 import com.sixteenscreener.app.data.remote.dto.IndicatorSettingsDto
 import com.sixteenscreener.app.data.remote.dto.PriceAndRatiosResponseDto
@@ -24,6 +25,7 @@ import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfileData
+import com.sixteenscreener.app.domain.model.Dividends
 import com.sixteenscreener.app.domain.model.Exchange
 import com.sixteenscreener.app.domain.model.IndicatorSetting
 import com.sixteenscreener.app.domain.model.MarketData
@@ -109,6 +111,16 @@ class OkHttpApiClient @Inject constructor(
     ): ApiResult<PriceAndRatios> =
         get(companyDataUrl(profileId, symbol, "price-ratios", source, trigger)) {
             json.decodeFromString<PriceAndRatiosResponseDto>(it).toDomain()
+        }
+
+    override suspend fun getDividends(
+        profileId: ProfileId,
+        symbol: Symbol,
+        source: SourceId?,
+        trigger: RequestTrigger,
+    ): ApiResult<Dividends> =
+        get(companyDataUrl(profileId, symbol, "dividends", source, trigger)) {
+            json.decodeFromString<DividendsResponseDto>(it).toDomain()
         }
 
     override suspend fun getBalanceSheet(

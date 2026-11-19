@@ -4,6 +4,7 @@ import com.sixteenscreener.app.data.remote.ApiClient
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfileData
+import com.sixteenscreener.app.domain.model.Dividends
 import com.sixteenscreener.app.domain.model.Exchange
 import com.sixteenscreener.app.domain.model.IndicatorSetting
 import com.sixteenscreener.app.domain.model.MarketData
@@ -29,6 +30,8 @@ class FakeApiClient : ApiClient {
     var removeFromWatchlist: suspend (ProfileId, Symbol) -> ApiResult<Unit> = { _, _ -> notStubbed() }
     var search: suspend (ProfileId, String) -> ApiResult<SearchResults> = { _, _ -> notStubbed() }
     var getPriceAndRatios: suspend (ProfileId, Symbol, SourceId?, RequestTrigger) -> ApiResult<PriceAndRatios> =
+        { _, _, _, _ -> notStubbed() }
+    var getDividends: suspend (ProfileId, Symbol, SourceId?, RequestTrigger) -> ApiResult<Dividends> =
         { _, _, _, _ -> notStubbed() }
     var getBalanceSheet: suspend (ProfileId, Symbol, SourceId?, RequestTrigger) -> ApiResult<BalanceSheet> =
         { _, _, _, _ -> notStubbed() }
@@ -64,6 +67,11 @@ class FakeApiClient : ApiClient {
     override suspend fun getPriceAndRatios(profileId: ProfileId, symbol: Symbol, source: SourceId?, trigger: RequestTrigger) =
         record("getPriceAndRatios(${profileId.value}, ${symbol.value}, ${source?.value}, ${trigger.name})") {
             getPriceAndRatios.invoke(profileId, symbol, source, trigger)
+        }
+
+    override suspend fun getDividends(profileId: ProfileId, symbol: Symbol, source: SourceId?, trigger: RequestTrigger) =
+        record("getDividends(${profileId.value}, ${symbol.value}, ${source?.value}, ${trigger.name})") {
+            getDividends.invoke(profileId, symbol, source, trigger)
         }
 
     override suspend fun getBalanceSheet(profileId: ProfileId, symbol: Symbol, source: SourceId?, trigger: RequestTrigger) =

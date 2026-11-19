@@ -10,6 +10,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertAll
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
@@ -33,6 +34,7 @@ import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfileData
 import com.sixteenscreener.app.domain.model.DataStatus
+import com.sixteenscreener.app.domain.model.Dividends
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
@@ -46,11 +48,13 @@ import com.sixteenscreener.app.testing.Sources.source
 import com.sixteenscreener.app.ui.component.CompanyRowTags
 import com.sixteenscreener.app.ui.component.LocalClock
 import com.sixteenscreener.app.ui.detail.balancesheet.BalanceSheetTags
+import com.sixteenscreener.app.ui.detail.dividends.DividendsTags
 import com.sixteenscreener.app.ui.detail.priceratios.PriceAndRatiosTags
 import com.sixteenscreener.app.ui.detail.profile.CompanyProfileTags
 import com.sixteenscreener.app.ui.theme.LightColorScheme
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 import java.time.Duration
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -93,6 +97,7 @@ class DetailContentTest {
     private fun state(
         selectedTab: DetailTab = DetailTab.PRICE_AND_RATIOS,
         priceAndRatios: TabData<PriceAndRatios> = TabData(CompanyData.priceAndRatios()),
+        dividends: TabData<Dividends> = TabData(),
         balanceSheet: BalanceSheetTabState = BalanceSheetTabState(),
         companyProfile: TabData<CompanyProfileData> = TabData(),
     ) = DetailUiState(
@@ -101,6 +106,7 @@ class DetailContentTest {
         headerQuote = CompanyData.priceAndRatios().quote,
         selectedTab = selectedTab,
         priceAndRatios = priceAndRatios,
+        dividends = dividends,
         balanceSheet = balanceSheet,
         companyProfile = companyProfile,
         sourceNames = sourceNames,
@@ -283,6 +289,77 @@ class DetailContentTest {
             tagged(CompanyProfileTags.WEBSITE).assertTextEquals("-")
             tagged(CompanyProfileTags.DESCRIPTION).assertTextEquals("-")
         }
+    }
+
+    @Test
+    fun `tabs are shown in the order price and ratio, dividends, balance sheet, company profile`() {
+        setContent(state())
+
+        val lefts = listOf("Price and ratio", "Dividends", "Balance sheet", "Company profile")
+            .map { composeRule.onNodeWithText(it, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.left }
+        assertEquals(lefts.sorted(), lefts)
+    }
+
+    @Test
+    fun `dividends tab shows the source, the yield and the dividends newest first`() {
+        val dividends = CompanyData.dividends(
+            CompanyData.dividend(LocalDate.of(2026, 8, 11), 0.26, paymentDate = LocalDate.of(2026, 8, 14)),
+            CompanyData.dividend(LocalDate.of(2026, 5, 12), 0.25),
+            dividendYield = 0.44,
+        )
+        setContent(state(selectedTab = DetailTab.DIVIDENDS, dividends = TabData(dividends)))
+
+        tagged(SourceDataFrameTags.SOURCE).assertTextEquals("Source: Finnhub, updated 2 hours ago")
+        tagged(DividendsTags.YIELD_VALUE).assertTextEquals("0.44")
+        composeRule.onNodeWithText("Dividend yield, %", useUnmergedTree = true).assertExists()
+        assertEquals(listOf("Ex-date 2026-08-11", "Ex-date 2026-05-12"), texts(DividendsTags.EX_DATE))
+        assertEquals(listOf("paid 2026-08-14"), texts(DividendsTags.PAYMENT_DATE))
+        assertEquals(listOf("$0.26", "$0.25"), texts(DividendsTags.AMOUNT))
+        tagged(DividendsTags.EMPTY).assertDoesNotExist()
+    }
+
+    @Test
+    fun `dividend is announced with its ex-date and amount`() {
+        val dividends = CompanyData.dividends(CompanyData.dividend(LocalDate.of(2026, 5, 11), 2.35, currency = "EUR"))
+        setContent(state(selectedTab = DetailTab.DIVIDENDS, dividends = TabData(dividends)))
+
+        composeRule.onNodeWithTag(DividendsTags.DIVIDEND).assertContentDescriptionEquals("Ex-date 2026-05-11, 2.35 EUR")
+    }
+
+    @Test
+    fun `dividends tab without dividends and yield shows dashes`() {
+        setContent(state(selectedTab = DetailTab.DIVIDENDS, dividends = TabData(CompanyData.dividends(dividendYield = null))))
+
+        tagged(DividendsTags.YIELD_VALUE).assertTextEquals("-")
+        tagged(DividendsTags.EMPTY).assertTextEquals("-")
+        tagged(DividendsTags.DIVIDEND).assertDoesNotExist()
+    }
+
+    @Test
+    fun `dividends not supported by the source show the notice and dashes`() {
+        val data = CompanyData.dividends(dividendYield = null, status = DataStatus.NOT_SUPPORTED)
+        setContent(state(selectedTab = DetailTab.DIVIDENDS, dividends = TabData(data)))
+
+        assertEquals(listOf("This source does not provide this data for the company."), texts(SourceDataFrameTags.STATUS_NOTICE))
+        tagged(DividendsTags.EMPTY).assertTextEquals("-")
+    }
+
+    @Test
+    fun `dividends not requested show the hint to refresh and dashes`() {
+        val data = CompanyData.dividends(dividendYield = null, status = DataStatus.NOT_REQUESTED)
+        setContent(state(selectedTab = DetailTab.DIVIDENDS, dividends = TabData(data)))
+
+        assertEquals(listOf("No data yet. Tap refresh to load."), texts(SourceDataFrameTags.STATUS_NOTICE))
+        tagged(DividendsTags.YIELD_VALUE).assertTextEquals("-")
+        tagged(DividendsTags.EMPTY).assertTextEquals("-")
+    }
+
+    @Test
+    fun `dividends loading without data shows progress only`() {
+        setContent(state(selectedTab = DetailTab.DIVIDENDS, dividends = TabData(isLoading = true)))
+
+        tagged(SourceDataFrameTags.PROGRESS).assertExists()
+        tagged(DividendsTags.YIELD).assertDoesNotExist()
     }
 
     @Test

@@ -8,6 +8,7 @@ import com.sixteenscreener.app.domain.model.CallResult
 import com.sixteenscreener.app.domain.model.Capability
 import com.sixteenscreener.app.domain.model.DataStatus
 import com.sixteenscreener.app.domain.model.DefaultSources
+import com.sixteenscreener.app.domain.model.Dividend
 import com.sixteenscreener.app.domain.model.Exchange
 import com.sixteenscreener.app.domain.model.FiscalPeriod
 import com.sixteenscreener.app.domain.model.Indicator
@@ -609,6 +610,63 @@ class OkHttpApiClientTest {
         assertNull(data.quote)
         assertTrue(data.ratios.isEmpty())
         assertTrue(data.indicators.isEmpty())
+    }
+
+    @Test
+    fun `getDividends requests the default source and parses the yield and the dividends ignoring unknown fields`() = runTest {
+        enqueueFixture("dividends.json")
+
+        val data = client.getDividends(profileId, Symbol("SAP.DE")).value()
+
+        assertEquals("/profiles/${profileId.value}/companies/SAP.DE/dividends?trigger=AUTO", server.takeRequest().pathAndQuery())
+        assertEquals(SourceDataMeta(SourceId.EODHD, DataStatus.CACHED, Instant.parse("2026-11-13T07:30:00Z")), data.meta)
+        assertEquals(1.12, data.dividendYield!!, 0.0)
+        assertEquals(
+            listOf(
+                Dividend(
+                    exDate = LocalDate.of(2026, 5, 11),
+                    paymentDate = LocalDate.of(2026, 5, 14),
+                    recordDate = LocalDate.of(2026, 5, 12),
+                    declarationDate = LocalDate.of(2026, 2, 24),
+                    amount = 2.35,
+                    currency = "EUR",
+                ),
+                Dividend(LocalDate.of(2025, 5, 12), null, null, null, 2.2, "EUR"),
+            ),
+            data.dividends,
+        )
+    }
+
+    @Test
+    fun `getDividends passes source and the manual trigger`() = runTest {
+        enqueueFixture("dividends.json")
+
+        client.getDividends(profileId, Symbol("SAP.DE"), source = SourceId.EODHD, trigger = RequestTrigger.MANUAL)
+
+        assertEquals(
+            "/profiles/${profileId.value}/companies/SAP.DE/dividends?source=eodhd&trigger=MANUAL",
+            server.takeRequest().pathAndQuery(),
+        )
+    }
+
+    @Test
+    fun `getDividends parses empty data without a yield`() = runTest {
+        enqueue(body = """{"meta":{"source":"finnhub","status":"NOT_SUPPORTED","fetchedAt":null},"dividends":[]}""")
+
+        val data = client.getDividends(profileId, Symbol("AAPL")).value()
+
+        assertEquals(SourceDataMeta(SourceId.FINNHUB, DataStatus.NOT_SUPPORTED, null), data.meta)
+        assertNull(data.dividendYield)
+        assertTrue(data.dividends.isEmpty())
+    }
+
+    @Test
+    fun `getDividends with an invalid ex-date is a parse error`() = runTest {
+        enqueue(
+            body = """{"meta":{"source":"eodhd","status":"FRESH","fetchedAt":null},"dividends":[{"exDate":"11.05.2026","amount":1.0,"currency":"EUR"}]}""",
+        )
+
+        assertTrue(client.getDividends(profileId, Symbol("SAP.DE")).error() is ApiError.Parse)
     }
 
     @Test

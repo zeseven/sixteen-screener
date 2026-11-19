@@ -12,6 +12,7 @@ import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfile
 import com.sixteenscreener.app.domain.model.CompanyProfileData
 import com.sixteenscreener.app.domain.model.CompanyIdentity
+import com.sixteenscreener.app.domain.model.Dividends
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.Quote
 import com.sixteenscreener.app.domain.model.RequestTrigger
@@ -38,7 +39,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** Tabs of the detailed screen, in display order. */
-enum class DetailTab { PRICE_AND_RATIOS, BALANCE_SHEET, COMPANY_PROFILE }
+enum class DetailTab { PRICE_AND_RATIOS, DIVIDENDS, BALANCE_SHEET, COMPANY_PROFILE }
 
 /** Data of one tab: the last successful response, whether a request is running and the failure of the last request. */
 data class TabData<out T>(
@@ -79,6 +80,7 @@ data class DetailUiState(
     val inWatchlist: Boolean = false,
     val selectedTab: DetailTab = DetailTab.PRICE_AND_RATIOS,
     val priceAndRatios: TabData<PriceAndRatios> = TabData(),
+    val dividends: TabData<Dividends> = TabData(),
     val balanceSheet: BalanceSheetTabState = BalanceSheetTabState(),
     val companyProfile: TabData<CompanyProfileData> = TabData(),
     /** Display names of the known sources. */
@@ -109,6 +111,7 @@ class DetailViewModel @AssistedInject constructor(
     private data class ScreenState(
         val selectedTab: DetailTab = DetailTab.PRICE_AND_RATIOS,
         val priceAndRatios: TabData<PriceAndRatios> = TabData(),
+        val dividends: TabData<Dividends> = TabData(),
         val balanceSheetSources: List<Source> = emptyList(),
         val selectedSource: SourceId? = null,
         val balanceSheets: Map<SourceId, TabData<BalanceSheetView>> = emptyMap(),
@@ -161,6 +164,7 @@ class DetailViewModel @AssistedInject constructor(
     fun refresh() {
         requestedTabs += DetailTab.entries
         loadPriceAndRatios(RequestTrigger.MANUAL)
+        loadDividends(RequestTrigger.MANUAL)
         loadCompanyProfile(RequestTrigger.MANUAL)
         viewModelScope.launch {
             val source = selectedSourceOrDefault()
@@ -190,6 +194,7 @@ class DetailViewModel @AssistedInject constructor(
         if (!requestedTabs.add(tab)) return
         when (tab) {
             DetailTab.PRICE_AND_RATIOS -> loadPriceAndRatios(RequestTrigger.AUTO)
+            DetailTab.DIVIDENDS -> loadDividends(RequestTrigger.AUTO)
             DetailTab.COMPANY_PROFILE -> loadCompanyProfile(RequestTrigger.AUTO)
             DetailTab.BALANCE_SHEET -> viewModelScope.launch { loadBalanceSheet(selectedSourceOrDefault(), RequestTrigger.AUTO) }
         }
@@ -199,6 +204,12 @@ class DetailViewModel @AssistedInject constructor(
         key = LoadKey.Tab(DetailTab.PRICE_AND_RATIOS),
         update = { state, transform -> state.copy(priceAndRatios = transform(state.priceAndRatios)) },
         request = { companyRepository.getPriceAndRatios(symbol, trigger = trigger) },
+    )
+
+    private fun loadDividends(trigger: RequestTrigger) = launchLoad(
+        key = LoadKey.Tab(DetailTab.DIVIDENDS),
+        update = { state, transform -> state.copy(dividends = transform(state.dividends)) },
+        request = { companyRepository.getDividends(symbol, trigger = trigger) },
     )
 
     private fun loadCompanyProfile(trigger: RequestTrigger) = launchLoad(
@@ -262,6 +273,7 @@ class DetailViewModel @AssistedInject constructor(
             inWatchlist = inWatchlist,
             selectedTab = screen.selectedTab,
             priceAndRatios = screen.priceAndRatios,
+            dividends = screen.dividends,
             balanceSheet = BalanceSheetTabState(
                 sources = screen.balanceSheetSources,
                 selectedSource = screen.selectedSource,

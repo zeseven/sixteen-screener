@@ -58,6 +58,7 @@ class DetailViewModelTest {
     init {
         apiClient.getPriceAndRatios = { _, _, _, _ -> ApiResult.Success(CompanyData.priceAndRatios()) }
         apiClient.getCompanyProfile = { _, _, _, _ -> ApiResult.Success(CompanyData.companyProfileData()) }
+        apiClient.getDividends = { _, _, _, _ -> ApiResult.Success(CompanyData.dividends()) }
         apiClient.getSources = { ApiResult.Success(listOf(finnhub, secEdgar)) }
         apiClient.getBalanceSheet = { _, _, source, _ -> ApiResult.Success(if (source == SourceId.SEC_EDGAR) secEdgarSheet else finnhubSheet) }
     }
@@ -93,9 +94,47 @@ class DetailViewModelTest {
         DetailTab.entries.forEach(viewModel::onTabSelected)
 
         assertEquals(listOf("getPriceAndRatios(p1, AAPL, null, AUTO)"), callsOf("getPriceAndRatios"))
+        assertEquals(listOf("getDividends(p1, AAPL, null, AUTO)"), callsOf("getDividends"))
         assertEquals(listOf("getBalanceSheet(p1, AAPL, finnhub, AUTO)"), callsOf("getBalanceSheet"))
         assertEquals(listOf("getCompanyProfile(p1, AAPL, null, AUTO)"), callsOf("getCompanyProfile"))
         assertEquals(DetailTab.COMPANY_PROFILE, viewModel.state.selectedTab)
+    }
+
+    @Test
+    fun `dividends are not requested before the dividends tab is shown`() = runTest {
+        val viewModel = viewModel()
+
+        assertTrue(callsOf("getDividends").isEmpty())
+
+        viewModel.onTabSelected(DetailTab.DIVIDENDS)
+
+        assertEquals(listOf("getDividends(p1, AAPL, null, AUTO)"), callsOf("getDividends"))
+        assertEquals(CompanyData.dividends(), viewModel.state.dividends.value)
+        assertFalse(viewModel.state.dividends.isLoading)
+    }
+
+    @Test
+    fun `failed dividends request keeps the shown dividends with the error`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onTabSelected(DetailTab.DIVIDENDS)
+        apiClient.getDividends = { _, _, _, _ -> ApiResult.Failure(ApiError.Network(isTimeout = true)) }
+
+        viewModel.refresh()
+
+        assertEquals(CompanyData.dividends(), viewModel.state.dividends.value)
+        assertEquals(ApiError.Network(isTimeout = true), viewModel.state.dividends.error)
+    }
+
+    @Test
+    fun `not requested dividends are kept as loaded data`() = runTest {
+        val notRequested = CompanyData.dividends(dividendYield = null, status = DataStatus.NOT_REQUESTED)
+        apiClient.getDividends = { _, _, _, _ -> ApiResult.Success(notRequested) }
+        val viewModel = viewModel()
+
+        viewModel.onTabSelected(DetailTab.DIVIDENDS)
+
+        assertEquals(notRequested, viewModel.state.dividends.value)
+        assertNull(viewModel.state.dividends.error)
     }
 
     @Test
@@ -229,7 +268,7 @@ class DetailViewModelTest {
     }
 
     @Test
-    fun `refresh sends the manual trigger for all three tabs including tabs not opened yet`() = runTest {
+    fun `refresh sends the manual trigger for all tabs including tabs not opened yet`() = runTest {
         val viewModel = viewModel()
         apiClient.calls.clear()
 
@@ -238,6 +277,7 @@ class DetailViewModelTest {
         assertEquals(
             setOf(
                 "getPriceAndRatios(p1, AAPL, null, MANUAL)",
+                "getDividends(p1, AAPL, null, MANUAL)",
                 "getCompanyProfile(p1, AAPL, null, MANUAL)",
                 "getBalanceSheet(p1, AAPL, finnhub, MANUAL)",
             ),

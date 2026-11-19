@@ -3,6 +3,7 @@ package com.sixteenscreener.app.data.remote
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfileData
+import com.sixteenscreener.app.domain.model.Dividends
 import com.sixteenscreener.app.domain.model.Exchange
 import com.sixteenscreener.app.domain.model.IndicatorSetting
 import com.sixteenscreener.app.domain.model.MarketData
@@ -48,7 +49,7 @@ interface ApiClient {
     /** `GET /profiles/{profileId}/search?query=`. */
     suspend fun search(profileId: ProfileId, query: String): ApiResult<SearchResults>
 
-    /** `GET /profiles/{profileId}/companies/{symbol}/price-ratios`; [source] `null` means the profile's default source of the company's role. */
+    /** `GET /profiles/{profileId}/companies/{symbol}/price-ratios`; [source] `null` means the profile's default source. */
     suspend fun getPriceAndRatios(
         profileId: ProfileId,
         symbol: Symbol,
@@ -56,7 +57,15 @@ interface ApiClient {
         trigger: RequestTrigger = RequestTrigger.AUTO,
     ): ApiResult<PriceAndRatios>
 
-    /** `GET /profiles/{profileId}/companies/{symbol}/balance-sheet`; [source] `null` means the profile's default source of the company's role. */
+    /** `GET /profiles/{profileId}/companies/{symbol}/dividends`; [source] `null` means the profile's default source. */
+    suspend fun getDividends(
+        profileId: ProfileId,
+        symbol: Symbol,
+        source: SourceId? = null,
+        trigger: RequestTrigger = RequestTrigger.AUTO,
+    ): ApiResult<Dividends>
+
+    /** `GET /profiles/{profileId}/companies/{symbol}/balance-sheet`; [source] `null` means the profile's default source. */
     suspend fun getBalanceSheet(
         profileId: ProfileId,
         symbol: Symbol,
@@ -64,7 +73,7 @@ interface ApiClient {
         trigger: RequestTrigger = RequestTrigger.AUTO,
     ): ApiResult<BalanceSheet>
 
-    /** `GET /profiles/{profileId}/companies/{symbol}/profile`; [source] `null` means the profile's default source of the company's role. */
+    /** `GET /profiles/{profileId}/companies/{symbol}/profile`; [source] `null` means the profile's default source. */
     suspend fun getCompanyProfile(
         profileId: ProfileId,
         symbol: Symbol,

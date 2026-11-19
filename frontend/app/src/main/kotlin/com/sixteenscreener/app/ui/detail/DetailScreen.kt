@@ -37,6 +37,7 @@ import com.sixteenscreener.app.ui.component.RemoveFromWatchlistButton
 import com.sixteenscreener.app.ui.component.apiErrorMessage
 import com.sixteenscreener.app.ui.detail.balancesheet.BalanceSheetGrid
 import com.sixteenscreener.app.ui.detail.balancesheet.BalanceSheetSourceDropdown
+import com.sixteenscreener.app.ui.detail.dividends.DividendsTab
 import com.sixteenscreener.app.ui.detail.priceratios.PriceAndRatiosTab
 import com.sixteenscreener.app.ui.detail.profile.CompanyProfileTab
 import com.sixteenscreener.app.ui.navigation.DetailRoute
@@ -48,7 +49,7 @@ object DetailScreenTags {
     const val HEADER_TYPE = "detail_header_type"
 }
 
-/** Detailed screen of a company with the price and ratio, balance sheet and company profile tabs. */
+/** Detailed screen of a company with the price and ratio, dividends, balance sheet and company profile tabs. */
 @Composable
 fun DetailScreen(
     route: DetailRoute,
@@ -99,6 +100,7 @@ fun DetailContent(
             DetailTabs(uiState.selectedTab, onTabSelected)
             when (uiState.selectedTab) {
                 DetailTab.PRICE_AND_RATIOS -> PriceAndRatiosContent(uiState)
+                DetailTab.DIVIDENDS -> DividendsContent(uiState)
                 DetailTab.BALANCE_SHEET -> BalanceSheetContent(uiState, onSourceSelected)
                 DetailTab.COMPANY_PROFILE -> CompanyProfileContent(uiState)
             }
@@ -160,6 +162,7 @@ private fun DetailTabs(selectedTab: DetailTab, onTabSelected: (DetailTab) -> Uni
 private val DetailTab.title: Int
     get() = when (this) {
         DetailTab.PRICE_AND_RATIOS -> R.string.detail_tab_price_and_ratios
+        DetailTab.DIVIDENDS -> R.string.detail_tab_dividends
         DetailTab.BALANCE_SHEET -> R.string.detail_tab_balance_sheet
         DetailTab.COMPANY_PROFILE -> R.string.detail_tab_company_profile
     }
@@ -170,6 +173,15 @@ private fun PriceAndRatiosContent(uiState: DetailUiState) {
     val meta = data.value?.meta
     SourceDataFrame(meta = meta, sourceName = meta?.let { uiState.sourceName(it.source) }, isLoading = data.isLoading, error = data.error) {
         data.value?.let { PriceAndRatiosTab(it) }
+    }
+}
+
+@Composable
+private fun DividendsContent(uiState: DetailUiState) {
+    val data = uiState.dividends
+    val meta = data.value?.meta
+    SourceDataFrame(meta = meta, sourceName = meta?.let { uiState.sourceName(it.source) }, isLoading = data.isLoading, error = data.error) {
+        data.value?.let { DividendsTab(it) }
     }
 }
 

@@ -6,6 +6,8 @@ import com.sixteenscreener.app.domain.model.BalanceSheetPeriod
 import com.sixteenscreener.app.domain.model.CompanyProfile
 import com.sixteenscreener.app.domain.model.CompanyProfileData
 import com.sixteenscreener.app.domain.model.DataStatus
+import com.sixteenscreener.app.domain.model.Dividend
+import com.sixteenscreener.app.domain.model.Dividends
 import com.sixteenscreener.app.domain.model.FiscalPeriod
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.Ratio
@@ -37,6 +39,23 @@ data class PriceAndRatiosResponseDto(
     val quote: QuoteDto? = null,
     val ratios: List<RatioDto>,
     val indicators: List<IndicatorDto> = emptyList(),
+)
+
+@Serializable
+data class DividendDto(
+    val exDate: String,
+    val paymentDate: String? = null,
+    val recordDate: String? = null,
+    val declarationDate: String? = null,
+    val amount: Double,
+    val currency: String,
+)
+
+@Serializable
+data class DividendsResponseDto(
+    val meta: SourceDataMetaDto,
+    val dividendYield: Double? = null,
+    val dividends: List<DividendDto>,
 )
 
 @Serializable
@@ -102,6 +121,21 @@ fun PriceAndRatiosResponseDto.toDomain() = PriceAndRatios(
     quote = quote?.toDomain(),
     ratios = ratios.map { Ratio(code = it.code, name = it.name, unit = it.unit.toRatioUnit(), value = it.value) },
     indicators = indicators.map { it.toDomain() },
+)
+
+fun DividendsResponseDto.toDomain() = Dividends(
+    meta = meta.toDomain(),
+    dividendYield = dividendYield,
+    dividends = dividends.map { dividend ->
+        Dividend(
+            exDate = LocalDate.parse(dividend.exDate),
+            paymentDate = dividend.paymentDate?.let(LocalDate::parse),
+            recordDate = dividend.recordDate?.let(LocalDate::parse),
+            declarationDate = dividend.declarationDate?.let(LocalDate::parse),
+            amount = dividend.amount,
+            currency = dividend.currency,
+        )
+    },
 )
 
 fun BalanceSheetResponseDto.toDomain() = BalanceSheet(
