@@ -62,7 +62,8 @@ From `affaan-m/ecc`:
 - kotlin-ktor-patterns
 - kotlin-testing
 
-Whenever an API DTO is added, renamed or removed, or starts or stops being received or responded at a route, update backend/src/main/resources/META-INF/native-image/com.sixteenscreener/sixteen-screener-backend/reflect-config.json in the same commit. The native image looks up serializers by reflection, so a DTO missing there works in JVM tests but fails in the deployed backend.
+Every type that Ktor serializes or deserializes by type is looked up by reflection in the native image: `body<T>()` on the client, `receive<T>()` and `respond(value)` on the server, including type arguments (`List<T>`) and library types such as `JsonElement`, and also when `T` is inferred rather than written. When such a type is added, renamed or removed, register its `Companion` field and its `Companion.serializer()` method in backend/src/main/resources/META-INF/native-image/com.sixteenscreener/sixteen-screener-backend/reflect-config.json in the same commit. A missing type works in JVM tests but fails in the deployed backend.
+`KtorTypeInfoReflectConfigTest` checks this across the whole backend and is part of `./gradlew test`. Never skip, disable or weaken it to make a commit pass; register the reported type instead.
 
 ### Project decisions override skills
 Where a skill's defaults conflict with docs/ARCHITECTURE.md or docs/ADR.md, the project documents win. In particular:
