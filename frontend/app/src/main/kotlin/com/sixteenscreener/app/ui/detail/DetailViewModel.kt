@@ -55,9 +55,12 @@ data class BalanceSheetView(
 )
 
 data class BalanceSheetTabState(
-    /** Sources offered by the dropdown, the default source first; empty until loaded. */
+    /** Balance sheet sources that can be picked explicitly; empty until loaded. */
     val sources: List<Source> = emptyList(),
+    /** Source picked in the dropdown; `null` for the profile's default source of the company's role, picked by the backend. */
     val selectedSource: SourceId? = null,
+    /** Source that answered the request for the default source; `null` until it answered. */
+    val defaultSource: SourceId? = null,
     /** Data of [selectedSource]. */
     val data: TabData<BalanceSheetView> = TabData(),
 )
@@ -114,7 +117,7 @@ class DetailViewModel @AssistedInject constructor(
         val dividends: TabData<Dividends> = TabData(),
         val balanceSheetSources: List<Source> = emptyList(),
         val selectedSource: SourceId? = null,
-        val balanceSheets: Map<SourceId, TabData<BalanceSheetView>> = emptyMap(),
+        val balanceSheets: Map<SourceId?, TabData<BalanceSheetView>> = emptyMap(),
         val companyProfile: TabData<CompanyProfileData> = TabData(),
         val message: DetailMessage? = null,
     )
@@ -122,7 +125,7 @@ class DetailViewModel @AssistedInject constructor(
     private sealed interface LoadKey {
         data class Tab(val tab: DetailTab) : LoadKey
 
-        data class BalanceSheetOf(val source: SourceId) : LoadKey
+        data class BalanceSheetOf(val source: SourceId?) : LoadKey
     }
 
     private val symbol = route.symbol
@@ -150,11 +153,15 @@ class DetailViewModel @AssistedInject constructor(
 
     fun onTabSelected(tab: DetailTab) {
         screenState.update { it.copy(selectedTab = tab) }
+        if (tab == DetailTab.BALANCE_SHEET) viewModelScope.launch { loadBalanceSheetSources() }
         loadOnce(tab)
     }
 
-    /** Shows the balance sheet of [source], loading it unless a result of this source is kept. */
-    fun onSourceSelected(source: SourceId) {
+    /**
+     * Shows the balance sheet of [source], or of the default source when `null`, loading it unless a result of this source is
+     * kept.
+     */
+    fun onSourceSelected(source: SourceId?) {
         screenState.update { it.copy(selectedSource = source) }
         val kept = screenState.value.balanceSheets[source]
         if (kept == null || (kept.value == null && !kept.isLoading)) loadBalanceSheet(source, RequestTrigger.AUTO)
@@ -166,12 +173,10 @@ class DetailViewModel @AssistedInject constructor(
         loadPriceAndRatios(RequestTrigger.MANUAL)
         loadDividends(RequestTrigger.MANUAL)
         loadCompanyProfile(RequestTrigger.MANUAL)
-        viewModelScope.launch {
-            val source = selectedSourceOrDefault()
-            loadJobs.keys.filter { it is LoadKey.BalanceSheetOf && it.source != source }.forEach { loadJobs.remove(it)?.cancel() }
-            screenState.update { state -> state.copy(balanceSheets = state.balanceSheets.filterKeys { it == source }) }
-            loadBalanceSheet(source, RequestTrigger.MANUAL)
-        }
+        val source = screenState.value.selectedSource
+        loadJobs.keys.filter { it is LoadKey.BalanceSheetOf && it.source != source }.forEach { loadJobs.remove(it)?.cancel() }
+        screenState.update { state -> state.copy(balanceSheets = state.balanceSheets.filterKeys { it == source }) }
+        loadBalanceSheet(source, RequestTrigger.MANUAL)
     }
 
     fun onToggleWatchlist() {
@@ -196,7 +201,7 @@ class DetailViewModel @AssistedInject constructor(
             DetailTab.PRICE_AND_RATIOS -> loadPriceAndRatios(RequestTrigger.AUTO)
             DetailTab.DIVIDENDS -> loadDividends(RequestTrigger.AUTO)
             DetailTab.COMPANY_PROFILE -> loadCompanyProfile(RequestTrigger.AUTO)
-            DetailTab.BALANCE_SHEET -> viewModelScope.launch { loadBalanceSheet(selectedSourceOrDefault(), RequestTrigger.AUTO) }
+            DetailTab.BALANCE_SHEET -> loadBalanceSheet(screenState.value.selectedSource, RequestTrigger.AUTO)
         }
     }
 
@@ -218,7 +223,7 @@ class DetailViewModel @AssistedInject constructor(
         request = { companyRepository.getCompanyProfile(symbol, trigger = trigger) },
     )
 
-    private fun loadBalanceSheet(source: SourceId, trigger: RequestTrigger) = launchLoad(
+    private fun loadBalanceSheet(source: SourceId?, trigger: RequestTrigger) = launchLoad(
         key = LoadKey.BalanceSheetOf(source),
         update = { state, transform ->
             state.copy(balanceSheets = state.balanceSheets + (source to transform(state.balanceSheets[source] ?: TabData())))
@@ -226,12 +231,9 @@ class DetailViewModel @AssistedInject constructor(
         request = { companyRepository.getBalanceSheet(symbol, source, trigger).toView() },
     )
 
-    private suspend fun selectedSourceOrDefault(): SourceId {
+    private suspend fun loadBalanceSheetSources() {
         val sources = balanceSheetSources.await()
-        screenState.update { state ->
-            state.copy(balanceSheetSources = sources, selectedSource = state.selectedSource ?: sources.first().id)
-        }
-        return checkNotNull(screenState.value.selectedSource)
+        screenState.update { it.copy(balanceSheetSources = sources) }
     }
 
     private fun <T> launchLoad(
@@ -277,7 +279,8 @@ class DetailViewModel @AssistedInject constructor(
             balanceSheet = BalanceSheetTabState(
                 sources = screen.balanceSheetSources,
                 selectedSource = screen.selectedSource,
-                data = screen.selectedSource?.let { screen.balanceSheets[it] } ?: TabData(),
+                defaultSource = screen.balanceSheets[null]?.value?.meta?.source,
+                data = screen.balanceSheets[screen.selectedSource] ?: TabData(),
             ),
             companyProfile = screen.companyProfile,
             sourceNames = (SourceRepository.FALLBACK_BALANCE_SHEET_SOURCES + screen.balanceSheetSources + sources.orEmpty())

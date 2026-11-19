@@ -85,7 +85,7 @@ class DetailContentTest {
                         onBack = { events += "back" },
                         onRefresh = { events += "refresh" },
                         onTabSelected = { events += "tab $it" },
-                        onSourceSelected = { events += "source ${it.value}" },
+                        onSourceSelected = { events += "source ${it?.value}" },
                         onToggleWatchlist = { events += "toggle" },
                         onMessageShown = { events += "shown" },
                     )
@@ -112,9 +112,10 @@ class DetailContentTest {
         sourceNames = sourceNames,
     )
 
-    private fun balanceSheetState(sheet: BalanceSheet, selected: SourceId = sheet.meta.source) = BalanceSheetTabState(
+    private fun balanceSheetState(sheet: BalanceSheet, selected: SourceId? = null) = BalanceSheetTabState(
         sources = listOf(source("finnhub", "Finnhub", isDefault = true), source("sec-edgar", "SEC EDGAR")),
         selectedSource = selected,
+        defaultSource = sheet.meta.source.takeIf { selected == null },
         data = TabData(BalanceSheetView(sheet.meta, BalanceSheetTable.of(sheet.periods))),
     )
 
@@ -539,6 +540,27 @@ class DetailContentTest {
             listOf("Total assets, 2026: 2 T", "Goodwill, 2026: 1 K", "Total assets, 2025: 1 T", "Goodwill, 2025: -"),
             descriptions,
         )
+    }
+
+    @Test
+    fun `default entry is labelled Default until a source answered and is passed up as no source`() {
+        setContent(state(selectedTab = DetailTab.BALANCE_SHEET, balanceSheet = BalanceSheetTabState(sources = listOf(source("sec-edgar", "SEC EDGAR")))))
+
+        tagged(BalanceSheetTags.SOURCE_DROPDOWN).performClick()
+        composeRule.onNode(hasText("Default") and isSelected()).performClick()
+
+        assertEquals(listOf("source null"), events)
+    }
+
+    @Test
+    fun `default entry is labelled with the source that answered and that source is not offered twice`() {
+        setContent(state(selectedTab = DetailTab.BALANCE_SHEET, balanceSheet = balanceSheetState(CompanyData.balanceSheet())))
+
+        composeRule.onNodeWithText("Source: Finnhub").assertExists()
+        tagged(BalanceSheetTags.SOURCE_DROPDOWN).performClick()
+
+        composeRule.onAllNodes(hasText("Finnhub") and isSelected()).assertCountEquals(1)
+        composeRule.onNodeWithText("Default").assertDoesNotExist()
     }
 
     @Test

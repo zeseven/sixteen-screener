@@ -76,7 +76,7 @@ fun DetailContent(
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onTabSelected: (DetailTab) -> Unit,
-    onSourceSelected: (SourceId) -> Unit,
+    onSourceSelected: (SourceId?) -> Unit,
     onToggleWatchlist: () -> Unit,
     onMessageShown: (DetailMessage) -> Unit,
     modifier: Modifier = Modifier,
@@ -186,7 +186,7 @@ private fun DividendsContent(uiState: DetailUiState) {
 }
 
 @Composable
-private fun BalanceSheetContent(uiState: DetailUiState, onSourceSelected: (SourceId) -> Unit) {
+private fun BalanceSheetContent(uiState: DetailUiState, onSourceSelected: (SourceId?) -> Unit) {
     val balanceSheet = uiState.balanceSheet
     val data = balanceSheet.data
     val meta = data.value?.meta
@@ -194,6 +194,8 @@ private fun BalanceSheetContent(uiState: DetailUiState, onSourceSelected: (Sourc
         BalanceSheetSourceDropdown(
             sources = balanceSheet.sources,
             selectedSource = balanceSheet.selectedSource,
+            defaultSource = balanceSheet.defaultSource,
+            sourceName = uiState::sourceName,
             onSourceSelected = onSourceSelected,
             modifier = Modifier.padding(top = 8.dp),
         )

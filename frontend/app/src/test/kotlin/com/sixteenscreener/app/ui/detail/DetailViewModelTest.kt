@@ -95,7 +95,7 @@ class DetailViewModelTest {
 
         assertEquals(listOf("getPriceAndRatios(p1, AAPL, null, AUTO)"), callsOf("getPriceAndRatios"))
         assertEquals(listOf("getDividends(p1, AAPL, null, AUTO)"), callsOf("getDividends"))
-        assertEquals(listOf("getBalanceSheet(p1, AAPL, finnhub, AUTO)"), callsOf("getBalanceSheet"))
+        assertEquals(listOf("getBalanceSheet(p1, AAPL, null, AUTO)"), callsOf("getBalanceSheet"))
         assertEquals(listOf("getCompanyProfile(p1, AAPL, null, AUTO)"), callsOf("getCompanyProfile"))
         assertEquals(DetailTab.COMPANY_PROFILE, viewModel.state.selectedTab)
     }
@@ -279,13 +279,13 @@ class DetailViewModelTest {
                 "getPriceAndRatios(p1, AAPL, null, MANUAL)",
                 "getDividends(p1, AAPL, null, MANUAL)",
                 "getCompanyProfile(p1, AAPL, null, MANUAL)",
-                "getBalanceSheet(p1, AAPL, finnhub, MANUAL)",
+                "getBalanceSheet(p1, AAPL, null, MANUAL)",
             ),
             apiClient.calls.filterNot { it.startsWith("getSources") }.toSet(),
         )
         apiClient.calls.clear()
         DetailTab.entries.forEach(viewModel::onTabSelected)
-        assertTrue(apiClient.calls.isEmpty())
+        assertEquals(listOf("getSources(p1)"), apiClient.calls)
     }
 
     @Test
@@ -298,7 +298,8 @@ class DetailViewModelTest {
 
         assertEquals(listOf("getSources(p1)"), callsOf("getSources"))
         assertEquals(listOf(finnhub, secEdgar), viewModel.state.balanceSheet.sources)
-        assertEquals(SourceId.FINNHUB, viewModel.state.balanceSheet.selectedSource)
+        assertNull(viewModel.state.balanceSheet.selectedSource)
+        assertEquals(SourceId.FINNHUB, viewModel.state.balanceSheet.defaultSource)
         assertEquals(finnhubSheet.meta, viewModel.state.balanceSheet.data.value?.meta)
         assertEquals("SEC EDGAR", viewModel.state.sourceName(SourceId.SEC_EDGAR))
     }
@@ -311,11 +312,11 @@ class DetailViewModelTest {
         viewModel.onTabSelected(DetailTab.BALANCE_SHEET)
 
         assertEquals(listOf(SourceId.FINNHUB, SourceId.SEC_EDGAR), viewModel.state.balanceSheet.sources.map { it.id })
-        assertEquals(listOf("getBalanceSheet(p1, AAPL, finnhub, AUTO)"), callsOf("getBalanceSheet"))
+        assertEquals(listOf("getBalanceSheet(p1, AAPL, null, AUTO)"), callsOf("getBalanceSheet"))
     }
 
     @Test
-    fun `selecting SEC EDGAR requests it and switching back uses the kept result`() = runTest {
+    fun `selecting SEC EDGAR requests it and switching back to the default uses the kept result`() = runTest {
         val viewModel = viewModel()
         viewModel.onTabSelected(DetailTab.BALANCE_SHEET)
 
@@ -323,11 +324,12 @@ class DetailViewModelTest {
         assertEquals(secEdgarSheet.meta, viewModel.state.balanceSheet.data.value?.meta)
         assertEquals(listOf(2.0), viewModel.state.balanceSheet.data.value?.table?.rows?.single()?.values)
 
-        viewModel.onSourceSelected(SourceId.FINNHUB)
+        viewModel.onSourceSelected(null)
+        assertEquals(finnhubSheet.meta, viewModel.state.balanceSheet.data.value?.meta)
         viewModel.onSourceSelected(SourceId.SEC_EDGAR)
 
         assertEquals(
-            listOf("getBalanceSheet(p1, AAPL, finnhub, AUTO)", "getBalanceSheet(p1, AAPL, sec-edgar, AUTO)"),
+            listOf("getBalanceSheet(p1, AAPL, null, AUTO)", "getBalanceSheet(p1, AAPL, sec-edgar, AUTO)"),
             callsOf("getBalanceSheet"),
         )
         assertEquals(SourceId.SEC_EDGAR, viewModel.state.balanceSheet.selectedSource)
@@ -343,9 +345,9 @@ class DetailViewModelTest {
         viewModel.refresh()
         assertEquals(listOf("getBalanceSheet(p1, AAPL, sec-edgar, MANUAL)"), callsOf("getBalanceSheet"))
 
-        viewModel.onSourceSelected(SourceId.FINNHUB)
+        viewModel.onSourceSelected(null)
         assertEquals(
-            listOf("getBalanceSheet(p1, AAPL, sec-edgar, MANUAL)", "getBalanceSheet(p1, AAPL, finnhub, AUTO)"),
+            listOf("getBalanceSheet(p1, AAPL, sec-edgar, MANUAL)", "getBalanceSheet(p1, AAPL, null, AUTO)"),
             callsOf("getBalanceSheet"),
         )
     }
@@ -369,7 +371,58 @@ class DetailViewModelTest {
         val view = viewModel.state.balanceSheet.data.value
         assertEquals(DataStatus.NOT_SUPPORTED, view?.meta?.status)
         assertTrue(view?.table?.isEmpty == true)
-        assertEquals(listOf("getBalanceSheet(p1, SAP.DE, finnhub, AUTO)", "getBalanceSheet(p1, SAP.DE, sec-edgar, AUTO)"), callsOf("getBalanceSheet"))
+        assertEquals(listOf("getBalanceSheet(p1, SAP.DE, null, AUTO)", "getBalanceSheet(p1, SAP.DE, sec-edgar, AUTO)"), callsOf("getBalanceSheet"))
+    }
+
+    @Test
+    fun `no request names a source unless one is picked in the balance sheet dropdown`() = runTest {
+        val viewModel = viewModel()
+
+        DetailTab.entries.forEach(viewModel::onTabSelected)
+        viewModel.refresh()
+
+        val companyDataCalls = apiClient.calls.filterNot { it.startsWith("getSources") }
+        assertEquals(8, companyDataCalls.size)
+        assertTrue(companyDataCalls.all { it.contains(", null, ") })
+    }
+
+    @Test
+    fun `international company takes the default balance sheet from the source the backend picks`() = runTest {
+        val eodhdSheet = CompanyData.balanceSheet(source = SourceId.EODHD, status = DataStatus.NOT_SUPPORTED)
+        apiClient.getBalanceSheet = { _, _, source, _ -> ApiResult.Success(if (source == null) eodhdSheet else finnhubSheet) }
+        val viewModel = viewModel(DetailRoute(Symbol("SAP.DE"), Companies.identity("SAP.DE", name = "SAP SE")))
+
+        viewModel.onTabSelected(DetailTab.BALANCE_SHEET)
+
+        assertEquals(listOf("getBalanceSheet(p1, SAP.DE, null, AUTO)"), callsOf("getBalanceSheet"))
+        assertEquals(SourceId.EODHD, viewModel.state.balanceSheet.defaultSource)
+        assertEquals(eodhdSheet.meta, viewModel.state.balanceSheet.data.value?.meta)
+    }
+
+    @Test
+    fun `picking a source explicitly sends it even when it is the source that answered the default`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onTabSelected(DetailTab.BALANCE_SHEET)
+
+        viewModel.onSourceSelected(SourceId.FINNHUB)
+
+        assertEquals(
+            listOf("getBalanceSheet(p1, AAPL, null, AUTO)", "getBalanceSheet(p1, AAPL, finnhub, AUTO)"),
+            callsOf("getBalanceSheet"),
+        )
+        assertEquals(SourceId.FINNHUB, viewModel.state.balanceSheet.selectedSource)
+    }
+
+    @Test
+    fun `refresh before the balance sheet tab is shown requests the default and the tab still loads its sources`() = runTest {
+        val viewModel = viewModel()
+        viewModel.refresh()
+        assertTrue(callsOf("getSources").isEmpty())
+
+        viewModel.onTabSelected(DetailTab.BALANCE_SHEET)
+
+        assertEquals(listOf("getBalanceSheet(p1, AAPL, null, MANUAL)"), callsOf("getBalanceSheet"))
+        assertEquals(listOf(finnhub, secEdgar), viewModel.state.balanceSheet.sources)
     }
 
     @Test
@@ -401,7 +454,7 @@ class DetailViewModelTest {
         viewModel.onTabSelected(DetailTab.BALANCE_SHEET)
         apiClient.getBalanceSheet = { _, _, _, _ -> ApiResult.Success(finnhubSheet) }
 
-        viewModel.onSourceSelected(SourceId.FINNHUB)
+        viewModel.onSourceSelected(null)
 
         assertEquals(2, callsOf("getBalanceSheet").size)
         assertEquals(finnhubSheet.meta, viewModel.state.balanceSheet.data.value?.meta)

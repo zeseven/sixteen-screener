@@ -17,20 +17,23 @@ import javax.inject.Singleton
  * A `404` means an unknown symbol here, so it never clears the stored profile.
  */
 interface CompanyRepository {
-    /** Price and ratios from the profile's default source; [trigger] tells the backend whether the user asked for a refresh. */
+    /**
+     * Price and ratios from the profile's default source of the company's role; [trigger] tells the backend whether the user asked
+     * for a refresh.
+     */
     suspend fun getPriceAndRatios(symbol: Symbol, trigger: RequestTrigger = RequestTrigger.AUTO): ApiResult<PriceAndRatios>
 
-    /** Dividends from the profile's default source. */
+    /** Dividends from the profile's default source of the company's role. */
     suspend fun getDividends(symbol: Symbol, trigger: RequestTrigger = RequestTrigger.AUTO): ApiResult<Dividends>
 
-    /** Balance sheet from [source], or from the profile's default source when `null`. */
+    /** Balance sheet from [source], or from the profile's default source of the company's role when `null`. */
     suspend fun getBalanceSheet(
         symbol: Symbol,
         source: SourceId? = null,
         trigger: RequestTrigger = RequestTrigger.AUTO,
     ): ApiResult<BalanceSheet>
 
-    /** Company profile from the profile's default source. */
+    /** Company profile from the profile's default source of the company's role. */
     suspend fun getCompanyProfile(symbol: Symbol, trigger: RequestTrigger = RequestTrigger.AUTO): ApiResult<CompanyProfileData>
 }
 

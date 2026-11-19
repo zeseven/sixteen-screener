@@ -194,6 +194,7 @@
     <string name="detail_dividend_payment_date">paid %1$s</string>
     <string name="detail_dividend_description">Ex-date %1$s, %2$s</string>
     <string name="detail_balance_sheet_source">Source</string>
+    <string name="detail_balance_sheet_default_source">Default</string>
     <string name="detail_balance_sheet_unit">Values in %1$s</string>
     <string name="detail_balance_sheet_label_with_unit">%1$s (%2$s)</string>
     <string name="detail_balance_sheet_quarter">%1$s %2$d</string>

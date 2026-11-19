@@ -51,21 +51,27 @@ private val LabelColumnWidth = 152.dp
 private val YearColumnWidth = 88.dp
 private val RowHeight = 48.dp
 
-/** Source dropdown of the balance sheet tab; every balance sheet source is offered for every company (ADR-047). */
+/**
+ * Source dropdown of the balance sheet tab (ADR-047): the default entry (`null`) lets the backend pick the profile's default source
+ * of the company's role and is labelled with the source that answered it, or "Default" until it answered; every other balance
+ * sheet source is offered for every company.
+ */
 @Composable
 fun BalanceSheetSourceDropdown(
     sources: List<Source>,
     selectedSource: SourceId?,
-    onSourceSelected: (SourceId) -> Unit,
+    defaultSource: SourceId?,
+    sourceName: (SourceId) -> String,
+    onSourceSelected: (SourceId?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val selected = sources.firstOrNull { it.id == selectedSource } ?: return
+    val defaultLabel = defaultSource?.let(sourceName) ?: stringResource(R.string.detail_balance_sheet_default_source)
     FilterDropdown(
         label = stringResource(R.string.detail_balance_sheet_source),
-        selected = selected,
-        options = sources,
-        optionLabel = { it.name },
-        onSelect = { onSourceSelected(it.id) },
+        selected = selectedSource,
+        options = listOf(null) + sources.map { it.id }.filterNot { it == defaultSource },
+        optionLabel = { source -> source?.let(sourceName) ?: defaultLabel },
+        onSelect = onSourceSelected,
         isActive = false,
         modifier = modifier
             .padding(horizontal = 16.dp)

@@ -49,7 +49,10 @@ interface ApiClient {
     /** `GET /profiles/{profileId}/search?query=`. */
     suspend fun search(profileId: ProfileId, query: String): ApiResult<SearchResults>
 
-    /** `GET /profiles/{profileId}/companies/{symbol}/price-ratios`; [source] `null` means the profile's default source. */
+    /**
+     * `GET /profiles/{profileId}/companies/{symbol}/price-ratios`; [source] `null` means the profile's default source of the
+     * company's role, picked by the backend.
+     */
     suspend fun getPriceAndRatios(
         profileId: ProfileId,
         symbol: Symbol,
@@ -57,7 +60,10 @@ interface ApiClient {
         trigger: RequestTrigger = RequestTrigger.AUTO,
     ): ApiResult<PriceAndRatios>
 
-    /** `GET /profiles/{profileId}/companies/{symbol}/dividends`; [source] `null` means the profile's default source. */
+    /**
+     * `GET /profiles/{profileId}/companies/{symbol}/dividends`; [source] `null` means the profile's default source of the
+     * company's role, picked by the backend.
+     */
     suspend fun getDividends(
         profileId: ProfileId,
         symbol: Symbol,
@@ -65,7 +71,10 @@ interface ApiClient {
         trigger: RequestTrigger = RequestTrigger.AUTO,
     ): ApiResult<Dividends>
 
-    /** `GET /profiles/{profileId}/companies/{symbol}/balance-sheet`; [source] `null` means the profile's default source. */
+    /**
+     * `GET /profiles/{profileId}/companies/{symbol}/balance-sheet`; [source] `null` means the profile's default source of the
+     * company's role, picked by the backend.
+     */
     suspend fun getBalanceSheet(
         profileId: ProfileId,
         symbol: Symbol,
@@ -73,7 +82,10 @@ interface ApiClient {
         trigger: RequestTrigger = RequestTrigger.AUTO,
     ): ApiResult<BalanceSheet>
 
-    /** `GET /profiles/{profileId}/companies/{symbol}/profile`; [source] `null` means the profile's default source. */
+    /**
+     * `GET /profiles/{profileId}/companies/{symbol}/profile`; [source] `null` means the profile's default source of the
+     * company's role, picked by the backend.
+     */
     suspend fun getCompanyProfile(
         profileId: ProfileId,
         symbol: Symbol,
