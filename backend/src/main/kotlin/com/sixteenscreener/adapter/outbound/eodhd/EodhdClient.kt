@@ -44,7 +44,8 @@ class EodhdClient(
 
     override suspend fun quote(listing: ListedSymbol): SourceResult<Quote> {
         val symbol = eodhdSymbolOf(listing.symbol) ?: return NOT_SUPPORTED
-        return get("/real-time/$symbol") { response -> EodhdMapper.quote(response.body(), listing.currency) }
+        val priceDivisor = priceDivisorOf(listing.symbol)
+        return get("/real-time/$symbol") { response -> EodhdMapper.quote(response.body(), listing.currency, priceDivisor) }
     }
 
     override suspend fun ratios(symbol: Symbol): SourceResult<Ratios> = NOT_SUPPORTED
@@ -80,7 +81,12 @@ class EodhdClient(
         private const val FORBIDDEN = 403
         private const val NOT_FOUND = 404
 
+        private const val MINOR_UNITS_PER_MAJOR_UNIT = 100.0
+        private const val MAJOR_UNIT_DIVISOR = 1.0
+
         private val NOT_SUPPORTED = SourceResult.NotSupported(outcome = null)
+
+        private val exchangesQuotedInMinorUnits = setOf("LSE", "JSE")
 
         private val errorStatus = ErrorStatusMapping.overriding(
             PAYMENT_REQUIRED to { outcome -> SourceResult.LimitReached(outcome) },
@@ -92,5 +98,12 @@ class EodhdClient(
         fun eodhdSymbolOf(symbol: Symbol): String? =
             KnownExchangeCodes.eodhdCodeOf(symbol.exchangeCode)
                 ?.let { code -> "${symbol.ticker.replace('.', '-')}.$code".encodeURLPathPart() }
+
+        private fun priceDivisorOf(symbol: Symbol): Double =
+            if (KnownExchangeCodes.eodhdCodeOf(symbol.exchangeCode) in exchangesQuotedInMinorUnits) {
+                MINOR_UNITS_PER_MAJOR_UNIT
+            } else {
+                MAJOR_UNIT_DIVISOR
+            }
     }
 }

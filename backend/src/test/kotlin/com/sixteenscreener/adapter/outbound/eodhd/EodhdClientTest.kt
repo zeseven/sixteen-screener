@@ -41,6 +41,8 @@ private val toyota = Symbol.of("7203.T")
 private val aaplListing = ListedSymbol(aapl, "APPLE INC", "XNAS", "USD", "Common Stock")
 private val sapListing = ListedSymbol(sapDe, "SAP SE", "XETR", "EUR", "Common Stock")
 private val toyotaListing = ListedSymbol(toyota, "TOYOTA MOTOR CORP", "XTKS", "JPY", "Common Stock")
+private val shelListing = ListedSymbol(Symbol.of("SHEL.L"), "SHELL PLC", "XLON", "GBP", "Common Stock")
+private val naspersListing = ListedSymbol(Symbol.of("NPN.JO"), "NASPERS LTD", "XJSE", "ZAR", "Common Stock")
 
 private class MockEodhd(
     private val status: HttpStatusCode = HttpStatusCode.OK,
@@ -134,6 +136,32 @@ class EodhdClientTest : FunSpec({
 
             eodhd.client.quote(aaplListing) shouldBe SourceResult.Success(Quote(352.45, "USD"), eodhd.success)
             eodhd.single().shouldTarget("/real-time/AAPL.US")
+        }
+
+        test("a London price quoted in pence is converted to pounds") {
+            val eodhd = fixture("real-time-shel-lse.json")
+
+            eodhd.client.quote(shelListing) shouldBe SourceResult.Success(Quote(35.745, "GBP"), eodhd.success)
+            eodhd.single().shouldTarget("/real-time/SHEL.LSE")
+        }
+
+        test("a Johannesburg price quoted in cents is converted to rand") {
+            val eodhd = MockEodhd(body = """{"code":"NPN.JSE","timestamp":1795106160,"close":512345}""")
+
+            eodhd.client.quote(naspersListing) shouldBe SourceResult.Success(Quote(5123.45, "ZAR"), eodhd.success)
+            eodhd.single().shouldTarget("/real-time/NPN.JSE")
+        }
+
+        test("a price of an exchange quoted in major units is kept") {
+            val eodhd = MockEodhd(body = """{"code":"SAP.XETRA","timestamp":1795106160,"close":3574.5}""")
+
+            eodhd.client.quote(sapListing) shouldBe SourceResult.Success(Quote(3574.5, "EUR"), eodhd.success)
+        }
+
+        test("a London price below one penny is converted without being dropped") {
+            val eodhd = MockEodhd(body = """{"code":"SHEL.LSE","timestamp":1795106160,"close":0.5}""")
+
+            eodhd.client.quote(shelListing) shouldBe SourceResult.Success(Quote(0.005, "GBP"), eodhd.success)
         }
 
         test("a batch answer takes the first quote") {

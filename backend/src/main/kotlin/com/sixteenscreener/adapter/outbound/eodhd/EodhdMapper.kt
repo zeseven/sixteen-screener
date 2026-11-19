@@ -13,7 +13,7 @@ import java.time.LocalDate
 internal object EodhdMapper {
     private const val ISO_DATE_LENGTH = 10
 
-    fun quote(response: JsonElement, currency: String): Quote? {
+    fun quote(response: JsonElement, currency: String, priceDivisor: Double): Quote? {
         val quote = when (response) {
             is JsonObject -> response
             is JsonArray -> response.firstOrNull() as? JsonObject
@@ -21,7 +21,7 @@ internal object EodhdMapper {
         } ?: return null
         val price = quote.number("close")?.takeIf { it > 0 } ?: return null
         quote.number("timestamp")?.takeIf { it > 0 } ?: return null
-        return Quote(price = price, currency = currency)
+        return Quote(price = price / priceDivisor, currency = currency)
     }
 
     fun dividends(response: List<DividendDto>): Dividends =
