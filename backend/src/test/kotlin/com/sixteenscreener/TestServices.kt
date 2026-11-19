@@ -4,10 +4,12 @@ import com.sixteenscreener.config.AppConfig
 import com.sixteenscreener.config.SourceConfig
 import com.sixteenscreener.config.SourceSecrets
 import com.sixteenscreener.domain.model.Capability
+import com.sixteenscreener.domain.model.DefaultSources
 import com.sixteenscreener.domain.model.ImageFormat
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.RequestLimit
 import com.sixteenscreener.domain.model.SourceId
+import com.sixteenscreener.domain.model.SourceRole
 import com.sixteenscreener.domain.service.LogoTier
 import com.sixteenscreener.domain.service.RateLimiter
 import com.sixteenscreener.domain.service.SourceCallGuard
@@ -26,22 +28,36 @@ import com.sixteenscreener.fakes.InMemorySymbolDirectory
 import com.sixteenscreener.fakes.MutableClock
 import kotlin.time.Duration.Companion.seconds
 
+val FINNHUB_ID: SourceId = SourceId.of("finnhub")
+val EODHD_ID: SourceId = SourceId.of("eodhd")
+
 fun testConfig(): AppConfig = AppConfig(
     port = 8080,
     gcpProjectId = "test-project",
     firestoreDatabase = "sixteen-screener",
     logoBucket = "test-bucket",
-    defaultSource = SourceId.of("finnhub"),
+    defaultSources = DefaultSources(search = FINNHUB_ID, us = FINNHUB_ID, international = EODHD_ID),
     sources = listOf(
         SourceConfig(
-            id = SourceId.of("finnhub"),
+            id = FINNHUB_ID,
             name = "Finnhub",
             enabled = true,
             baseUrl = "https://finnhub.test",
             capabilities = setOf(Capability.SEARCH, Capability.QUOTE, Capability.RATIOS),
-            selectableAsDefault = true,
+            roles = setOf(SourceRole.SEARCH, SourceRole.US),
             limits = listOf(RequestLimit(LimitInterval.MINUTE, 60)),
             timeout = 5.seconds,
+        ),
+        SourceConfig(
+            id = EODHD_ID,
+            name = "EODHD",
+            enabled = true,
+            baseUrl = "https://eodhd.test",
+            capabilities = setOf(Capability.QUOTE, Capability.DIVIDENDS),
+            roles = setOf(SourceRole.INTERNATIONAL),
+            limits = listOf(RequestLimit(LimitInterval.DAY, 20), RequestLimit(LimitInterval.MINUTE, 20)),
+            timeout = 5.seconds,
+            automaticRequests = false,
         ),
     ),
     secrets = SourceSecrets(finnhubApiKey = "test-key", secEdgarUserAgent = "test agent"),
@@ -56,6 +72,7 @@ class TestPorts(
     val requestCounters: InMemoryRequestCounterRepository = InMemoryRequestCounterRepository(),
     val sourceCalls: InMemorySourceCallOutcomeRepository = InMemorySourceCallOutcomeRepository(),
     val marketData: FakeMarketDataSource = FakeMarketDataSource(),
+    val internationalMarketData: FakeMarketDataSource = FakeMarketDataSource(EODHD_ID),
     val balanceSheets: FakeBalanceSheetSource = FakeBalanceSheetSource(SourceId.of("finnhub")),
     val additionalBalanceSheets: List<FakeBalanceSheetSource> = emptyList(),
     val symbolDirectory: InMemorySymbolDirectory = InMemorySymbolDirectory(),
@@ -82,7 +99,7 @@ fun testServices(ports: TestPorts = TestPorts(), config: AppConfig = testConfig(
         rateLimiter = rateLimiter,
         sourceCallOutcomes = SourceCallOutcomes(ports.sourceCalls),
         sourceCallGuard = SourceCallGuard(rateLimiter),
-        marketDataSources = mapOf(ports.marketData.id to ports.marketData),
+        marketDataSources = listOf(ports.marketData, ports.internationalMarketData).associateBy { it.id },
         balanceSheetSources = (listOf(ports.balanceSheets) + ports.additionalBalanceSheets).associateBy { it.id },
         symbolDirectory = ports.symbolDirectory,
         logoTiers = listOf(

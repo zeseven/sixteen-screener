@@ -6,7 +6,8 @@ import com.sixteenscreener.domain.model.WatchlistMarketData
 import com.sixteenscreener.domain.model.WatchlistItem
 
 /**
- * Watchlist rows (ADR-057) and their market data from the profile's default source (ADR-031, ADR-055).
+ * Watchlist rows (ADR-057) and their market data from the profile's default source of each company's role (ADR-031,
+ * ADR-055, ADR-083).
  */
 interface WatchlistUseCase {
     /**
@@ -23,10 +24,12 @@ interface WatchlistUseCase {
     /**
      * Market data of the [symbols] that are in the watchlist of profile [profileId], in watchlist order (ADR-058).
      *
-     * Symbols outside the watchlist are skipped and duplicates are ignored. Quotes and ratios are loaded (ADR-075):
-     * quotes older than 1 hour and ratios older than 1 day are refreshed oldest first within one source budget
-     * reservation, quotes first; company profiles are not requested. A row whose quote or ratios couldn't be refreshed
-     * keeps its cached data, or none, with the status describing the reason. A symbol no longer found in the exchange
+     * Symbols outside the watchlist are skipped and duplicates are ignored. Each row is served by the default source of
+     * its role, each source with its own budget reservation. Quotes and ratios are loaded as an `AUTO` request (ADR-075,
+     * ADR-083): a source with automatic requests on refreshes quotes older than 1 hour and ratios older than 1 day
+     * oldest first within one budget reservation, quotes first; a source with automatic requests off is not called and
+     * answers cached data as is, or `NOT_REQUESTED` without cached data. Company profiles are not requested. A row
+     * whose quote or ratios couldn't be refreshed keeps its cached data, or none, with the status describing the reason. A symbol no longer found in the exchange
      * directory keeps its cached data without refresh. Indicators are calculated from the ratios and the quote with the
      * profile's indicator settings, which are copied from the defaults first when the profile misses some (ADR-072).
      *

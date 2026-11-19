@@ -40,7 +40,6 @@ private fun logoConfig(limit: Int = 1000, withFinnhubLogos: Boolean = false): Ap
         enabled = true,
         baseUrl = "https://logoapi.test",
         capabilities = setOf(Capability.LOGO),
-        selectableAsDefault = false,
         limits = listOf(RequestLimit(LimitInterval.DAY, limit)),
         timeout = 5.seconds,
     )

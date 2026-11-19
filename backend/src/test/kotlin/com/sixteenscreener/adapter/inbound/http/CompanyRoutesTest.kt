@@ -55,20 +55,28 @@ private val aapl = Symbol.of("AAPL")
 private val tabs = listOf("price-ratios", "dividends", "balance-sheet", "profile")
 
 private fun fullConfig(): AppConfig = testConfig().let { config ->
-    val finnhubSource = config.sources.single()
+    val (finnhubSource, eodhdSource) = config.sources
     config.copy(
         sources = listOf(
             finnhubSource.copy(capabilities = Capability.entries.toSet() - Capability.LOGO),
+            eodhdSource,
             finnhubSource.copy(
                 id = SourceId.of("sec-edgar"),
                 name = "SEC EDGAR",
                 capabilities = setOf(Capability.BALANCE_SHEET),
-                selectableAsDefault = false,
+                roles = emptySet(),
                 limits = listOf(RequestLimit(LimitInterval.MINUTE, 300)),
             ),
         ),
     )
 }
+
+private fun AppConfig.internationalProfilesOnRequest(): AppConfig =
+    copy(
+        sources = sources.map {
+            if (it.id.value == "eodhd") it.copy(capabilities = it.capabilities + Capability.COMPANY_PROFILE, automaticRequests = true) else it
+        },
+    )
 
 private fun AppConfig.manualOnlyFinnhub(): AppConfig =
     copy(sources = sources.map { if (it.id.value == "finnhub") it.copy(automaticRequests = false) else it })
@@ -156,7 +164,7 @@ private suspend fun TestPorts.cacheEverything(age: Duration) {
 private fun TestPorts.exhaustBudget() =
     requestCounters.setCount(finnhub, LimitInterval.MINUTE, clock.now(), Int.MAX_VALUE / 2)
 
-private fun TestPorts.sourceCallCount() = marketData.calls.size + balanceSheets.calls.size
+private fun TestPorts.sourceCallCount() = marketData.calls.size + internationalMarketData.calls.size + balanceSheets.calls.size
 
 private fun meta(status: String, fetchedAt: String?, source: String = "finnhub") = JsonObject(
     mapOf(
@@ -433,11 +441,11 @@ class CompanyRoutesTest : FunSpec({
         }
 
         test("a listing on an exchange outside the company's country is not its home exchange") {
-            routeTest(config = fullConfig()) { ports ->
+            routeTest(config = fullConfig().internationalProfilesOnRequest()) { ports ->
                 val saved = ports.savedProfile()
                 val appleOnXetra = Symbol.of("APC.DE")
                 ports.symbolDirectory.add(ListedSymbol(appleOnXetra, "APPLE INC", "XETR", "EUR", "Common Stock"))
-                ports.marketData.profiles[appleOnXetra] = SourceResult.Success(profile, ports.success())
+                ports.internationalMarketData.profiles[appleOnXetra] = SourceResult.Success(profile, ports.success())
 
                 val returned = client.get("/profiles/${saved.id}/companies/APC.DE/profile").json()["profile"]!!.jsonObject
 
@@ -462,11 +470,11 @@ class CompanyRoutesTest : FunSpec({
         }
 
         test("company outside the US and EU markets has a null market") {
-            routeTest(config = fullConfig()) { ports ->
+            routeTest(config = fullConfig().internationalProfilesOnRequest()) { ports ->
                 val saved = ports.savedProfile()
                 val toyota = Symbol.of("7203.T")
                 ports.symbolDirectory.add(ListedSymbol(toyota, "TOYOTA MOTOR CORP", "XTKS", "JPY", "Common Stock"))
-                ports.marketData.profiles[toyota] = SourceResult.Success(profile.copy(name = null), ports.success())
+                ports.internationalMarketData.profiles[toyota] = SourceResult.Success(profile.copy(name = null), ports.success())
 
                 val returned = client.get("/profiles/${saved.id}/companies/7203.T/profile").json()["profile"]!!.jsonObject
 
@@ -767,8 +775,8 @@ class CompanyRoutesTest : FunSpec({
         }
     }
 
-    context("symbol of an exchange not covered by the directory source") {
-        test("price and ratios answer NOT_SUPPORTED without a source request") {
+    context("company of an exchange not covered by the directory of the search source") {
+        test("price and ratios of the international source answer NOT_REQUESTED without a source request") {
             routeTest(config = fullConfig()) { ports ->
                 val saved = ports.savedProfile()
                 ports.symbolDirectory.notCovered(ExchangeCode("AS"))
@@ -776,8 +784,50 @@ class CompanyRoutesTest : FunSpec({
                 val response = client.get("/profiles/${saved.id}/companies/AD.AS/price-ratios")
 
                 response.status shouldBe HttpStatusCode.OK
-                response.json().status() shouldBe JsonPrimitive("NOT_SUPPORTED")
+                response.json().meta() shouldBe meta("NOT_REQUESTED", null, source = "eodhd")
                 response.json().isEmptyData() shouldBe true
+                ports.sourceCallCount() shouldBe 0
+            }
+        }
+
+        test("a manual refresh requests the quote from the international source") {
+            routeTest(config = fullConfig()) { ports ->
+                val saved = ports.savedProfile()
+                val ahold = Symbol.of("AD.AS")
+                ports.symbolDirectory.notCovered(ExchangeCode("AS"))
+                ports.internationalMarketData.quotes[ahold] = SourceResult.Success(Quote(31.5, "EUR"), ports.success())
+
+                val body = client.get("/profiles/${saved.id}/companies/AD.AS/price-ratios?trigger=MANUAL").json()
+
+                body.meta() shouldBe meta("FRESH", "2026-11-14T12:00:00Z", source = "eodhd")
+                body["quote"]!!.jsonObject["price"] shouldBe JsonPrimitive(31.5)
+                body["quote"]!!.jsonObject["currency"] shouldBe JsonPrimitive("EUR")
+                body["ratios"] shouldBe JsonArray(emptyList())
+                ports.internationalMarketData.calls shouldContainExactly listOf("quote:AD.AS")
+                ports.marketData.calls.shouldBeEmpty()
+            }
+        }
+
+        test("finnhub requested for an international company answers NOT_SUPPORTED without a source request") {
+            routeTest(config = fullConfig()) { ports ->
+                val saved = ports.savedProfile()
+                ports.symbolDirectory.notCovered(ExchangeCode("AS"))
+
+                val body = client.get("/profiles/${saved.id}/companies/AD.AS/price-ratios?source=finnhub&trigger=MANUAL").json()
+
+                body.meta() shouldBe meta("NOT_SUPPORTED", null)
+                ports.sourceCallCount() shouldBe 0
+            }
+        }
+
+        test("eodhd requested for a US company answers NOT_SUPPORTED without a source request") {
+            routeTest(config = fullConfig()) { ports ->
+                val saved = ports.savedProfile()
+                ports.listedApple()
+
+                val body = client.get("/profiles/${saved.id}/companies/AAPL/dividends?source=eodhd&trigger=MANUAL").json()
+
+                body.meta() shouldBe meta("NOT_SUPPORTED", null, source = "eodhd")
                 ports.sourceCallCount() shouldBe 0
             }
         }
@@ -811,13 +861,16 @@ class CompanyRoutesTest : FunSpec({
             }
         }
 
-        test("balance sheet of SEC EDGAR answers instead of not found") {
+        test("balance sheet of SEC EDGAR answers NOT_SUPPORTED instead of not found") {
             routeTest(config = fullConfig()) { ports ->
                 val saved = ports.savedProfile()
                 ports.symbolDirectory.notCovered(ExchangeCode("AS"))
 
-                client.get("/profiles/${saved.id}/companies/AD.AS/balance-sheet?source=sec-edgar").status shouldBe
-                    HttpStatusCode.OK
+                val response = client.get("/profiles/${saved.id}/companies/AD.AS/balance-sheet?source=sec-edgar")
+
+                response.status shouldBe HttpStatusCode.OK
+                response.json().meta() shouldBe meta("NOT_SUPPORTED", null, source = "sec-edgar")
+                ports.sourceCallCount() shouldBe 0
             }
         }
     }

@@ -2,13 +2,18 @@ package com.sixteenscreener.domain.service
 
 import com.sixteenscreener.domain.model.InvalidInputException
 import com.sixteenscreener.domain.model.ProfileId
+import com.sixteenscreener.domain.model.SourceRole
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.domain.model.WatchlistItem
 import com.sixteenscreener.domain.model.WatchlistMarketData
+import com.sixteenscreener.domain.model.WatchlistSourceData
 import com.sixteenscreener.port.inbound.WatchlistUseCase
 import com.sixteenscreener.port.inbound.WatchlistUseCase.Companion.MAX_MARKET_DATA_SYMBOLS
 import com.sixteenscreener.port.outbound.ProfileRepository
 import com.sixteenscreener.port.outbound.SymbolDirectory
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 class WatchlistService(
     private val profiles: ProfileRepository,
@@ -35,11 +40,21 @@ class WatchlistService(
         val rows = profile.watchlistSymbols.filter { it in requested }
         if (rows.isEmpty()) return emptyList()
         val settings = indicatorSettings.settingsOf(profile)
-        val data = companyData.watchlistData(catalog.defaultSourceOf(profile), rows, symbolDirectory.lookupAll(rows))
+        val data = dataByRole(rows)
         return rows.map { symbol ->
             val (quote, ratios) = data.getValue(symbol)
             val indicators = IndicatorEvaluator.indicators(settings, ratios.data, quote.data?.quote?.price)
             WatchlistMarketData(symbol, quote, ratios, indicators)
+        }
+    }
+
+    private suspend fun dataByRole(rows: List<Symbol>): Map<Symbol, WatchlistSourceData> {
+        val lookups = symbolDirectory.lookupAll(rows)
+        return coroutineScope {
+            rows.groupBy(SourceRole::of)
+                .map { (role, symbols) -> async { companyData.watchlistData(catalog.defaultSourceOf(role), symbols, lookups) } }
+                .awaitAll()
+                .fold(emptyMap()) { all, data -> all + data }
         }
     }
 }

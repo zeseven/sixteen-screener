@@ -46,7 +46,6 @@ private class IndicatorSettingsFixture(
     val profile = Profile(
         id = ProfileId.random(),
         name = ProfileName.of("Alice"),
-        defaultSource = null,
         watchlist = emptyList(),
         createdAt = clock.now(),
         updatedAt = clock.now(),

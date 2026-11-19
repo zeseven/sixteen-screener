@@ -6,6 +6,7 @@ import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ProfileName
 import com.sixteenscreener.domain.model.ResourceNotFoundException
+import com.sixteenscreener.domain.model.SourceRole
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.domain.model.SymbolLookup
 import com.sixteenscreener.domain.model.WatchlistEntry
@@ -31,7 +32,7 @@ class ProfileService(
     override suspend fun getOrCreate(rawName: String): ProfileRegistration {
         val name = ProfileName.of(rawName)
         val now = clock.now()
-        val candidate = Profile(ProfileId.random(), name, defaultSource = null, emptyList(), createdAt = now, updatedAt = now)
+        val candidate = Profile(ProfileId.random(), name, emptyList(), createdAt = now, updatedAt = now)
         val creation = profiles.getOrCreate(candidate)
         return ProfileRegistration(settingsOf(creation.profile), creation.created)
     }
@@ -45,7 +46,7 @@ class ProfileService(
         profile.watchlistEntry(symbol)?.let { return identities.watchlistItemOf(it, lookup.listing) }
         val name = nameOf(symbol, lookup, requestedName)
         if (profile.watchlist.size >= Profile.MAX_WATCHLIST_SIZE) throw watchlistFull()
-        val entry = WatchlistEntry(symbol, name, sectorOf(profile, symbol, lookup), tags = emptyList())
+        val entry = WatchlistEntry(symbol, name, sectorOf(symbol), tags = emptyList())
         return when (val update = profiles.addToWatchlist(id, entry, clock.now())) {
             is WatchlistUpdate.Updated -> identities.watchlistItemOf(update.profile.watchlistEntry(symbol) ?: entry, lookup.listing)
             WatchlistUpdate.ProfileNotFound -> throw profileNotFound(id)
@@ -74,8 +75,8 @@ class ProfileService(
         else -> throw ResourceNotFoundException("Unknown symbol '$symbol'")
     }
 
-    private suspend fun sectorOf(profile: Profile, symbol: Symbol, lookup: SymbolLookup): String? =
-        companyData.unexpiredCompanyProfile(catalog.defaultSourceOf(profile), symbol, lookup)
+    private suspend fun sectorOf(symbol: Symbol): String? =
+        companyData.unexpiredCompanyProfile(catalog.defaultSourceOf(SourceRole.of(symbol)), symbol)
             .takeIf { it.status in SECTOR_SOURCES }
             ?.data
             ?.sector
@@ -85,7 +86,7 @@ class ProfileService(
     private fun settingsOf(profile: Profile) = ProfileSettings(
         id = profile.id,
         name = profile.name,
-        defaultSource = catalog.defaultSourceOf(profile),
+        defaultSources = catalog.defaultSources,
         watchlist = profile.watchlistSymbols,
     )
 

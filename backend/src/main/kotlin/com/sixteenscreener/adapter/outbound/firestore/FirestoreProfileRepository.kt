@@ -6,7 +6,6 @@ import com.sixteenscreener.domain.model.IndicatorSetting
 import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ProfileName
-import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.domain.model.WatchlistEntry
 import com.sixteenscreener.port.outbound.ProfileCreation
@@ -93,7 +92,6 @@ class FirestoreProfileRepository(private val firestore: Firestore) : ProfileRepo
 
     private fun Profile.toDocument(): FirestoreMap = mapOf(
         NAME to name.value,
-        DEFAULT_SOURCE to defaultSource?.value,
         WATCHLIST to watchlist.map { it.toMap() },
         CREATED_AT to createdAt.toTimestamp(),
         UPDATED_AT to updatedAt.toTimestamp(),
@@ -113,7 +111,6 @@ class FirestoreProfileRepository(private val firestore: Firestore) : ProfileRepo
         return Profile(
             id = ProfileId.of(id),
             name = ProfileName.of(requiredString(NAME)),
-            defaultSource = getString(DEFAULT_SOURCE)?.let(SourceId::parseOrNull),
             watchlist = watchlist.mapNotNull(::watchlistEntryOrNull),
             createdAt = requiredInstant(CREATED_AT),
             updatedAt = requiredInstant(UPDATED_AT),
@@ -135,7 +132,6 @@ class FirestoreProfileRepository(private val firestore: Firestore) : ProfileRepo
     companion object {
         private const val PROFILE_ID = "profileId"
         private const val NAME = "name"
-        private const val DEFAULT_SOURCE = "defaultSource"
         private const val WATCHLIST = "watchlist"
         private const val SYMBOL = "symbol"
         private const val SECTOR = "sector"

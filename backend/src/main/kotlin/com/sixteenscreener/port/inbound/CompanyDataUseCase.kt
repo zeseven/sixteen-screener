@@ -20,14 +20,14 @@ import com.sixteenscreener.domain.model.Symbol
  *   without cached data empty data with `NOT_REQUESTED`; for [RequestTrigger.MANUAL] it is called only when nothing is
  *   cached or the cached data is older than 1 hour.
  *
- * Calls are made within the source request limits. Source failures and reached limits never fail the operation: the cached data,
- * or empty data without a cache, is returned with the corresponding status. A source without the capability gives
- * `NOT_SUPPORTED` without a call. Quotes, ratios and company profiles of a symbol whose exchange is not covered by the
- * source of the exchange directory are `NOT_SUPPORTED` from that source without a call (ADR-062).
+ * Calls are made within the source request limits. Source failures and reached limits never fail the operation: the
+ * cached data, or empty data without a cache, is returned with the corresponding status. A source without the
+ * capability, or not configured for the role of the company (`US` for US exchanges, `INTERNATIONAL` otherwise), gives
+ * `NOT_SUPPORTED` without a call; SEC EDGAR is accepted for the balance sheet of a US company (ADR-083).
  *
  * All operations throw [com.sixteenscreener.domain.model.ResourceNotFoundException] for an unknown profile, an unknown
  * symbol (neither in the exchange directory nor on a not covered exchange of the static exchange table) or an unknown
- * source. When `source` is null, the profile's default source is used.
+ * source. When `source` is null, the profile's default source of the company's role is used.
  */
 interface CompanyDataUseCase {
     /**

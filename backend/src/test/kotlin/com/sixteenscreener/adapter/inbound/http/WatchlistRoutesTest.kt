@@ -106,27 +106,27 @@ class WatchlistRoutesTest : FunSpec({
 
     test("market data row carries every field of MarketData and Quote and requests no company profile") {
         routeTest(config = profileCapableConfig()) { ports ->
-            val profile = ports.savedProfile(watchlist = listOf("SAP.DE"))
-            ports.listed("SAP.DE", mic = "XETR", currency = "EUR", name = "SAP SE")
-            ports.marketData.quotes[Symbol.of("SAP.DE")] =
-                SourceResult.Success(Quote(201.5, "EUR"), SourceCallOutcome.success(ports.clock.now()))
-            ports.ratiosFromSource("SAP.DE", RatioCode.PE to 45.0, RatioCode.ROE to 25.0, RatioCode.ROA to 3.0)
-            ports.marketData.profiles[Symbol.of("SAP.DE")] = SourceResult.Success(
+            val profile = ports.savedProfile(watchlist = listOf("SAP"))
+            ports.listed("SAP", mic = "XNYS", currency = "USD", name = "SAP SE")
+            ports.marketData.quotes[Symbol.of("SAP")] =
+                SourceResult.Success(Quote(201.5, "USD"), SourceCallOutcome.success(ports.clock.now()))
+            ports.ratiosFromSource("SAP", RatioCode.PE to 45.0, RatioCode.ROE to 25.0, RatioCode.ROA to 3.0)
+            ports.marketData.profiles[Symbol.of("SAP")] = SourceResult.Success(
                 CompanyProfile("SAP SE", "DE", "EUR", "Software", null, null, null, null, null, null, null),
                 SourceCallOutcome.success(ports.clock.now()),
             )
 
-            val item = client.get(marketDataUrl(profile, listOf("SAP.DE"))).json().items().single()
+            val item = client.get(marketDataUrl(profile, listOf("SAP"))).json().items().single()
 
             item shouldBe JsonObject(
                 mapOf(
-                    "symbol" to JsonPrimitive("SAP.DE"),
+                    "symbol" to JsonPrimitive("SAP"),
                     "status" to JsonPrimitive("FRESH"),
                     "indicatorsStatus" to JsonPrimitive("FRESH"),
                     "quote" to JsonObject(
                         mapOf(
                             "price" to JsonPrimitive(201.5),
-                            "currency" to JsonPrimitive("EUR"),
+                            "currency" to JsonPrimitive("USD"),
                             "fetchedAt" to JsonPrimitive("2026-11-14T12:00:00Z"),
                             "previousCachedPrice" to JsonNull,
                             "trend" to JsonPrimitive("UNCHANGED"),
@@ -142,7 +142,7 @@ class WatchlistRoutesTest : FunSpec({
                     ),
                 ),
             )
-            ports.marketData.calls shouldContainExactly listOf("quote:SAP.DE", "ratios:SAP.DE")
+            ports.marketData.calls shouldContainExactly listOf("quote:SAP", "ratios:SAP")
         }
     }
 
@@ -543,18 +543,44 @@ class WatchlistRoutesTest : FunSpec({
         }
     }
 
-    test("market data of a company of a not covered exchange is NOT_SUPPORTED without a source request") {
+    test("market data of an international company without cache is NOT_REQUESTED from the manual-only source") {
         routeTest { ports ->
             val profile = ports.savedProfile(watchlist = listOf("AD.AS"))
             ports.symbolDirectory.notCovered(ExchangeCode("AS"))
             ports.marketData.quotes[Symbol.of("AD.AS")] =
                 SourceResult.Success(Quote(30.0, "EUR"), SourceCallOutcome.success(ports.clock.now()))
+            ports.internationalMarketData.quotes[Symbol.of("AD.AS")] =
+                SourceResult.Success(Quote(31.0, "EUR"), SourceCallOutcome.success(ports.clock.now()))
 
             val item = client.get(marketDataUrl(profile, listOf("AD.AS"))).json().items().single()
 
-            item["status"] shouldBe JsonPrimitive("NOT_SUPPORTED")
+            item["status"] shouldBe JsonPrimitive("NOT_REQUESTED")
+            item["indicatorsStatus"] shouldBe JsonPrimitive("NOT_SUPPORTED")
             item["quote"] shouldBe JsonNull
             ports.marketData.calls.shouldBeEmpty()
+            ports.internationalMarketData.calls.shouldBeEmpty()
+        }
+    }
+
+    test("market data of US and international rows comes from the default source of each role") {
+        routeTest { ports ->
+            val profile = ports.savedProfile(watchlist = listOf("AAPL", "AD.AS"))
+            ports.listed("AAPL")
+            ports.symbolDirectory.notCovered(ExchangeCode("AS"))
+            ports.marketData.quotes[Symbol.of("AAPL")] =
+                SourceResult.Success(Quote(228.0, "USD"), SourceCallOutcome.success(ports.clock.now()))
+            ports.companyCache.seedQuote(
+                CacheKey(SourceId.of("eodhd"), Symbol.of("AD.AS"), DataType.QUOTE),
+                CacheEntry(QuoteRecord(Quote(30.0, "EUR"), LocalDate.parse("2026-11-10"), null), ports.clock.now() - Duration.ofDays(4)),
+            )
+
+            val items = client.get(marketDataUrl(profile, listOf("AAPL", "AD.AS"))).json().items()
+
+            items.map { it["status"] } shouldContainExactly listOf(JsonPrimitive("FRESH"), JsonPrimitive("CACHED"))
+            items.map { it["quote"]!!.jsonObject["source"] } shouldContainExactly
+                listOf(JsonPrimitive("finnhub"), JsonPrimitive("eodhd"))
+            items[1]["quote"]!!.jsonObject["price"] shouldBe JsonPrimitive(30.0)
+            ports.internationalMarketData.calls.shouldBeEmpty()
         }
     }
 

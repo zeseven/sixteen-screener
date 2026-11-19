@@ -9,9 +9,11 @@ import com.sixteenscreener.domain.model.InvalidInputException
 import com.sixteenscreener.domain.model.Market
 import com.sixteenscreener.domain.model.PriceTrend
 import com.sixteenscreener.domain.model.ProfileId
+import com.sixteenscreener.domain.model.Quote
 import com.sixteenscreener.domain.model.RatioCode
 import com.sixteenscreener.domain.model.Ratios
 import com.sixteenscreener.domain.model.ResourceNotFoundException
+import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.domain.model.WatchlistItem
 import com.sixteenscreener.domain.model.WatchlistMarketData
@@ -28,8 +30,8 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import java.time.Duration
 
-private class WatchlistFixture(vararg tickers: String) {
-    val data = CompanyDataFixture()
+private class WatchlistFixture(vararg tickers: String, internationalAutomaticRequests: Boolean = false) {
+    val data = CompanyDataFixture(internationalAutomaticRequests = internationalAutomaticRequests)
     val service =
         WatchlistService(data.profiles, data.catalog, data.directory, data.service, data.identities, data.indicatorSettings)
 
@@ -130,18 +132,18 @@ class WatchlistServiceTest : FunSpec({
     }
 
     test("market data follows the watchlist order with the status of each quote") {
-        val f = WatchlistFixture("SAP.DE", "AAPL")
-        f.data.listed(listing("AAPL"), listing("SAP.DE", mic = "XETR", currency = "EUR"))
+        val f = WatchlistFixture("MSFT", "AAPL")
+        f.data.listed(listing("AAPL"), listing("MSFT"))
         f.data.cachedQuote("AAPL", 190.0, age = Duration.ofMinutes(5), previousPrice = 180.0)
-        f.data.quoteFromSource("SAP.DE", 200.0, "EUR")
+        f.data.quoteFromSource("MSFT", 200.0)
 
-        val rows = f.marketData("AAPL", "SAP.DE")
+        val rows = f.marketData("AAPL", "MSFT")
 
-        rows.symbols() shouldContainExactly listOf("SAP.DE", "AAPL")
+        rows.symbols() shouldContainExactly listOf("MSFT", "AAPL")
         rows.map { it.quote.status } shouldContainExactly listOf(DataStatus.FRESH, DataStatus.FRESH)
         rows[0].quote.data?.quote?.price shouldBe 200.0
         rows[1].quote.data?.trend shouldBe PriceTrend.UP
-        f.data.quoteCalls() shouldContainExactly listOf("quote:SAP.DE")
+        f.data.quoteCalls() shouldContainExactly listOf("quote:MSFT")
     }
 
     test("market data requests no company profiles") {
@@ -155,15 +157,38 @@ class WatchlistServiceTest : FunSpec({
         f.data.profileCalls().shouldBeEmpty()
     }
 
-    test("profile default source is used for the market data") {
-        val f = WatchlistFixture("AAPL")
-        f.data.listed(listing("AAPL"))
-        f.data.profiles.save(f.data.profile.copy(defaultSource = SEC_EDGAR, watchlist = watchlistEntries("AAPL")))
+    test("rows are served by the default source of their role, each with its own budget reservation") {
+        val f = WatchlistFixture("AAPL", "SAP.DE", "MSFT", "AD.AS")
+        f.data.listed(listing("AAPL"), listing("MSFT"))
+        f.data.directory.notCovered(ExchangeCode("DE"), FINNHUB)
+        f.data.directory.notCovered(ExchangeCode("AS"), FINNHUB)
+        f.data.quoteFromSource("AAPL", 1.0)
+        f.data.quoteFromSource("MSFT", 2.0)
+        f.data.cachedQuote("SAP.DE", 200.0, age = Duration.ofDays(2), source = EODHD)
 
-        val quote = f.marketData("AAPL").single().quote
+        val rows = f.marketData("AAPL", "SAP.DE", "MSFT", "AD.AS")
 
-        quote.source shouldBe SEC_EDGAR
-        quote.status shouldBe DataStatus.NOT_SUPPORTED
+        rows.symbols() shouldContainExactly listOf("AAPL", "SAP.DE", "MSFT", "AD.AS")
+        rows.map { it.quote.source } shouldContainExactly listOf(FINNHUB, EODHD, FINNHUB, EODHD)
+        rows.map { it.quote.status } shouldContainExactly
+            listOf(DataStatus.FRESH, DataStatus.CACHED, DataStatus.FRESH, DataStatus.NOT_REQUESTED)
+        rows[1].quote.data?.quote?.price shouldBe 200.0
+        rows[1].ratios.status shouldBe DataStatus.NOT_SUPPORTED
+        f.data.source.calls.filter { it.startsWith("quote:") } shouldContainExactlyInAnyOrder listOf("quote:AAPL", "quote:MSFT")
+        f.data.international.calls.shouldBeEmpty()
+    }
+
+    test("an international source with automatic requests on refreshes international rows from the static listing") {
+        val f = WatchlistFixture("SAP.DE", internationalAutomaticRequests = true)
+        f.data.directory.notCovered(ExchangeCode("DE"), FINNHUB)
+        f.data.international.quotes[Symbol.of("SAP.DE")] = SourceResult.Success(Quote(201.0, "EUR"), f.data.success())
+
+        val row = f.marketData("SAP.DE").single()
+
+        row.quote.source shouldBe EODHD
+        row.quote.status shouldBe DataStatus.FRESH
+        row.quote.data?.quote shouldBe Quote(201.0, "EUR")
+        f.data.international.calls shouldContainExactly listOf("quote:SAP.DE")
         f.data.source.calls.shouldBeEmpty()
     }
 
@@ -179,10 +204,10 @@ class WatchlistServiceTest : FunSpec({
     }
 
     test("symbol no longer in the directory keeps its cached quote without a request") {
-        val f = WatchlistFixture("GONE.DE")
-        val cached = f.data.cachedQuote("GONE.DE", 12.0, age = Duration.ofHours(3))
+        val f = WatchlistFixture("GONE")
+        val cached = f.data.cachedQuote("GONE", 12.0, age = Duration.ofHours(3))
 
-        val quote = f.marketData("GONE.DE").single().quote
+        val quote = f.marketData("GONE").single().quote
 
         quote.status shouldBe DataStatus.SOURCE_ERROR
         quote.data shouldBe cached.data

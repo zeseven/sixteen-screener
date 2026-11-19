@@ -1,6 +1,7 @@
 package com.sixteenscreener.domain.service
 
 import com.sixteenscreener.domain.model.CompanyIdentity
+import com.sixteenscreener.domain.model.DefaultSources
 import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.InvalidInputException
 import com.sixteenscreener.domain.model.Market
@@ -24,8 +25,10 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import java.time.Duration
 
-private class ProfileFixture {
-    val data = CompanyDataFixture().apply {
+private class ProfileFixture(internationalCapabilities: Boolean = false) {
+    val data = CompanyDataFixture(
+        internationalCapabilities = if (internationalCapabilities) ALL_MARKET_DATA else EODHD_CAPABILITIES,
+    ).apply {
         listed(listing("AAPL", name = "APPLE INC"), listing("MSFT"), listing("SAP.DE", mic = "XETR", name = "SAP SE"))
     }
     val service = ProfileService(
@@ -46,14 +49,14 @@ private class ProfileFixture {
 class ProfileServiceTest : FunSpec({
 
     context("get or create") {
-        test("new name creates a profile with the configured default source") {
+        test("new name creates a profile with the configured default sources") {
             val f = ProfileFixture()
 
             val registration = f.service.getOrCreate("  Carol ")
 
             registration.created shouldBe true
             registration.profile.name.value shouldBe "Carol"
-            registration.profile.defaultSource shouldBe FINNHUB
+            registration.profile.defaultSources shouldBe DefaultSources(search = FINNHUB, us = FINNHUB, international = EODHD)
             registration.profile.watchlist.shouldBeEmpty()
             f.data.profiles.findById(registration.profile.id)?.createdAt shouldBe f.data.now
         }
@@ -89,17 +92,13 @@ class ProfileServiceTest : FunSpec({
     }
 
     context("get by ID") {
-        test("existing profile is returned with its default source") {
+        test("existing profile is returned with the configured default sources") {
             val f = ProfileFixture()
 
-            f.service.profile(f.data.profile.id).name shouldBe f.data.profile.name
-        }
+            val profile = f.service.profile(f.data.profile.id)
 
-        test("profile default source is returned when set") {
-            val f = ProfileFixture()
-            f.data.profiles.save(f.data.profile.copy(defaultSource = SEC_EDGAR))
-
-            f.service.profile(f.data.profile.id).defaultSource shouldBe SEC_EDGAR
+            profile.name shouldBe f.data.profile.name
+            profile.defaultSources shouldBe DefaultSources(search = FINNHUB, us = FINNHUB, international = EODHD)
         }
 
         test("unknown profile is not found") {
@@ -120,16 +119,16 @@ class ProfileServiceTest : FunSpec({
 
         test("add returns the stored item with directory identity, sector and empty tags") {
             val f = ProfileFixture()
-            f.data.profileFromSource("SAP.DE", sampleProfile(name = "SAP from source", sector = "Software"))
+            f.data.profileFromSource("MSFT", sampleProfile(name = "Microsoft from source", sector = "Software"))
 
-            val item = f.add("SAP.DE")
+            val item = f.add("MSFT")
 
             item shouldBe WatchlistItem(
-                identity = CompanyIdentity(Symbol.of("SAP.DE"), "XETRA", "SAP SE", Market.EU, "Common Stock"),
+                identity = CompanyIdentity(Symbol.of("MSFT"), "NASDAQ", "MSFT INC", Market.US, "Common Stock"),
                 sector = "Software",
                 tags = emptyList(),
             )
-            f.watchlistOf(f.data.profile.id) shouldContainExactly listOf(watchlistEntry("SAP.DE", sector = "Software", name = "SAP SE"))
+            f.watchlistOf(f.data.profile.id) shouldContainExactly listOf(watchlistEntry("MSFT", sector = "Software", name = "MSFT INC"))
         }
 
         test("add takes the sector of a cached profile that is not expired, without a source request") {
@@ -219,12 +218,21 @@ class ProfileServiceTest : FunSpec({
             }
         }
 
-        test("add stores a null sector when the default source doesn't provide company profiles") {
+        test("add of an international company takes no sector from the US source and asks the international one") {
             val f = ProfileFixture()
-            f.data.profiles.save(f.data.profile.copy(defaultSource = SEC_EDGAR))
+            f.data.profileFromSource("SAP.DE", sampleProfile(sector = "Software"))
 
-            f.add("AAPL").sector.shouldBeNull()
+            f.add("SAP.DE").sector.shouldBeNull()
             f.data.source.calls.shouldBeEmpty()
+            f.data.international.calls.shouldBeEmpty()
+        }
+
+        test("add of an international company takes the sector of the international source's cached profile") {
+            val f = ProfileFixture(internationalCapabilities = true)
+            f.data.cached(profileKey("SAP.DE", EODHD), sampleProfile(sector = "Software"), age = Duration.ofDays(200))
+
+            f.add("SAP.DE").sector shouldBe "Software"
+            f.data.international.calls.shouldBeEmpty()
         }
 
         test("add of a symbol already in the watchlist returns it unchanged without source requests") {
@@ -294,12 +302,13 @@ class ProfileServiceTest : FunSpec({
                     listOf(watchlistEntry("AD.AS", name = "Koninklijke Ahold Delhaize NV"))
             }
 
-            test("requests no company profile and stores a null sector") {
+            test("requests no company profile from the search source and stores a null sector") {
                 val f = notCoveredFixture()
                 f.data.profileFromSource("AD.AS", sampleProfile(sector = "Retail"))
 
                 f.add("AD.AS", name = "Ahold Delhaize").sector.shouldBeNull()
                 f.data.source.calls.shouldBeEmpty()
+                f.data.international.calls.shouldBeEmpty()
                 f.data.countingCounters.tryAcquireCalls shouldBe 0
             }
 

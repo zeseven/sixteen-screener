@@ -1,9 +1,11 @@
 package com.sixteenscreener.config
 
 import com.sixteenscreener.domain.model.Capability
+import com.sixteenscreener.domain.model.DefaultSources
 import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.RequestLimit
 import com.sixteenscreener.domain.model.SourceId
+import com.sixteenscreener.domain.model.SourceRole
 import kotlin.time.Duration
 
 data class AppConfig(
@@ -11,7 +13,7 @@ data class AppConfig(
     val gcpProjectId: String,
     val firestoreDatabase: String,
     val logoBucket: String,
-    val defaultSource: SourceId,
+    val defaultSources: DefaultSources,
     val sources: List<SourceConfig>,
     val secrets: SourceSecrets,
     val storageEmulatorHost: String? = null,
@@ -32,7 +34,7 @@ data class SourceConfig(
     val baseUrl: String,
     val additionalBaseUrls: Map<String, String> = emptyMap(),
     val capabilities: Set<Capability>,
-    val selectableAsDefault: Boolean,
+    val roles: Set<SourceRole> = emptySet(),
     val limits: List<RequestLimit>,
     val timeout: Duration,
     val countTotalCalls: Boolean = false,

@@ -96,8 +96,9 @@ class AppServices(
     private val resources: List<AutoCloseable> = emptyList(),
 ) : AutoCloseable {
     val sourceCatalog = SourceCatalog(
-        defaultSource = config.defaultSource,
+        defaultSources = config.defaultSources,
         capabilitiesBySource = config.enabledSources.associate { it.id to it.capabilities },
+        rolesBySource = config.enabledSources.associate { it.id to it.roles },
         manualOnlySources = config.manualOnlySources,
     )
     val marketResolver = MarketResolver()
@@ -146,7 +147,7 @@ class AppServices(
     )
 
     val sourcesUseCase: SourcesUseCase = SourceService(
-        sources = config.enabledSources.map { SourceDescription(it.id, it.name, it.capabilities, it.selectableAsDefault, it.automaticRequests) },
+        sources = config.enabledSources.map { SourceDescription(it.id, it.name, it.capabilities, it.roles, it.automaticRequests) },
         profiles = profiles,
         catalog = sourceCatalog,
         rateLimiter = rateLimiter,
@@ -205,7 +206,8 @@ fun wireServices(config: AppConfig): AppServices {
     val finnhub = finnhubClient(config, httpClient, clock)
     val eodhd = eodhdClient(config, httpClient, clock)
     val secEdgar = secEdgarClient(config, httpClient, FirestoreSecCikRepository(firestore), rateLimiter, clock)
-    val symbolDirectory = finnhub?.let { source ->
+    val marketDataSources = listOfNotNull<MarketDataSource>(finnhub, eodhd).associateBy { it.id }
+    val symbolDirectory = marketDataSources[config.defaultSources.search]?.let { source ->
         ExchangeDirectoryService(
             source = source,
             store = GcsExchangeDirectoryStore(storage, config.logoBucket),
@@ -225,7 +227,7 @@ fun wireServices(config: AppConfig): AppServices {
         rateLimiter = rateLimiter,
         sourceCallOutcomes = sourceCallOutcomes,
         sourceCallGuard = sourceCallGuard,
-        marketDataSources = listOfNotNull<MarketDataSource>(finnhub, eodhd).associateBy { it.id },
+        marketDataSources = marketDataSources,
         balanceSheetSources = listOfNotNull<BalanceSheetSource>(finnhub, secEdgar).associateBy { it.id },
         symbolDirectory = symbolDirectory,
         logoTiers = listOf(

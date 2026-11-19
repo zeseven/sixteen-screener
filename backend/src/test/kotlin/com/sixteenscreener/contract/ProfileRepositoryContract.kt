@@ -6,7 +6,6 @@ import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ProfileName
 import com.sixteenscreener.domain.model.RatioCode
-import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.domain.service.IndicatorDefaults
 import com.sixteenscreener.port.outbound.ProfileRepository
@@ -27,10 +26,9 @@ import java.time.Instant
 
 private val CREATED_AT = Instant.parse("2026-11-14T12:00:00Z")
 
-fun profileCandidate(name: String, defaultSource: SourceId? = null) = Profile(
+fun profileCandidate(name: String) = Profile(
     id = ProfileId.random(),
     name = ProfileName.of(name),
-    defaultSource = defaultSource,
     watchlist = emptyList(),
     createdAt = CREATED_AT,
     updatedAt = CREATED_AT,
@@ -40,7 +38,7 @@ fun profileRepositoryContract(newRepository: suspend () -> ProfileRepository) = 
 
     test("creates a profile for a new name") {
         val repository = newRepository()
-        val profile = profileCandidate("Alice", defaultSource = SourceId.of("finnhub"))
+        val profile = profileCandidate("Alice")
 
         val creation = repository.getOrCreate(profile)
 

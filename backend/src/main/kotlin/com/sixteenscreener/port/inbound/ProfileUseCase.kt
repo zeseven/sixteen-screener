@@ -1,8 +1,8 @@
 package com.sixteenscreener.port.inbound
 
+import com.sixteenscreener.domain.model.DefaultSources
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ProfileName
-import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.domain.model.WatchlistItem
 
@@ -11,13 +11,13 @@ import com.sixteenscreener.domain.model.WatchlistItem
  *
  * @property id backend-generated ID
  * @property name name as first entered, trimmed
- * @property defaultSource the profile's default source, or the configured default source when the profile has none
+ * @property defaultSources the profile's default source of each role: the configured defaults (ADR-083)
  * @property watchlist watchlist symbols in insertion order
  */
 data class ProfileSettings(
     val id: ProfileId,
     val name: ProfileName,
-    val defaultSource: SourceId,
+    val defaultSources: DefaultSources,
     val watchlist: List<Symbol>,
 )
 
@@ -52,9 +52,10 @@ interface ProfileUseCase {
      * (ADR-041). A new symbol listed in the exchange directory is stored with the name from the directory. A new symbol
      * of an exchange the source has no symbol list for (not covered) and that is in the static exchange table is stored
      * with [searchResultName] (trimmed; blank counts as absent), otherwise with the ticker as name. A new symbol is
-     * stored with the sector of the company profile from the profile's default source: the cached profile if not
-     * expired, otherwise the profile is requested within the source request limits; the sector is null when the
-     * profile can't be loaded.
+     * stored with the sector of the company profile from the profile's default source of the company's role (ADR-083):
+     * the cached profile if not expired, otherwise the profile is requested within the source request limits as an
+     * `AUTO` request (a source with automatic requests off is not called); the sector is null when the profile can't
+     * be loaded.
      *
      * Throws [com.sixteenscreener.domain.model.ResourceNotFoundException] for an unknown profile or a new symbol that is
      * neither in the exchange directory nor on a not covered exchange of the static exchange table (including while

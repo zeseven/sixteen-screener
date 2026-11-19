@@ -191,6 +191,23 @@
     ]
   },
   {
+    "name": "com.sixteenscreener.adapter.inbound.http.DefaultSourcesDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.DefaultSourcesDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sixteenscreener.adapter.inbound.http.DividendDto",
     "fields": [
       {

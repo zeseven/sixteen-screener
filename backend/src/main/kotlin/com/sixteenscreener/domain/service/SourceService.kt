@@ -25,12 +25,18 @@ class SourceService(
 ) : SourcesUseCase {
 
     override suspend fun sources(profileId: ProfileId): List<SourceOverview> = coroutineScope {
-        val defaultSource = catalog.defaultSourceOf(profiles.existing(profileId))
+        profiles.existing(profileId)
         val lastCalls = async { lastCalls() }
         val totalCalls = async { totalCalls() }
         val usages = sources.map { source -> async { usage(source.id) } }
         sources.zip(usages.awaitAll()) { source, usage ->
-            SourceOverview(source, source.id == defaultSource, usage, lastCalls.await()[source.id], totalCalls.await()[source.id])
+            SourceOverview(
+                source = source,
+                defaultFor = catalog.defaultSources.rolesOf(source.id),
+                limits = usage,
+                lastCall = lastCalls.await()[source.id],
+                totalCalls = totalCalls.await()[source.id],
+            )
         }
     }
 

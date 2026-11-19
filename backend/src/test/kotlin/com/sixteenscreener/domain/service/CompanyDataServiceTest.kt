@@ -25,7 +25,6 @@ import com.sixteenscreener.domain.model.SourceData
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
-import com.sixteenscreener.domain.model.SymbolLookup
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.balanceSheetKey
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.profileKey
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.quoteKey
@@ -61,8 +60,7 @@ private data class HomeExchangeCase(
 private fun fixture(
     limit: Int = 60,
     capabilities: Set<Capability> = ALL_MARKET_DATA,
-    defaultSource: SourceId? = null,
-) = CompanyDataFixture(limit, capabilities, defaultSource).apply { listed(apple) }
+) = CompanyDataFixture(limit, capabilities).apply { listed(apple) }
 
 class CompanyDataServiceTest : FunSpec({
 
@@ -556,8 +554,10 @@ class CompanyDataServiceTest : FunSpec({
                 HomeExchangeCase("AAPL", "ZZZZ", "Common Stock", "US", home = false),
             ) { case ->
                 val symbol = Symbol.of(case.symbol)
-                val f = CompanyDataFixture().apply { listed(ListedSymbol(symbol, case.symbol, case.mic, "USD", case.type)) }
+                val f = CompanyDataFixture(internationalCapabilities = ALL_MARKET_DATA, internationalAutomaticRequests = true)
+                f.listed(ListedSymbol(symbol, case.symbol, case.mic, "USD", case.type))
                 f.profileFromSource(case.symbol, sampleProfile().copy(country = case.country))
+                f.international.profiles[symbol] = SourceResult.Success(sampleProfile().copy(country = case.country), f.success())
 
                 f.service.companyProfile(f.profile.id, symbol, source = null, trigger = RequestTrigger.AUTO).homeExchange shouldBe case.home
             }
@@ -565,18 +565,17 @@ class CompanyDataServiceTest : FunSpec({
     }
 
     context("source and target resolution") {
-        test("profile default source is used when no source is requested") {
-            val f = fixture(defaultSource = SEC_EDGAR)
-            f.secBalanceSheets.balanceSheets[AAPL] = SourceResult.Success(sampleBalanceSheet(), f.success())
-
-            f.service.balanceSheet(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO).source shouldBe SEC_EDGAR
-        }
-
-        test("profile default source that is no longer configured falls back to the configured default") {
-            val f = fixture(defaultSource = SourceId.of("tiingo"))
+        test("the default source of the US role is used for a US company when no source is requested") {
+            val f = fixture()
             f.finnhubBalanceSheets.balanceSheets[AAPL] = SourceResult.Success(sampleBalanceSheet(), f.success())
 
             f.service.balanceSheet(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO).source shouldBe FINNHUB
+        }
+
+        test("the default source of the international role is used for a non-US company when no source is requested") {
+            val f = fixture().apply { directory.notCovered(ExchangeCode("AS"), FINNHUB) }
+
+            f.service.balanceSheet(f.profile.id, AD, source = null, trigger = RequestTrigger.AUTO).source shouldBe EODHD
         }
 
         test("unknown source is not found") {
@@ -615,38 +614,100 @@ class CompanyDataServiceTest : FunSpec({
         }
     }
 
-    context("symbol of an exchange not covered by the directory source") {
-        fun notCovered(capabilities: Set<Capability> = ALL_MARKET_DATA) =
-            fixture(capabilities = capabilities).apply { directory.notCovered(ExchangeCode("AS"), FINNHUB) }
+    context("company of a non-US exchange") {
+        fun international() = fixture().apply { directory.notCovered(ExchangeCode("AS"), FINNHUB) }
 
-        test("price and ratios are NOT_SUPPORTED without a call, a budget reservation or a not found") {
-            val f = notCovered()
+        test("price and ratios come from the international source: AUTO without cache is not requested") {
+            val f = international()
             f.quoteFromSource("AD.AS", 30.0, "EUR")
-            f.ratiosFromSource("AD.AS")
+            f.international.quotes[AD] = SourceResult.Success(Quote(31.0, "EUR"), f.success())
+
+            val result = f.service.priceAndRatios(f.profile.id, AD, source = null, trigger = RequestTrigger.AUTO)
+
+            result.source shouldBe EODHD
+            result.quote.status shouldBe DataStatus.NOT_REQUESTED
+            result.ratios.status shouldBe DataStatus.NOT_SUPPORTED
+            result.status shouldBe DataStatus.NOT_REQUESTED
+            f.source.calls.shouldBeEmpty()
+            f.international.calls.shouldBeEmpty()
+            f.countingCounters.tryAcquireCalls shouldBe 0
+        }
+
+        test("a manual refresh requests the quote from the international source with the static exchange table listing") {
+            val f = international()
+            f.international.quotes[AD] = SourceResult.Success(Quote(31.0, "EUR"), f.success())
 
             val result = f.service.priceAndRatios(f.profile.id, AD, source = null, trigger = RequestTrigger.MANUAL)
 
-            result.status shouldBe DataStatus.NOT_SUPPORTED
-            result.quote.status shouldBe DataStatus.NOT_SUPPORTED
+            result.status shouldBe DataStatus.FRESH
+            result.quote.data?.quote shouldBe Quote(31.0, "EUR")
             result.ratios.status shouldBe DataStatus.NOT_SUPPORTED
-            result.quote.data.shouldBeNull()
+            f.international.calls shouldContainExactly listOf("quote:AD.AS")
+            f.source.calls.shouldBeEmpty()
+            f.cache.history(EODHD, AD).map { it.quote.price } shouldContainExactly listOf(31.0)
+        }
+
+        test("a requested source not configured for the international role is NOT_SUPPORTED without a call") {
+            val f = international()
+            f.quoteFromSource("AD.AS", 30.0, "EUR")
+            f.ratiosFromSource("AD.AS")
+
+            val result = f.service.priceAndRatios(f.profile.id, AD, source = FINNHUB, trigger = RequestTrigger.MANUAL)
+
+            result.source shouldBe FINNHUB
+            result.status shouldBe DataStatus.NOT_SUPPORTED
             f.source.calls.shouldBeEmpty()
             f.countingCounters.tryAcquireCalls shouldBe 0
         }
 
-        test("company profile is NOT_SUPPORTED without a call and has the static exchange table identity") {
-            val f = notCovered()
+        test("a requested source not configured for the US role is NOT_SUPPORTED for a US company") {
+            val f = fixture()
+            f.international.quotes[AAPL] = SourceResult.Success(Quote(31.0, "USD"), f.success())
+
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = EODHD, trigger = RequestTrigger.MANUAL)
+
+            result.status shouldBe DataStatus.NOT_SUPPORTED
+            f.international.calls.shouldBeEmpty()
+        }
+
+        test("a symbol listed in the directory of its exchange is still routed by its exchange") {
+            val f = fixture().apply { listed(listing("SAP.DE", mic = "XETR", currency = "EUR", name = "SAP SE")) }
+            f.international.quotes[Symbol.of("SAP.DE")] = SourceResult.Success(Quote(200.0, "EUR"), f.success())
+
+            val result = f.service.priceAndRatios(f.profile.id, Symbol.of("SAP.DE"), source = null, trigger = RequestTrigger.MANUAL)
+
+            result.source shouldBe EODHD
+            f.international.calls shouldContainExactly listOf("quote:SAP.DE")
+        }
+
+        test("dividends come from the international source on a manual refresh") {
+            val f = international()
+            val dividends = Dividends(listOf(Dividend(LocalDate.parse("2026-05-01"), null, null, null, 1.0, "EUR")))
+            f.international.dividends[AD] = SourceResult.Success(dividends, f.success())
+
+            f.service.dividends(f.profile.id, AD, source = null, trigger = RequestTrigger.AUTO).dividends.status shouldBe
+                DataStatus.NOT_REQUESTED
+            val result = f.service.dividends(f.profile.id, AD, source = null, trigger = RequestTrigger.MANUAL)
+
+            result.dividends.data shouldBe dividends
+            f.international.calls shouldContainExactly listOf("dividends:AD.AS")
+        }
+
+        test("company profile of the international source is NOT_SUPPORTED and has the static exchange table identity") {
+            val f = international()
             f.profileFromSource("AD.AS")
 
             val result = f.service.companyProfile(f.profile.id, AD, source = null, trigger = RequestTrigger.MANUAL)
 
+            result.profile.source shouldBe EODHD
             result.profile.status shouldBe DataStatus.NOT_SUPPORTED
             result.identity shouldBe CompanyIdentity(AD, "AMS", "AD", Market.EU, null)
             f.source.calls.shouldBeEmpty()
+            f.international.calls.shouldBeEmpty()
         }
 
         test("company profile identity takes the name stored in the watchlist and doesn't change the entry") {
-            val f = notCovered()
+            val f = international()
             val entry = watchlistEntry("AD.AS", name = "Koninklijke Ahold Delhaize NV")
             f.profiles.save(f.profile.copy(watchlist = listOf(entry)))
 
@@ -656,51 +717,52 @@ class CompanyDataServiceTest : FunSpec({
             f.profiles.companyUpdates shouldBe 0
         }
 
-        test("balance sheet of the directory source is NOT_SUPPORTED without a call, a cache read or a budget reservation") {
-            val f = notCovered()
-            f.cached(balanceSheetKey("AD.AS"), sampleBalanceSheet(), age = Duration.ofDays(1))
+        test("balance sheet of the international source is NOT_SUPPORTED without a call, a cache read or a budget reservation") {
+            val f = international()
+            f.cached(balanceSheetKey("AD.AS", EODHD), sampleBalanceSheet(), age = Duration.ofDays(1))
+
+            val result = f.service.balanceSheet(f.profile.id, AD, source = null, trigger = RequestTrigger.MANUAL)
+
+            result shouldBe SourceData(EODHD, DataStatus.NOT_SUPPORTED, data = null, fetchedAt = null)
+            f.countingCounters.tryAcquireCalls shouldBe 0
+        }
+
+        test("balance sheet of the US source requested for an international company is NOT_SUPPORTED without a call") {
+            val f = international()
             f.finnhubBalanceSheets.balanceSheets[AD] = SourceResult.Success(sampleBalanceSheet(), f.success())
 
-            val result = f.service.balanceSheet(f.profile.id, AD, source = null, trigger = RequestTrigger.AUTO)
-
-            result shouldBe SourceData(FINNHUB, DataStatus.NOT_SUPPORTED, data = null, fetchedAt = null)
+            f.service.balanceSheet(f.profile.id, AD, source = FINNHUB, trigger = RequestTrigger.MANUAL).status shouldBe
+                DataStatus.NOT_SUPPORTED
             f.finnhubBalanceSheets.calls.shouldBeEmpty()
             f.countingCounters.tryAcquireCalls shouldBe 0
         }
 
-        test("balance sheet of the directory source is NOT_SUPPORTED without a call on refresh") {
-            val f = notCovered()
+        test("SEC EDGAR is accepted for the balance sheet of a US company") {
+            val f = fixture()
+            f.secBalanceSheets.balanceSheets[AAPL] = SourceResult.Success(sampleBalanceSheet(), f.success())
 
-            f.service.balanceSheet(f.profile.id, AD, source = FINNHUB, trigger = RequestTrigger.MANUAL).status shouldBe DataStatus.NOT_SUPPORTED
-            f.finnhubBalanceSheets.calls.shouldBeEmpty()
-            f.countingCounters.tryAcquireCalls shouldBe 0
-        }
+            val result = f.service.balanceSheet(f.profile.id, AAPL, source = SEC_EDGAR, trigger = RequestTrigger.AUTO)
 
-        test("balance sheet of a US symbol is still requested from the directory source") {
-            val f = notCovered()
-            f.finnhubBalanceSheets.balanceSheets[AAPL] = SourceResult.Success(sampleBalanceSheet(), f.success())
-
-            f.service.balanceSheet(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO).status shouldBe DataStatus.FRESH
-            f.finnhubBalanceSheets.calls shouldContainExactly listOf(AAPL)
-        }
-
-        test("balance sheet of SEC EDGAR is requested from its adapter instead of not found") {
-            val f = notCovered()
-
-            f.service.balanceSheet(f.profile.id, AD, source = SEC_EDGAR, trigger = RequestTrigger.AUTO).source shouldBe SEC_EDGAR
-            f.secBalanceSheets.calls shouldContainExactly listOf(AD)
-        }
-
-        test("exchange not covered by another source doesn't stop requests to the selected source") {
-            val f = fixture().apply { directory.notCovered(ExchangeCode("AS"), SourceId.of("tiingo")) }
-            f.quoteFromSource("AD.AS", 30.0, "EUR")
-            f.ratiosFromSource("AD.AS")
-
-            val result = f.service.priceAndRatios(f.profile.id, AD, source = null, trigger = RequestTrigger.AUTO)
-
+            result.source shouldBe SEC_EDGAR
             result.status shouldBe DataStatus.FRESH
-            result.quote.data?.quote shouldBe Quote(30.0, "EUR")
-            f.source.calls shouldContainExactlyInAnyOrder listOf("quote:AD.AS", "ratios:AD.AS")
+            f.secBalanceSheets.calls shouldContainExactly listOf(AAPL)
+        }
+
+        test("SEC EDGAR is NOT_SUPPORTED without a call for the balance sheet of an international company") {
+            val f = international()
+
+            f.service.balanceSheet(f.profile.id, AD, source = SEC_EDGAR, trigger = RequestTrigger.AUTO).status shouldBe
+                DataStatus.NOT_SUPPORTED
+            f.secBalanceSheets.calls.shouldBeEmpty()
+        }
+
+        test("SEC EDGAR is NOT_SUPPORTED for anything but the balance sheet") {
+            val f = fixture()
+
+            f.service.priceAndRatios(f.profile.id, AAPL, source = SEC_EDGAR, trigger = RequestTrigger.MANUAL).status shouldBe
+                DataStatus.NOT_SUPPORTED
+            f.service.companyProfile(f.profile.id, AAPL, source = SEC_EDGAR, trigger = RequestTrigger.MANUAL).profile.status shouldBe
+                DataStatus.NOT_SUPPORTED
         }
     }
 
@@ -835,7 +897,7 @@ class CompanyDataServiceTest : FunSpec({
             val f = manualOnly()
             f.profileFromSource("AAPL")
 
-            f.service.unexpiredCompanyProfile(FINNHUB, AAPL, SymbolLookup.Listed(apple)).status shouldBe DataStatus.NOT_REQUESTED
+            f.service.unexpiredCompanyProfile(FINNHUB, AAPL).status shouldBe DataStatus.NOT_REQUESTED
             f.source.calls.shouldBeEmpty()
         }
 
@@ -844,7 +906,7 @@ class CompanyDataServiceTest : FunSpec({
             f.cached(profileKey("AAPL"), sampleProfile(), age = Duration.ofDays(120))
             f.profileFromSource("AAPL")
 
-            val profile = f.service.unexpiredCompanyProfile(FINNHUB, AAPL, SymbolLookup.Listed(apple))
+            val profile = f.service.unexpiredCompanyProfile(FINNHUB, AAPL)
 
             profile.status shouldBe DataStatus.CACHED
             profile.data shouldBe sampleProfile()

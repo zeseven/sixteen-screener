@@ -7,6 +7,7 @@ import com.sixteenscreener.domain.model.LimitUnit
 import com.sixteenscreener.domain.model.RequestLimit
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
+import com.sixteenscreener.domain.model.SourceRole
 import com.sixteenscreener.testConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
@@ -28,20 +29,22 @@ import java.util.UUID
 
 private val finnhub = SourceId.of("finnhub")
 private val tiingo = SourceId.of("tiingo")
+private val eodhd = SourceId.of("eodhd")
 private val secEdgar = SourceId.of("sec-edgar")
 private val logoapi = SourceId.of("logoapi")
 private val finnhubLogos = SourceId.of("finnhub-logos")
 
 private fun sourcesConfig(): AppConfig = testConfig().let { config ->
-    val finnhubSource = config.sources.single()
+    val (finnhubSource, eodhdSource) = config.sources
     config.copy(
         sources = listOf(
             finnhubSource,
+            eodhdSource,
             finnhubSource.copy(
                 id = secEdgar,
                 name = "SEC EDGAR",
                 capabilities = setOf(Capability.BALANCE_SHEET),
-                selectableAsDefault = false,
+                roles = emptySet(),
                 limits = listOf(RequestLimit(LimitInterval.MINUTE, 300)),
             ),
             finnhubSource.copy(
@@ -53,6 +56,7 @@ private fun sourcesConfig(): AppConfig = testConfig().let { config ->
                 id = tiingo,
                 name = "Tiingo",
                 capabilities = setOf(Capability.QUOTE, Capability.SEARCH),
+                roles = setOf(SourceRole.US, SourceRole.INTERNATIONAL),
                 automaticRequests = false,
                 limits = listOf(
                     RequestLimit(LimitInterval.HOUR, 50),
@@ -63,14 +67,14 @@ private fun sourcesConfig(): AppConfig = testConfig().let { config ->
                 id = logoapi,
                 name = "logoapi.sh",
                 capabilities = setOf(Capability.LOGO),
-                selectableAsDefault = false,
+                roles = emptySet(),
                 limits = emptyList(),
             ),
             finnhubSource.copy(
                 id = finnhubLogos,
                 name = "Finnhub logos",
                 capabilities = setOf(Capability.LOGO),
-                selectableAsDefault = false,
+                roles = emptySet(),
                 limits = emptyList(),
                 countTotalCalls = true,
             ),
@@ -105,13 +109,14 @@ class SourceRoutesTest : FunSpec({
 
             body.keys shouldBe setOf("items")
             body.items().map { it.getValue("id").jsonPrimitive.content } shouldContainExactly
-                listOf("finnhub", "sec-edgar", "tiingo", "logoapi", "finnhub-logos")
+                listOf("finnhub", "eodhd", "sec-edgar", "tiingo", "logoapi", "finnhub-logos")
             body.item(finnhub) shouldBe JsonObject(
                 mapOf(
                     "id" to JsonPrimitive("finnhub"),
                     "name" to JsonPrimitive("Finnhub"),
                     "capabilities" to JsonArray(listOf("SEARCH", "QUOTE", "RATIOS").map(::JsonPrimitive)),
-                    "selectableAsDefault" to JsonPrimitive(true),
+                    "roles" to JsonArray(listOf(JsonPrimitive("SEARCH"), JsonPrimitive("US"))),
+                    "defaultFor" to JsonArray(listOf(JsonPrimitive("SEARCH"), JsonPrimitive("US"))),
                     "isDefault" to JsonPrimitive(true),
                     "automaticRequests" to JsonPrimitive(true),
                     "limits" to JsonArray(listOf(limit("MINUTE", 60, 0, "2026-11-14T12:01:00Z"))),
@@ -135,7 +140,7 @@ class SourceRoutesTest : FunSpec({
                 ),
             )
             body.item(logoapi)["limits"] shouldBe JsonArray(emptyList())
-            body.item(secEdgar)["selectableAsDefault"] shouldBe JsonPrimitive(false)
+            body.item(secEdgar)["roles"] shouldBe JsonArray(emptyList())
         }
     }
 
@@ -151,7 +156,7 @@ class SourceRoutesTest : FunSpec({
         }
     }
 
-    test("the configured default source is marked for a profile without its own default") {
+    test("only the default search source is marked as default") {
         routeTest(config = sourcesConfig()) { ports ->
             val saved = ports.savedProfile()
 
@@ -162,14 +167,35 @@ class SourceRoutesTest : FunSpec({
         }
     }
 
-    test("the profile's own default source is marked") {
+    test("each source lists the roles it is the default source of, in role order") {
         routeTest(config = sourcesConfig()) { ports ->
-            val saved = ports.savedProfile().copy(defaultSource = tiingo).also(ports.profiles::save)
+            val saved = ports.savedProfile()
+
+            val body = client.get("/profiles/${saved.id}/sources").json()
+
+            body.item(eodhd)["defaultFor"] shouldBe JsonArray(listOf(JsonPrimitive("INTERNATIONAL")))
+            body.item(eodhd)["roles"] shouldBe JsonArray(listOf(JsonPrimitive("INTERNATIONAL")))
+            body.item(eodhd)["isDefault"] shouldBe JsonPrimitive(false)
+            body.item(eodhd)["automaticRequests"] shouldBe JsonPrimitive(false)
+            body.item(tiingo)["roles"] shouldBe JsonArray(listOf(JsonPrimitive("US"), JsonPrimitive("INTERNATIONAL")))
+            body.item(tiingo)["defaultFor"] shouldBe JsonArray(emptyList())
+            body.item(secEdgar)["defaultFor"] shouldBe JsonArray(emptyList())
+        }
+    }
+
+    test("the default search source is marked for a different search default") {
+        val config = sourcesConfig().let { it.copy(defaultSources = it.defaultSources.copy(search = tiingo)) }
+        routeTest(config = config.copy(sources = config.sources.map { source ->
+            if (source.id == tiingo) source.copy(roles = SourceRole.entries.toSet()) else source
+        })) { ports ->
+            val saved = ports.savedProfile()
 
             val body = client.get("/profiles/${saved.id}/sources").json()
 
             body.item(tiingo)["isDefault"] shouldBe JsonPrimitive(true)
+            body.item(tiingo)["defaultFor"] shouldBe JsonArray(listOf(JsonPrimitive("SEARCH")))
             body.item(finnhub)["isDefault"] shouldBe JsonPrimitive(false)
+            body.item(finnhub)["defaultFor"] shouldBe JsonArray(listOf(JsonPrimitive("US")))
         }
     }
 

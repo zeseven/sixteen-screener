@@ -8,7 +8,9 @@ import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
+import com.sixteenscreener.domain.model.SourceRole
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.testConfig
 import com.sixteenscreener.watchlistEntry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
@@ -42,6 +44,14 @@ private suspend fun io.ktor.server.testing.ApplicationTestBuilder.createProfile(
         setBody(body)
     }
 
+private val defaultSources = JsonObject(
+    mapOf(
+        "search" to JsonPrimitive("finnhub"),
+        "us" to JsonPrimitive("finnhub"),
+        "international" to JsonPrimitive("eodhd"),
+    ),
+)
+
 class ProfileRoutesTest : FunSpec({
 
     context("POST /profiles") {
@@ -51,9 +61,9 @@ class ProfileRoutesTest : FunSpec({
 
                 response.status shouldBe HttpStatusCode.Created
                 val body = response.json()
-                body.keys shouldBe setOf("id", "name", "defaultSource")
+                body.keys shouldBe setOf("id", "name", "defaultSources")
                 body["name"] shouldBe JsonPrimitive("Alice")
-                body["defaultSource"] shouldBe JsonPrimitive("finnhub")
+                body["defaultSources"] shouldBe defaultSources
                 val id = UUID.fromString(body["id"]!!.jsonPrimitive.content)
                 ports.profiles.findById(com.sixteenscreener.domain.model.ProfileId(id)) shouldNotBe null
             }
@@ -110,7 +120,7 @@ class ProfileRoutesTest : FunSpec({
                 response.status shouldBe HttpStatusCode.OK
                 response.json()["id"] shouldBe JsonPrimitive(profile.id.toString())
                 response.json()["name"] shouldBe JsonPrimitive("Bob")
-                response.json()["defaultSource"] shouldBe JsonPrimitive("finnhub")
+                response.json()["defaultSources"] shouldBe defaultSources
             }
         }
     }
@@ -369,11 +379,23 @@ class ProfileRoutesTest : FunSpec({
         }
     }
 
-    test("source IDs are rendered as configured") {
-        routeTest { ports ->
-            val profile = ports.savedProfile().copy(defaultSource = SourceId.of("finnhub")).also(ports.profiles::save)
+    test("default sources of every role are the configured ones") {
+        val config = testConfig().let { config ->
+            config.copy(
+                defaultSources = config.defaultSources.copy(us = SourceId.of("eodhd")),
+                sources = config.sources.map { if (it.id.value == "eodhd") it.copy(roles = SourceRole.entries.toSet()) else it },
+            )
+        }
+        routeTest(config = config) { ports ->
+            val profile = ports.savedProfile()
 
-            client.get("/profiles/${profile.id}").json()["defaultSource"] shouldBe JsonPrimitive("finnhub")
+            client.get("/profiles/${profile.id}").json()["defaultSources"] shouldBe JsonObject(
+                mapOf(
+                    "search" to JsonPrimitive("finnhub"),
+                    "us" to JsonPrimitive("eodhd"),
+                    "international" to JsonPrimitive("eodhd"),
+                ),
+            )
         }
     }
 })

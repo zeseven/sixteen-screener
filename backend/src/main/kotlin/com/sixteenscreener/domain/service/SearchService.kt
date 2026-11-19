@@ -7,6 +7,7 @@ import com.sixteenscreener.domain.model.SearchQuery
 import com.sixteenscreener.domain.model.SearchStatus
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
+import com.sixteenscreener.domain.model.SourceRole
 import com.sixteenscreener.port.inbound.SearchResult
 import com.sixteenscreener.port.inbound.SearchResults
 import com.sixteenscreener.port.inbound.SearchUseCase
@@ -30,7 +31,7 @@ class SearchService(
     override suspend fun search(profileId: ProfileId, rawQuery: String): SearchResults {
         val query = SearchQuery.of(rawQuery)
         val profile = profiles.existing(profileId)
-        val source = catalog.defaultSourceOf(profile)
+        val source = catalog.defaultSourceOf(SourceRole.SEARCH)
         val answer = answer(source, query)
         val hits = answer.hits.distinctBy { it.symbol }.matching(query).take(MAX_RESULTS)
         val symbols = hits.map { it.symbol }

@@ -1,12 +1,14 @@
 package com.sixteenscreener.config
 
 import com.sixteenscreener.domain.model.Capability
+import com.sixteenscreener.domain.model.DefaultSources
 import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.KnownExchangeCodes
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.LimitUnit
 import com.sixteenscreener.domain.model.RequestLimit
 import com.sixteenscreener.domain.model.SourceId
+import com.sixteenscreener.domain.model.SourceRole
 import io.ktor.server.config.ApplicationConfig
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -16,7 +18,6 @@ object AppConfigLoader {
     const val ENV_GCP_PROJECT_ID = "GCP_PROJECT_ID"
     const val ENV_FIRESTORE_DATABASE = "FIRESTORE_DATABASE"
     const val ENV_LOGO_BUCKET = "LOGO_BUCKET"
-    const val ENV_DEFAULT_SOURCE = "DEFAULT_SOURCE"
     const val ENV_FINNHUB_API_KEY = "FINNHUB_API_KEY"
     const val ENV_SEC_EDGAR_USER_AGENT = "SEC_EDGAR_USER_AGENT"
     const val ENV_EODHD_API_KEY = "EODHD_API_KEY"
@@ -30,6 +31,7 @@ object AppConfigLoader {
 
     private const val ADDITIONAL_BASE_URLS = "additionalBaseUrls"
     private const val DIRECTORY_EXCHANGES = "directoryExchanges"
+    private const val DEFAULT_SOURCES = "defaultSources"
 
     private val REQUIRED_ADDITIONAL_BASE_URLS: Map<String, List<String>> = mapOf(
         "sec-edgar" to listOf(SEC_EDGAR_FILES_BASE_URL),
@@ -47,7 +49,7 @@ object AppConfigLoader {
         val gcpProjectId = reader.requiredString("gcpProjectId", ENV_GCP_PROJECT_ID)
         val firestoreDatabase = reader.firestoreDatabase()
         val logoBucket = reader.requiredString("logoBucket", ENV_LOGO_BUCKET)
-        val defaultSource = reader.requiredString("defaultSource", ENV_DEFAULT_SOURCE)
+        val defaultSources = reader.defaultSources()
         val sources = reader.sources()
         val secrets = SourceSecrets(
             finnhubApiKey = env.secret(ENV_FINNHUB_API_KEY),
@@ -56,7 +58,7 @@ object AppConfigLoader {
         )
         val errors = reader.errors +
             duplicateIdErrors(sources) +
-            defaultSourceErrors(defaultSource.takeUnless { it in reader.invalidSourceIds }, sources) +
+            defaultSourcesErrors(defaultSources.filterValues { it !in reader.invalidSourceIds }, sources) +
             missingSecretErrors(sources, env) +
             missingBaseUrlErrors(sources)
 
@@ -67,7 +69,11 @@ object AppConfigLoader {
             gcpProjectId = checkNotNull(gcpProjectId),
             firestoreDatabase = checkNotNull(firestoreDatabase),
             logoBucket = checkNotNull(logoBucket),
-            defaultSource = SourceId.of(checkNotNull(defaultSource)),
+            defaultSources = DefaultSources(
+                search = SourceId.of(defaultSources.getValue(SourceRole.SEARCH)),
+                us = SourceId.of(defaultSources.getValue(SourceRole.US)),
+                international = SourceId.of(defaultSources.getValue(SourceRole.INTERNATIONAL)),
+            ),
             sources = sources,
             secrets = secrets,
             storageEmulatorHost = env.secret(ENV_STORAGE_EMULATOR_HOST),
@@ -82,16 +88,19 @@ object AppConfigLoader {
             .keys
             .map { "Duplicate source ID '$it'" }
 
-    private fun defaultSourceErrors(defaultSource: String?, sources: List<SourceConfig>): List<String> {
-        if (defaultSource == null) return emptyList()
-        val source = sources.firstOrNull { it.id.value == defaultSource }
-        return when {
-            source == null -> listOf("Default source '$defaultSource' is not a configured source")
-            !source.enabled -> listOf("Default source '$defaultSource' is not enabled")
-            !source.selectableAsDefault -> listOf("Default source '$defaultSource' is not selectable as default")
-            else -> emptyList()
+    private fun defaultSourcesErrors(defaultSources: Map<SourceRole, String>, sources: List<SourceConfig>): List<String> =
+        defaultSources.mapNotNull { (role, defaultSource) ->
+            val source = sources.firstOrNull { it.id.value == defaultSource }
+            val label = "Default ${role.configKey} source '$defaultSource'"
+            when {
+                source == null -> "$label is not a configured source"
+                !source.enabled -> "$label is not enabled"
+                role !in source.roles -> "$label is not configured for the role ${role.name}"
+                else -> null
+            }
         }
-    }
+
+    private val SourceRole.configKey: String get() = name.lowercase()
 
     private fun missingSecretErrors(sources: List<SourceConfig>, env: Map<String, String>): List<String> =
         sources.filter { it.enabled }
@@ -119,6 +128,13 @@ object AppConfigLoader {
         fun requiredString(key: String, envName: String): String? =
             (env[envName]?.takeIf { it.isNotBlank() } ?: config.stringOrNull(key)?.takeIf { it.isNotBlank() })
                 ?: null.also { errors += "Missing configuration '$key' (environment variable $envName)" }
+
+        fun defaultSources(): Map<SourceRole, String> =
+            SourceRole.entries.mapNotNull { role ->
+                val key = "$DEFAULT_SOURCES.${role.configKey}"
+                config.stringOrNull(key)?.takeIf { it.isNotBlank() }?.let { role to it }
+                    ?: null.also { errors += "Missing configuration '$key'" }
+            }.toMap()
 
         fun firestoreDatabase(): String? {
             val raw = requiredString("firestoreDatabase", ENV_FIRESTORE_DATABASE) ?: return null
@@ -150,7 +166,7 @@ object AppConfigLoader {
                 ?: null.also { errors += "$label: missing baseUrl" }
             val additionalBaseUrls = additionalBaseUrls(block, label)
             val enabled = boolean(block, "enabled", default = true, label)
-            val selectableAsDefault = boolean(block, "selectableAsDefault", default = false, label)
+            val roles = roles(block, label)
             val countTotalCalls = boolean(block, "countTotalCalls", default = false, label)
             val automaticRequests = boolean(block, "automaticRequests", default = true, label)
             val capabilities = capabilities(block, label)
@@ -171,7 +187,7 @@ object AppConfigLoader {
                 baseUrl = checkNotNull(baseUrl),
                 additionalBaseUrls = additionalBaseUrls,
                 capabilities = capabilities,
-                selectableAsDefault = selectableAsDefault,
+                roles = roles,
                 limits = limits,
                 timeout = timeoutMillis.milliseconds,
                 countTotalCalls = countTotalCalls,
@@ -201,6 +217,14 @@ object AppConfigLoader {
                 .mapNotNull { raw ->
                     enumValueOrNull<Capability>(raw)
                         ?: null.also { errors += "$label: unknown capability '$raw' (known: ${Capability.entries.joinToString()})" }
+                }
+                .toSet()
+
+        private fun roles(block: ApplicationConfig, label: String): Set<SourceRole> =
+            block.stringListOrNull("roles").orEmpty()
+                .mapNotNull { raw ->
+                    enumValueOrNull<SourceRole>(raw)
+                        ?: null.also { errors += "$label: unknown role '$raw' (known: ${SourceRole.entries.joinToString()})" }
                 }
                 .toSet()
 

@@ -8,6 +8,7 @@ import com.sixteenscreener.domain.model.CacheKey
 import com.sixteenscreener.domain.model.Capability
 import com.sixteenscreener.domain.model.CompanyProfile
 import com.sixteenscreener.domain.model.DataType
+import com.sixteenscreener.domain.model.DefaultSources
 import com.sixteenscreener.domain.model.FiscalPeriod
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.ListedSymbol
@@ -24,6 +25,7 @@ import com.sixteenscreener.domain.model.RequestLimit
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
+import com.sixteenscreener.domain.model.SourceRole
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.fakes.FakeBalanceSheetSource
 import com.sixteenscreener.fakes.FakeMarketDataSource
@@ -43,6 +45,9 @@ import java.time.LocalDate
 
 val FINNHUB: SourceId = SourceId.of("finnhub")
 val SEC_EDGAR: SourceId = SourceId.of("sec-edgar")
+val EODHD: SourceId = SourceId.of("eodhd")
+
+val EODHD_CAPABILITIES = setOf(Capability.QUOTE, Capability.DIVIDENDS)
 
 val ALL_MARKET_DATA = setOf(
     Capability.SEARCH,
@@ -97,8 +102,9 @@ class CountingCounters(private val delegate: InMemoryRequestCounterRepository) :
 class CompanyDataFixture(
     limit: Int = 60,
     capabilities: Set<Capability> = ALL_MARKET_DATA,
-    defaultSource: SourceId? = null,
     automaticRequests: Boolean = true,
+    internationalCapabilities: Set<Capability> = EODHD_CAPABILITIES,
+    internationalAutomaticRequests: Boolean = false,
     marketDataSource: (FakeMarketDataSource) -> MarketDataSource = { it },
 ) {
     val clock = MutableClock()
@@ -109,17 +115,31 @@ class CompanyDataFixture(
     val profiles = InMemoryProfileRepository()
     val directory = InMemorySymbolDirectory()
     val source = FakeMarketDataSource(FINNHUB)
+    val international = FakeMarketDataSource(EODHD)
     val finnhubBalanceSheets = FakeBalanceSheetSource(FINNHUB)
     val secBalanceSheets = FakeBalanceSheetSource(SEC_EDGAR)
     val limiter = RateLimiter(
-        mapOf(FINNHUB to listOf(RequestLimit(LimitInterval.MINUTE, limit)), SEC_EDGAR to emptyList()),
+        mapOf(
+            FINNHUB to listOf(RequestLimit(LimitInterval.MINUTE, limit)),
+            SEC_EDGAR to emptyList(),
+            EODHD to listOf(RequestLimit(LimitInterval.DAY, 20)),
+        ),
         countingCounters,
         clock,
     )
     val catalog = SourceCatalog(
-        FINNHUB,
-        mapOf(FINNHUB to capabilities, SEC_EDGAR to setOf(Capability.BALANCE_SHEET)),
-        manualOnlySources = if (automaticRequests) emptySet() else setOf(FINNHUB),
+        defaultSources = DefaultSources(search = FINNHUB, us = FINNHUB, international = EODHD),
+        capabilitiesBySource = mapOf(
+            FINNHUB to capabilities,
+            SEC_EDGAR to setOf(Capability.BALANCE_SHEET),
+            EODHD to internationalCapabilities,
+        ),
+        rolesBySource = mapOf(
+            FINNHUB to setOf(SourceRole.SEARCH, SourceRole.US),
+            SEC_EDGAR to emptySet(),
+            EODHD to setOf(SourceRole.INTERNATIONAL),
+        ),
+        manualOnlySources = setOfNotNull(FINNHUB.takeUnless { automaticRequests }, EODHD.takeUnless { internationalAutomaticRequests }),
     )
     val marketResolver = MarketResolver()
     val identities = CompanyIdentityResolver(marketResolver)
@@ -129,7 +149,6 @@ class CompanyDataFixture(
     val profile = Profile(
         id = ProfileId.random(),
         name = ProfileName.of("Alice"),
-        defaultSource = defaultSource,
         watchlist = emptyList(),
         createdAt = clock.now(),
         updatedAt = clock.now(),
@@ -137,7 +156,7 @@ class CompanyDataFixture(
 
     val service = CompanyDataService(
         catalog = catalog,
-        marketDataSources = mapOf(FINNHUB to marketDataSource(source)),
+        marketDataSources = mapOf(FINNHUB to marketDataSource(source), EODHD to international),
         balanceSheetSources = mapOf(FINNHUB to finnhubBalanceSheets, SEC_EDGAR to secBalanceSheets),
         profiles = profiles,
         symbolDirectory = directory,

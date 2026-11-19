@@ -58,9 +58,8 @@ class FirestoreProfileRepositoryEmulatorTest : FunSpec({
         val document = firestore.document(FirestoreCollections.PROFILES, profile.id.toString())
         document["name"] shouldBe "Zoë"
         document["watchlist"] shouldBe emptyList<String>()
-        document["defaultSource"].shouldBeNull()
         document["indicatorSettings"] shouldBe emptyList<String>()
-        document.keys shouldBe setOf("name", "defaultSource", "watchlist", "createdAt", "updatedAt", "indicatorSettings")
+        document.keys shouldBe setOf("name", "watchlist", "createdAt", "updatedAt", "indicatorSettings")
     }
 
     test("stores watchlist entries as maps of symbol, name, sector and tags") {

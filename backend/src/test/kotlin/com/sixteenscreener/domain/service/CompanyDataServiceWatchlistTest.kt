@@ -52,7 +52,7 @@ private suspend fun CompanyDataFixture.watchlistData(tickers: List<String>) =
     tickers.map(Symbol::of).let { symbols -> service.watchlistData(FINNHUB, symbols, directory.lookupAll(symbols)) }
 
 private suspend fun CompanyDataFixture.unexpiredProfile(ticker: String) =
-    service.unexpiredCompanyProfile(FINNHUB, Symbol.of(ticker), directory.lookup(Symbol.of(ticker)))
+    service.unexpiredCompanyProfile(FINNHUB, Symbol.of(ticker))
 
 private fun CompanyDataFixture.listedWithQuotes(tickers: List<String>) = tickers.forEachIndexed { index, ticker ->
     listed(listing(ticker))
@@ -285,12 +285,13 @@ class CompanyDataServiceWatchlistTest : FunSpec({
     }
 
     test("refreshed quote is stored in the exchange time zone of its listing") {
-        val f = CompanyDataFixture(capabilities = quotesOnly)
+        val f = CompanyDataFixture(internationalAutomaticRequests = true)
         f.clock.instant = java.time.Instant.parse("2026-11-14T23:30:00Z")
+        val sap = Symbol.of("SAP.DE")
         f.listed(listing("SAP.DE", mic = "XETR", currency = "EUR"))
-        f.quoteFromSource("SAP.DE", 200.0, "EUR")
+        f.international.quotes[sap] = SourceResult.Success(Quote(200.0, "EUR"), f.success())
 
-        val quote = f.watchlist("SAP.DE").getValue(Symbol.of("SAP.DE"))
+        val quote = f.service.watchlistData(EODHD, listOf(sap), f.directory.lookupAll(listOf(sap))).getValue(sap).quote
 
         quote.data?.marketDate shouldBe java.time.LocalDate.parse("2026-11-15")
         quote.data?.quote shouldBe Quote(200.0, "EUR")

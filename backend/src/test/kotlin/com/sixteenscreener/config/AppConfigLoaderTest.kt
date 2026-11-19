@@ -1,11 +1,13 @@
 package com.sixteenscreener.config
 
 import com.sixteenscreener.domain.model.Capability
+import com.sixteenscreener.domain.model.DefaultSources
 import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.LimitUnit
 import com.sixteenscreener.domain.model.RequestLimit
 import com.sixteenscreener.domain.model.SourceId
+import com.sixteenscreener.domain.model.SourceRole
 import com.typesafe.config.ConfigFactory
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -38,19 +40,27 @@ private fun hocon(text: String): ApplicationConfig = HoconApplicationConfig(Conf
 private fun source(
     id: String,
     enabled: Boolean = true,
-    selectable: Boolean = false,
+    roles: String = "",
     capabilities: String = "QUOTE",
     extra: String = "",
 ) = """
     {
       id = "$id", name = "Name of $id", enabled = $enabled, baseUrl = "https://example.com/$id"
-      capabilities = [$capabilities], selectableAsDefault = $selectable
+      capabilities = [$capabilities], roles = [$roles]
       $extra
     }
 """.trimIndent()
 
+private const val ALL_ROLES = "SEARCH, US, INTERNATIONAL"
+
+private fun defaultSources(search: String, us: String = search, international: String = search) =
+    "defaultSources { search = \"$search\", us = \"$us\", international = \"$international\" }"
+
 private fun configWith(vararg sources: String, defaultSource: String = "finnhub"): ApplicationConfig =
-    hocon("$FIRESTORE_DATABASE\ndefaultSource = \"$defaultSource\"\nsources = [${sources.joinToString(",\n")}]")
+    configWith(sources.toList(), defaultSources(defaultSource))
+
+private fun configWith(sources: List<String>, defaultSources: String): ApplicationConfig =
+    hocon("$FIRESTORE_DATABASE\n$defaultSources\nsources = [${sources.joinToString(",\n")}]")
 
 private fun loadErrors(config: ApplicationConfig, env: Map<String, String> = FULL_ENV): List<String> =
     shouldThrow<InvalidConfigurationException> { AppConfigLoader.load(config, env) }.errors
@@ -63,7 +73,11 @@ class AppConfigLoaderTest : FunSpec({
         config.port shouldBe 8080
         config.gcpProjectId shouldBe "test-project"
         config.logoBucket shouldBe "test-bucket"
-        config.defaultSource shouldBe SourceId.of("finnhub")
+        config.defaultSources shouldBe DefaultSources(
+            search = SourceId.of("finnhub"),
+            us = SourceId.of("finnhub"),
+            international = SourceId.of("eodhd"),
+        )
         config.sources.map { it.id.value } shouldContainExactly listOf("finnhub", "eodhd", "sec-edgar", "logoapi", "finnhub-logos")
         config.secrets.finnhubApiKey shouldBe "finnhub-key"
         config.secrets.secEdgarUserAgent shouldBe "Sixteen Screener test@example.com"
@@ -73,7 +87,7 @@ class AppConfigLoaderTest : FunSpec({
         finnhub.name shouldBe "Finnhub"
         finnhub.enabled shouldBe true
         finnhub.baseUrl shouldBe "https://finnhub.io/api/v1"
-        finnhub.selectableAsDefault shouldBe true
+        finnhub.roles shouldBe setOf(SourceRole.SEARCH, SourceRole.US)
         finnhub.capabilities shouldBe setOf(
             Capability.SEARCH, Capability.QUOTE, Capability.RATIOS, Capability.BALANCE_SHEET, Capability.COMPANY_PROFILE,
         )
@@ -88,7 +102,7 @@ class AppConfigLoaderTest : FunSpec({
         finnhubLogos.enabled shouldBe true
         finnhubLogos.baseUrl shouldBe "https://static2.finnhub.io/file/publicdatany/finnhubimage/stock_logo"
         finnhubLogos.capabilities shouldBe setOf(Capability.LOGO)
-        finnhubLogos.selectableAsDefault shouldBe false
+        finnhubLogos.roles shouldBe emptySet()
         finnhubLogos.limits shouldBe emptyList()
         finnhubLogos.countTotalCalls shouldBe true
         finnhubLogos.timeout shouldBe 5.seconds
@@ -102,6 +116,8 @@ class AppConfigLoaderTest : FunSpec({
         eodhd.baseUrl shouldBe "https://eodhd.com/api"
         eodhd.capabilities shouldBe setOf(Capability.QUOTE, Capability.DIVIDENDS)
         eodhd.automaticRequests shouldBe false
+        eodhd.roles shouldBe setOf(SourceRole.INTERNATIONAL)
+        config.source(SourceId.of("sec-edgar"))!!.roles shouldBe emptySet()
         eodhd.limits shouldContainExactly listOf(RequestLimit(LimitInterval.DAY, 20), RequestLimit(LimitInterval.MINUTE, 20))
         eodhd.directoryExchanges shouldBe emptySet()
         config.manualOnlySources shouldBe setOf(SourceId.of("eodhd"))
@@ -125,8 +141,8 @@ class AppConfigLoaderTest : FunSpec({
             hocon(
                 """
                 $FIRESTORE_DATABASE
-                defaultSource = finnhub
-                sources = [{ id = finnhub, name = Finnhub, baseUrl = "https://x", capabilities = [QUOTE], selectableAsDefault = true }]
+                ${defaultSources("finnhub")}
+                sources = [{ id = finnhub, name = Finnhub, baseUrl = "https://x", capabilities = [QUOTE], roles = [$ALL_ROLES] }]
                 """.trimIndent(),
             ),
             FULL_ENV,
@@ -137,6 +153,7 @@ class AppConfigLoaderTest : FunSpec({
         source.timeout shouldBe 5000.milliseconds
         source.countTotalCalls shouldBe false
         source.directoryExchanges shouldBe null
+        source.roles shouldBe setOf(SourceRole.SEARCH, SourceRole.US, SourceRole.INTERNATIONAL)
         source.automaticRequests shouldBe true
         config.totalCountedSources shouldBe emptySet()
         config.manualOnlySources shouldBe emptySet()
@@ -144,7 +161,7 @@ class AppConfigLoaderTest : FunSpec({
 
     test("parses directory exchanges") {
         val config = AppConfigLoader.load(
-            configWith(source("finnhub", selectable = true, extra = "directoryExchanges = [US, DE, L]")),
+            configWith(source("finnhub", roles = ALL_ROLES, extra = "directoryExchanges = [US, DE, L]")),
             FULL_ENV,
         )
 
@@ -153,7 +170,7 @@ class AppConfigLoaderTest : FunSpec({
 
     test("an empty directory exchange list covers no exchange") {
         val config = AppConfigLoader.load(
-            configWith(source("finnhub", selectable = true, extra = "directoryExchanges = []")),
+            configWith(source("finnhub", roles = ALL_ROLES, extra = "directoryExchanges = []")),
             FULL_ENV,
         )
 
@@ -161,7 +178,7 @@ class AppConfigLoaderTest : FunSpec({
     }
 
     test("fails for unknown directory exchange codes") {
-        loadErrors(configWith(source("finnhub", selectable = true, extra = "directoryExchanges = [US, XX, de, \"\"]"))) shouldContainExactly
+        loadErrors(configWith(source("finnhub", roles = ALL_ROLES, extra = "directoryExchanges = [US, XX, de, \"\"]"))) shouldContainExactly
             listOf(
                 "Source 'finnhub': unknown exchange code 'XX' in directoryExchanges",
                 "Source 'finnhub': unknown exchange code 'de' in directoryExchanges",
@@ -170,14 +187,14 @@ class AppConfigLoaderTest : FunSpec({
     }
 
     test("fails for directory exchanges that are not a list") {
-        loadErrors(configWith(source("finnhub", selectable = true, extra = "directoryExchanges = { US = true }"))) shouldContainExactly
+        loadErrors(configWith(source("finnhub", roles = ALL_ROLES, extra = "directoryExchanges = { US = true }"))) shouldContainExactly
             listOf("Source 'finnhub': invalid directoryExchanges")
     }
 
     test("a source with an empty limit list and a total call counter") {
         val config = AppConfigLoader.load(
             configWith(
-                source("finnhub", selectable = true),
+                source("finnhub", roles = ALL_ROLES),
                 source("finnhub-logos", capabilities = "LOGO", extra = "limits = []\ncountTotalCalls = true"),
             ),
             FULL_ENV,
@@ -190,14 +207,14 @@ class AppConfigLoaderTest : FunSpec({
     }
 
     test("fails for an invalid total call counter flag") {
-        loadErrors(configWith(source("finnhub", selectable = true, extra = "countTotalCalls = maybe"))) shouldContainExactly
+        loadErrors(configWith(source("finnhub", roles = ALL_ROLES, extra = "countTotalCalls = maybe"))) shouldContainExactly
             listOf("Source 'finnhub': invalid countTotalCalls 'maybe'")
     }
 
     test("a source with automatic requests off is manual only") {
         val config = AppConfigLoader.load(
             configWith(
-                source("finnhub", selectable = true, extra = "automaticRequests = true"),
+                source("finnhub", roles = ALL_ROLES, extra = "automaticRequests = true"),
                 source("eodhd", extra = "automaticRequests = false"),
             ),
             FULL_ENV,
@@ -210,7 +227,7 @@ class AppConfigLoaderTest : FunSpec({
 
     test("a disabled source with automatic requests off is not listed as manual only") {
         val config = AppConfigLoader.load(
-            configWith(source("finnhub", selectable = true), source("eodhd", enabled = false, extra = "automaticRequests = false")),
+            configWith(source("finnhub", roles = ALL_ROLES), source("eodhd", enabled = false, extra = "automaticRequests = false")),
             FULL_ENV,
         )
 
@@ -218,7 +235,7 @@ class AppConfigLoaderTest : FunSpec({
     }
 
     test("fails for an invalid automatic requests flag") {
-        loadErrors(configWith(source("finnhub", selectable = true, extra = "automaticRequests = sometimes"))) shouldContainExactly
+        loadErrors(configWith(source("finnhub", roles = ALL_ROLES, extra = "automaticRequests = sometimes"))) shouldContainExactly
             listOf("Source 'finnhub': invalid automaticRequests 'sometimes'")
     }
 
@@ -227,7 +244,7 @@ class AppConfigLoaderTest : FunSpec({
             configWith(
                 source(
                     "finnhub",
-                    selectable = true,
+                    roles = ALL_ROLES,
                     extra = "limits = [{ interval = HOUR, limit = 50 }, { interval = MONTH, limit = 500, unit = UNIQUE_SYMBOLS }]",
                 ),
             ),
@@ -258,7 +275,7 @@ class AppConfigLoaderTest : FunSpec({
 
     test("a disabled source needs no secret") {
         val config = AppConfigLoader.load(
-            configWith(source("finnhub", selectable = true), source("sec-edgar", enabled = false)),
+            configWith(source("finnhub", roles = ALL_ROLES), source("sec-edgar", enabled = false)),
             FULL_ENV - "SEC_EDGAR_USER_AGENT",
         )
         config.enabledSources.map { it.id.value } shouldContainExactly listOf("finnhub")
@@ -266,58 +283,97 @@ class AppConfigLoaderTest : FunSpec({
 
     test("logoapi needs no secret") {
         AppConfigLoader.load(
-            configWith(source("finnhub", selectable = true), source("logoapi", capabilities = "LOGO")),
+            configWith(source("finnhub", roles = ALL_ROLES), source("logoapi", capabilities = "LOGO")),
             FULL_ENV,
         ).sources shouldHaveSize 2
     }
 
     test("fails when an enabled SEC EDGAR source has no files base URL") {
-        val errors = loadErrors(configWith(source("finnhub", selectable = true), source("sec-edgar")))
+        val errors = loadErrors(configWith(source("finnhub", roles = ALL_ROLES), source("sec-edgar")))
         errors shouldContainExactly listOf("Source 'sec-edgar' is enabled but additionalBaseUrls.files is not set")
     }
 
     test("fails for a blank additional base URL") {
         val errors = loadErrors(
-            configWith(source("finnhub", selectable = true, extra = "additionalBaseUrls = { files = \" \", other = \"https://y\" }")),
+            configWith(source("finnhub", roles = ALL_ROLES, extra = "additionalBaseUrls = { files = \" \", other = \"https://y\" }")),
         )
         errors shouldContainExactly listOf("Source 'finnhub': invalid additionalBaseUrls.files")
     }
 
     test("fails for additional base URLs that are not an object") {
-        val errors = loadErrors(configWith(source("finnhub", selectable = true, extra = "additionalBaseUrls = \"https://y\"")))
+        val errors = loadErrors(configWith(source("finnhub", roles = ALL_ROLES, extra = "additionalBaseUrls = \"https://y\"")))
         errors shouldContainExactly listOf("Source 'finnhub': invalid additionalBaseUrls")
     }
 
     test("fails for an unknown default source") {
-        val errors = loadErrors(configWith(source("finnhub", selectable = true), defaultSource = "tiingo"))
-        errors shouldContainExactly listOf("Default source 'tiingo' is not a configured source")
+        val errors = loadErrors(configWith(listOf(source("finnhub", roles = ALL_ROLES)), defaultSources("finnhub", international = "tiingo")))
+        errors shouldContainExactly listOf("Default international source 'tiingo' is not a configured source")
     }
 
-    test("fails for a default source that is not selectable as default") {
+    test("fails for a default source that is not configured for its role") {
         val errors = loadErrors(
-            configWith(source("finnhub", selectable = true), source("sec-edgar", extra = SEC_FILES), defaultSource = "sec-edgar"),
+            configWith(
+                listOf(source("finnhub", roles = "SEARCH, US"), source("eodhd", roles = "INTERNATIONAL"), source("sec-edgar", extra = SEC_FILES)),
+                defaultSources(search = "eodhd", us = "sec-edgar", international = "finnhub"),
+            ),
         )
-        errors shouldContainExactly listOf("Default source 'sec-edgar' is not selectable as default")
+        errors shouldContainExactly listOf(
+            "Default search source 'eodhd' is not configured for the role SEARCH",
+            "Default us source 'sec-edgar' is not configured for the role US",
+            "Default international source 'finnhub' is not configured for the role INTERNATIONAL",
+        )
+    }
+
+    test("default sources of the roles may differ") {
+        val config = AppConfigLoader.load(
+            configWith(
+                listOf(source("finnhub", roles = "SEARCH, US"), source("eodhd", roles = "INTERNATIONAL")),
+                defaultSources(search = "finnhub", international = "eodhd"),
+            ),
+            FULL_ENV,
+        )
+
+        config.defaultSources shouldBe DefaultSources(SourceId.of("finnhub"), SourceId.of("finnhub"), SourceId.of("eodhd"))
+    }
+
+    test("fails for missing default sources") {
+        val errors = loadErrors(hocon("$FIRESTORE_DATABASE\ndefaultSources { us = finnhub }\nsources = [${source("finnhub", roles = ALL_ROLES)}]"))
+        errors shouldContainExactly listOf("Missing configuration 'defaultSources.search'", "Missing configuration 'defaultSources.international'")
+    }
+
+    test("the default sources are not taken from the environment") {
+        val config = AppConfigLoader.load(configWith(source("finnhub", roles = ALL_ROLES)), FULL_ENV + ("DEFAULT_SOURCE" to "tiingo"))
+
+        config.defaultSources.search shouldBe SourceId.of("finnhub")
+    }
+
+    test("fails for an unknown role") {
+        loadErrors(configWith(source("finnhub", roles = "SEARCH, US, INTERNATIONAL, EU"))) shouldContainExactly
+            listOf("Source 'finnhub': unknown role 'EU' (known: SEARCH, US, INTERNATIONAL)")
     }
 
     test("fails for a disabled default source") {
-        val errors = loadErrors(configWith(source("finnhub", enabled = false, selectable = true)))
-        errors shouldContainExactly listOf("Default source 'finnhub' is not enabled")
+        val errors = loadErrors(configWith(source("finnhub", enabled = false, roles = ALL_ROLES)))
+        errors shouldContainExactly listOf(
+            "Default search source 'finnhub' is not enabled",
+            "Default us source 'finnhub' is not enabled",
+            "Default international source 'finnhub' is not enabled",
+        )
     }
 
     test("fails for duplicate source IDs") {
-        val errors = loadErrors(configWith(source("finnhub", selectable = true), source("finnhub", selectable = true)))
+        val errors = loadErrors(configWith(source("finnhub", roles = ALL_ROLES), source("finnhub", roles = ALL_ROLES)))
         errors shouldContainExactly listOf("Duplicate source ID 'finnhub'")
     }
 
     test("fails for an unknown capability") {
-        val errors = loadErrors(configWith(source("finnhub", selectable = true, capabilities = "QUOTE, TELEPATHY")))
+        val errors = loadErrors(configWith(source("finnhub", roles = ALL_ROLES, capabilities = "QUOTE, TELEPATHY")))
         errors.single() shouldContain "Source 'finnhub': unknown capability 'TELEPATHY'"
     }
 
     test("fails for an unknown limit interval and an invalid limit") {
         val errors = loadErrors(
-            configWith(source("finnhub", selectable = true, extra = "limits = [{ interval = WEEK, limit = 5 }, { interval = DAY, limit = -1 }]")),
+            configWith(source("finnhub", roles = ALL_ROLES, extra = "limits = [{ interval = WEEK, limit = 5 }, { interval = DAY, limit = -1 }]")),
         )
         errors shouldHaveSize 2
         errors[0] shouldContain "unknown limit interval 'WEEK'"
@@ -329,9 +385,9 @@ class AppConfigLoaderTest : FunSpec({
             hocon(
                 """
                 $FIRESTORE_DATABASE
-                defaultSource = finnhub
+                ${defaultSources("finnhub")}
                 sources = [
-                  { id = finnhub, name = Finnhub, baseUrl = "https://x", selectableAsDefault = true },
+                  { id = finnhub, name = Finnhub, baseUrl = "https://x", roles = [$ALL_ROLES] },
                   { id = "Bad_Id", baseUrl = "https://x", timeoutMillis = 0 }
                 ]
                 """.trimIndent(),
@@ -346,7 +402,7 @@ class AppConfigLoaderTest : FunSpec({
 
     test("fails for missing GCP settings and an invalid port") {
         val errors = loadErrors(
-            configWith(source("finnhub", selectable = true)),
+            configWith(source("finnhub", roles = ALL_ROLES)),
             FULL_ENV - "GCP_PROJECT_ID" - "LOGO_BUCKET" + ("PORT" to "70000"),
         )
         errors shouldContainExactly listOf(
@@ -357,16 +413,16 @@ class AppConfigLoaderTest : FunSpec({
     }
 
     test("fails when no sources are configured") {
-        loadErrors(hocon("$FIRESTORE_DATABASE\ndefaultSource = finnhub\nsources = []")) shouldContain "No sources configured"
+        loadErrors(hocon("$FIRESTORE_DATABASE\n${defaultSources("finnhub")}\nsources = []")) shouldContain "No sources configured"
     }
 
     test("reports all errors in one message") {
         val exception = shouldThrow<InvalidConfigurationException> {
-            AppConfigLoader.load(configWith(source("finnhub", selectable = true), defaultSource = "x"), emptyMap())
+            AppConfigLoader.load(configWith(source("finnhub", roles = ALL_ROLES), defaultSource = "x"), emptyMap())
         }
-        exception.errors shouldHaveSize 4
+        exception.errors shouldHaveSize 6
         exception.message shouldContain "Invalid configuration:"
-        exception.message shouldContain "- Default source 'x' is not a configured source"
+        exception.message shouldContain "- Default search source 'x' is not a configured source"
     }
 
     test("secrets are masked in toString") {
@@ -394,7 +450,7 @@ class AppConfigLoaderTest : FunSpec({
     }
 
     test("fails when no firestore database is configured") {
-        val errors = loadErrors(hocon("defaultSource = finnhub\nsources = [${source("finnhub", selectable = true)}]"))
+        val errors = loadErrors(hocon("${defaultSources("finnhub")}\nsources = [${source("finnhub", roles = ALL_ROLES)}]"))
         errors shouldContainExactly listOf("Missing configuration 'firestoreDatabase' (environment variable FIRESTORE_DATABASE)")
     }
 

@@ -61,7 +61,6 @@ value class ProfileName private constructor(val value: String) {
  *
  * @property id backend-generated ID
  * @property name name as first entered, trimmed
- * @property defaultSource default source chosen by the user; null means the configured default source
  * @property watchlist watchlist entries in insertion order
  * @property createdAt creation time
  * @property updatedAt last modification time
@@ -70,7 +69,6 @@ value class ProfileName private constructor(val value: String) {
 data class Profile(
     val id: ProfileId,
     val name: ProfileName,
-    val defaultSource: SourceId?,
     val watchlist: List<WatchlistEntry>,
     val createdAt: Instant,
     val updatedAt: Instant,

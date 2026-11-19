@@ -19,8 +19,8 @@ private val AAPL = Symbol.of("AAPL")
 private fun apple(sector: String? = null, tags: List<String> = emptyList(), name: String = "Apple Inc") =
     watchlistEntry("AAPL", sector, tags, name)
 
-private class CompanyFixture(defaultSource: SourceId? = null, vararg entries: WatchlistEntry) {
-    val data = CompanyDataFixture(defaultSource = defaultSource).apply {
+private class CompanyFixture(vararg entries: WatchlistEntry) {
+    val data = CompanyDataFixture().apply {
         listed(listing("AAPL"), listing("MSFT"))
         profiles.save(profile.copy(watchlist = entries.toList()))
     }
@@ -34,7 +34,7 @@ private class CompanyFixture(defaultSource: SourceId? = null, vararg entries: Wa
 class WatchlistCompanySyncTest : FunSpec({
 
     test("profile fetched from the default source updates the sector of the watchlist entry") {
-        val f = CompanyFixture(null, apple(sector = "Old", tags = listOf("core")), watchlistEntry("MSFT", "Software"))
+        val f = CompanyFixture(apple(sector = "Old", tags = listOf("core")), watchlistEntry("MSFT", "Software"))
         f.data.profileFromSource("AAPL", sampleProfile(sector = "Technology"))
 
         f.companyProfile()
@@ -47,7 +47,7 @@ class WatchlistCompanySyncTest : FunSpec({
     }
 
     test("profile fetched from the default source updates the name of the watchlist entry") {
-        val f = CompanyFixture(null, apple(sector = "Technology", name = "AAPL"))
+        val f = CompanyFixture(apple(sector = "Technology", name = "AAPL"))
         f.data.profileFromSource("AAPL", sampleProfile(name = "Apple Inc", sector = "Technology"))
 
         f.companyProfile()
@@ -57,7 +57,7 @@ class WatchlistCompanySyncTest : FunSpec({
     }
 
     test("changed name and sector are updated together in one write") {
-        val f = CompanyFixture(null, apple(sector = "Old", name = "APPLE INC"))
+        val f = CompanyFixture(apple(sector = "Old", name = "APPLE INC"))
         f.data.profileFromSource("AAPL", sampleProfile(name = "Apple Inc", sector = "Technology"))
 
         f.companyProfile()
@@ -68,7 +68,7 @@ class WatchlistCompanySyncTest : FunSpec({
 
     context("profile without a name keeps the stored name and still updates the sector") {
         withData(nameFn = { "name = '$it'" }, "", "   ") { blank ->
-            val f = CompanyFixture(null, apple(sector = "Old", name = "Ahold Delhaize"))
+            val f = CompanyFixture(apple(sector = "Old", name = "Ahold Delhaize"))
             f.data.profileFromSource("AAPL", sampleProfile(name = blank, sector = "Technology"))
 
             f.companyProfile()
@@ -78,7 +78,7 @@ class WatchlistCompanySyncTest : FunSpec({
     }
 
     test("profile with a null name and an equal sector is not written") {
-        val f = CompanyFixture(null, apple(sector = "Technology", name = "Stored"))
+        val f = CompanyFixture(apple(sector = "Technology", name = "Stored"))
         f.data.profileFromSource("AAPL", sampleProfile(sector = "Technology").copy(name = null))
 
         f.companyProfile()
@@ -88,7 +88,7 @@ class WatchlistCompanySyncTest : FunSpec({
     }
 
     test("refreshed profile of the default source updates the sector") {
-        val f = CompanyFixture(null, apple(sector = "Old"))
+        val f = CompanyFixture(apple(sector = "Old"))
         f.data.cached(profileKey("AAPL"), sampleProfile(sector = "Old"), age = Duration.ofDays(1))
         f.data.profileFromSource("AAPL", sampleProfile(sector = "Technology"))
 
@@ -98,7 +98,7 @@ class WatchlistCompanySyncTest : FunSpec({
     }
 
     test("explicitly requested default source counts as the default source") {
-        val f = CompanyFixture(null, apple())
+        val f = CompanyFixture(apple())
         f.data.profileFromSource("AAPL", sampleProfile(sector = "Technology"))
 
         f.companyProfile(source = FINNHUB)
@@ -106,18 +106,28 @@ class WatchlistCompanySyncTest : FunSpec({
         f.watchlist() shouldContainExactly listOf(apple(sector = "Technology"))
     }
 
-    test("profile fetched from a source other than the default source doesn't update name or sector") {
-        val f = CompanyFixture(SEC_EDGAR, apple(sector = "Old", name = "AAPL"))
-        f.data.profileFromSource("AAPL", sampleProfile(sector = "Technology"))
+    test("profile fetched from a source other than the default source of the company's role doesn't update name or sector") {
+        val entry = watchlistEntry("SAP.DE", sector = "Old", name = "SAP")
+        val f = CompanyFixture(entry)
+        val profile = f.data.profiles.findById(f.data.profile.id)!!
 
-        f.companyProfile(source = FINNHUB)
+        f.data.watchlistCompanies.profileFetched(profile, FINNHUB, Symbol.of("SAP.DE"), sampleProfile(sector = "Software"))
 
-        f.watchlist() shouldContainExactly listOf(apple(sector = "Old", name = "AAPL"))
+        f.watchlist() shouldContainExactly listOf(entry)
         f.data.profiles.companyUpdates shouldBe 0
     }
 
+    test("profile fetched from the default source of the international role updates an international company") {
+        val f = CompanyFixture(watchlistEntry("SAP.DE", sector = "Old", name = "SAP"))
+        val profile = f.data.profiles.findById(f.data.profile.id)!!
+
+        f.data.watchlistCompanies.profileFetched(profile, EODHD, Symbol.of("SAP.DE"), sampleProfile(name = "SAP SE", sector = "Software"))
+
+        f.watchlist() shouldContainExactly listOf(watchlistEntry("SAP.DE", sector = "Software", name = "SAP SE"))
+    }
+
     test("profile of a company outside the watchlist doesn't change the watchlist") {
-        val f = CompanyFixture(null, watchlistEntry("MSFT", "Software"))
+        val f = CompanyFixture(watchlistEntry("MSFT", "Software"))
         f.data.profileFromSource("AAPL", sampleProfile(sector = "Technology"))
 
         f.companyProfile()
@@ -127,7 +137,7 @@ class WatchlistCompanySyncTest : FunSpec({
     }
 
     test("unchanged name and sector are not written") {
-        val f = CompanyFixture(null, apple(sector = "Technology"))
+        val f = CompanyFixture(apple(sector = "Technology"))
         f.data.profileFromSource("AAPL", sampleProfile(sector = "Technology"))
 
         f.companyProfile()
@@ -137,7 +147,7 @@ class WatchlistCompanySyncTest : FunSpec({
     }
 
     test("cached profile doesn't update name or sector") {
-        val f = CompanyFixture(null, apple(sector = "Old", name = "AAPL"))
+        val f = CompanyFixture(apple(sector = "Old", name = "AAPL"))
         f.data.cached(profileKey("AAPL"), sampleProfile(sector = "Technology"), age = Duration.ofMinutes(5))
 
         f.companyProfile()
@@ -146,7 +156,7 @@ class WatchlistCompanySyncTest : FunSpec({
     }
 
     test("failed fetch doesn't update name or sector, even with a cached profile") {
-        val f = CompanyFixture(null, apple(sector = "Old", name = "AAPL"))
+        val f = CompanyFixture(apple(sector = "Old", name = "AAPL"))
         f.data.cached(profileKey("AAPL"), sampleProfile(sector = "Technology"), age = Duration.ofDays(1))
         f.data.source.profiles[AAPL] = SourceResult.SourceError(SourceCallOutcome.httpError(500, f.data.now))
 
@@ -157,7 +167,7 @@ class WatchlistCompanySyncTest : FunSpec({
     }
 
     test("fetch skipped because of the limit doesn't update name or sector") {
-        val f = CompanyFixture(null, apple(sector = "Old", name = "AAPL"))
+        val f = CompanyFixture(apple(sector = "Old", name = "AAPL"))
         f.data.profileFromSource("AAPL", sampleProfile(sector = "Technology"))
         f.data.exhaustBudget()
 
@@ -167,7 +177,7 @@ class WatchlistCompanySyncTest : FunSpec({
     }
 
     test("source without a sector clears the stored sector") {
-        val f = CompanyFixture(null, apple(sector = "Old"))
+        val f = CompanyFixture(apple(sector = "Old"))
         f.data.profileFromSource("AAPL", sampleProfile(sector = null))
 
         f.companyProfile()
@@ -176,7 +186,7 @@ class WatchlistCompanySyncTest : FunSpec({
     }
 
     test("failed update still returns the fetched profile") {
-        val f = CompanyFixture(null, apple(sector = "Old"))
+        val f = CompanyFixture(apple(sector = "Old"))
         f.data.profileFromSource("AAPL", sampleProfile(sector = "Technology"))
         f.data.profiles.failCompanyUpdates = true
 

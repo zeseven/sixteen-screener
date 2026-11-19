@@ -38,7 +38,6 @@ fun TestPorts.savedProfile(name: String = "Alice", watchlist: List<String> = emp
     Profile(
         id = ProfileId.random(),
         name = ProfileName.of(name),
-        defaultSource = null,
         watchlist = watchlistEntries(watchlist),
         createdAt = clock.now(),
         updatedAt = clock.now(),
