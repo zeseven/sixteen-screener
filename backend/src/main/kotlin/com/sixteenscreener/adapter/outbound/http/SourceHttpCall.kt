@@ -12,6 +12,8 @@ import io.ktor.client.request.request
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -43,14 +45,17 @@ fun interface ErrorStatusMapping {
 
 /**
  * One call to a source over HTTP: runs the request within [timeout] and classifies the outcome (ADR-028).
- * Every source client sends its requests through this class.
+ * Every source client sends its requests through this class, one instance per source, which sends at most
+ * [maxParallelRequests] requests at a time; time spent waiting for a free slot does not count toward the timeout (ADR-081).
  */
 class SourceHttpCall(
     private val client: HttpClient,
     private val timeout: Duration,
     private val clock: Clock,
+    maxParallelRequests: Int = DEFAULT_MAX_PARALLEL_REQUESTS,
 ) {
     private val logger = LoggerFactory.getLogger(SourceHttpCall::class.java)
+    private val parallelRequests = Semaphore(maxParallelRequests)
 
     suspend fun <T> execute(
         request: HttpRequestBuilder.() -> Unit,
@@ -59,9 +64,11 @@ class SourceHttpCall(
         mapResponse: suspend (HttpResponse) -> T?,
     ): SourceResult<T> {
         val response = try {
-            client.request {
-                request()
-                timeout { requestTimeoutMillis = (requestTimeout ?: timeout).inWholeMilliseconds }
+            parallelRequests.withPermit {
+                client.request {
+                    request()
+                    timeout { requestTimeoutMillis = (requestTimeout ?: timeout).inWholeMilliseconds }
+                }
             }
         } catch (e: CancellationException) {
             throw e
@@ -100,4 +107,8 @@ class SourceHttpCall(
 
     private fun isConnectionFailure(error: Exception): Boolean =
         error is IOException || error is UnresolvedAddressException
+
+    companion object {
+        const val DEFAULT_MAX_PARALLEL_REQUESTS = 10
+    }
 }

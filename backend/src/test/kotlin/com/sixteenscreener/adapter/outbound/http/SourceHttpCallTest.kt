@@ -18,12 +18,19 @@ import io.ktor.client.request.url
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import java.net.ConnectException
 import java.net.ServerSocket
 import java.nio.channels.UnresolvedAddressException
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -38,6 +45,13 @@ class SourceHttpCallTest : FunSpec({
 
     fun callWith(handler: MockRequestHandler) =
         SourceHttpCall(SourceHttpClient.create(MockEngine(handler)), timeout = 200.milliseconds, clock = clock)
+
+    fun boundedCallWith(maxParallelRequests: Int, handler: MockRequestHandler) = SourceHttpCall(
+        SourceHttpClient.create(MockEngine(handler)),
+        timeout = 200.milliseconds,
+        clock = clock,
+        maxParallelRequests = maxParallelRequests,
+    )
 
     suspend fun SourceHttpCall.price(errorStatus: ErrorStatusMapping = ErrorStatusMapping.DEFAULT): SourceResult<Double> =
         execute({ url("https://source.test/quote") }, errorStatus) { response -> response.body<PriceDto>().c.takeIf { it > 0 } }
@@ -217,5 +231,98 @@ class SourceHttpCallTest : FunSpec({
         val result = callWith { throw IllegalStateException("engine bug") }.price()
 
         result shouldBe SourceResult.SourceError(SourceCallOutcome.appError(now))
+    }
+
+    context("parallel requests") {
+        test("at most the configured number of requests is in flight at a time") {
+            val inFlight = AtomicInteger()
+            val maxInFlight = AtomicInteger()
+            val call = boundedCallWith(maxParallelRequests = 3) {
+                maxInFlight.accumulateAndGet(inFlight.incrementAndGet(), ::maxOf)
+                delay(30.milliseconds)
+                inFlight.decrementAndGet()
+                respond("""{"c": 1}""", HttpStatusCode.OK, jsonHeaders)
+            }
+
+            val results = coroutineScope { List(10) { async { call.price() } }.awaitAll() }
+
+            results shouldBe List(10) { SourceResult.Success(1.0, SourceCallOutcome.success(now)) }
+            maxInFlight.get() shouldBe 3
+        }
+
+        test("the default bound is 10 requests") {
+            val inFlight = AtomicInteger()
+            val maxInFlight = AtomicInteger()
+            val call = callWith {
+                maxInFlight.accumulateAndGet(inFlight.incrementAndGet(), ::maxOf)
+                delay(30.milliseconds)
+                inFlight.decrementAndGet()
+                respond("""{"c": 1}""", HttpStatusCode.OK, jsonHeaders)
+            }
+
+            coroutineScope { List(25) { async { call.price() } }.awaitAll() }
+
+            maxInFlight.get() shouldBe SourceHttpCall.DEFAULT_MAX_PARALLEL_REQUESTS
+        }
+
+        test("time spent waiting for a free slot does not count toward the timeout") {
+            val call = boundedCallWith(maxParallelRequests = 1) {
+                delay(120.milliseconds)
+                respond("""{"c": 1}""", HttpStatusCode.OK, jsonHeaders)
+            }
+
+            val results = coroutineScope { List(3) { async { call.price() } }.awaitAll() }
+
+            results shouldBe List(3) { SourceResult.Success(1.0, SourceCallOutcome.success(now)) }
+        }
+
+        test("the slot is released after timeouts, errors and exceptions") {
+            val responses = ArrayDeque<MockRequestHandler>(
+                listOf(
+                    {
+                        delay(10.seconds)
+                        respond("", HttpStatusCode.OK)
+                    },
+                    { throw ConnectException("Connection refused") },
+                    { throw IllegalStateException("engine bug") },
+                    { respond("", HttpStatusCode.InternalServerError) },
+                    { respond("", HttpStatusCode.TooManyRequests) },
+                    { respond("""{"c": """, HttpStatusCode.OK, jsonHeaders) },
+                    { respond("""{"c": 1}""", HttpStatusCode.OK, jsonHeaders) },
+                ),
+            )
+            val call = boundedCallWith(maxParallelRequests = 1) { request -> responses.removeFirst()(request) }
+
+            withTimeout(5.seconds) {
+                repeat(6) { call.price() }
+                call.price() shouldBe SourceResult.Success(1.0, SourceCallOutcome.success(now))
+            }
+        }
+
+        test("the slot is released when a waiting or running request is cancelled") {
+            val started = CompletableDeferred<Unit>()
+            val requests = AtomicInteger()
+            val call = boundedCallWith(maxParallelRequests = 1) {
+                if (requests.incrementAndGet() == 1) {
+                    started.complete(Unit)
+                    delay(10.seconds)
+                }
+                respond("""{"c": 1}""", HttpStatusCode.OK, jsonHeaders)
+            }
+
+            coroutineScope {
+                val running = launch { call.price() }
+                started.await()
+                val waiting = launch { call.price() }
+                delay(20.milliseconds)
+                waiting.cancel()
+                running.cancel()
+            }
+
+            withTimeout(5.seconds) {
+                call.price() shouldBe SourceResult.Success(1.0, SourceCallOutcome.success(now))
+            }
+            requests.get() shouldBe 2
+        }
     }
 })
