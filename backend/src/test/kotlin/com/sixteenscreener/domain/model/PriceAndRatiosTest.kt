@@ -36,6 +36,11 @@ class PriceAndRatiosTest : FunSpec({
             Case(DataStatus.NO_DATA, DataStatus.NO_DATA, DataStatus.NO_DATA),
             Case(DataStatus.NOT_SUPPORTED, DataStatus.NO_DATA, DataStatus.NO_DATA),
             Case(DataStatus.NOT_SUPPORTED, DataStatus.NOT_SUPPORTED, DataStatus.NOT_SUPPORTED),
+            Case(DataStatus.NOT_REQUESTED, DataStatus.NOT_SUPPORTED, DataStatus.NOT_REQUESTED),
+            Case(DataStatus.NOT_REQUESTED, DataStatus.NOT_REQUESTED, DataStatus.NOT_REQUESTED),
+            Case(DataStatus.CACHED, DataStatus.NOT_REQUESTED, DataStatus.NOT_REQUESTED),
+            Case(DataStatus.NOT_REQUESTED, DataStatus.FRESH, DataStatus.NOT_REQUESTED),
+            Case(DataStatus.NOT_REQUESTED, DataStatus.LIMIT_REACHED, DataStatus.LIMIT_REACHED),
         ) { case ->
             PriceAndRatios(quote(case.quote), ratios(case.ratios)).status shouldBe case.expected
         }

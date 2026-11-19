@@ -14,6 +14,7 @@ import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.Quote
 import com.sixteenscreener.domain.model.QuoteRecord
 import com.sixteenscreener.domain.model.Ratios
+import com.sixteenscreener.domain.model.RequestTrigger
 import com.sixteenscreener.domain.model.ResourceNotFoundException
 import com.sixteenscreener.domain.model.SourceData
 import com.sixteenscreener.domain.model.SourceId
@@ -36,6 +37,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.slf4j.LoggerFactory
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.util.concurrent.atomic.AtomicBoolean
@@ -63,7 +65,7 @@ class CompanyDataService(
         profileId: ProfileId,
         symbol: Symbol,
         source: SourceId?,
-        refresh: Boolean,
+        trigger: RequestTrigger,
     ): PriceAndRatios {
         val target = target(profileId, symbol, source)
         val quoteKey = CacheKey(target.source, symbol, DataType.QUOTE)
@@ -72,8 +74,8 @@ class CompanyDataService(
         val loaded = load(
             target.source,
             listOf(
-                detailedPlan(quoteKey, target.lookup, cached[quoteKey], refresh) { quoteFetch(quoteKey, it, target.listing) },
-                detailedPlan(ratiosKey, target.lookup, cached[ratiosKey], refresh) { ratiosFetch(ratiosKey, it) },
+                detailedPlan(quoteKey, target.lookup, cached[quoteKey], trigger) { quoteFetch(quoteKey, it, target.listing) },
+                detailedPlan(ratiosKey, target.lookup, cached[ratiosKey], trigger) { ratiosFetch(ratiosKey, it) },
             ),
         )
         val quote = loaded[quoteKey]
@@ -86,24 +88,24 @@ class CompanyDataService(
         profileId: ProfileId,
         symbol: Symbol,
         source: SourceId?,
-        refresh: Boolean,
+        trigger: RequestTrigger,
     ): SourceData<BalanceSheet> {
         val target = target(profileId, symbol, source)
         val key = CacheKey(target.source, symbol, DataType.BALANCE_SHEET)
         val cached = if (supports(key, target.lookup)) cache.get(key) else null
-        return load(key.source, listOf(detailedPlan(key, target.lookup, cached, refresh) { balanceSheetFetch(key, it) }))[key]
+        return load(key.source, listOf(detailedPlan(key, target.lookup, cached, trigger) { balanceSheetFetch(key, it) }))[key]
     }
 
     override suspend fun companyProfile(
         profileId: ProfileId,
         symbol: Symbol,
         source: SourceId?,
-        refresh: Boolean,
+        trigger: RequestTrigger,
     ): CompanyProfileData {
         val target = target(profileId, symbol, source)
         val key = CacheKey(target.source, symbol, DataType.COMPANY_PROFILE)
         val cached = if (supports(key, target.lookup)) cache.get(key) else null
-        val plan = detailedPlan(key, target.lookup, cached, refresh) { profileFetch(key, it) }
+        val plan = detailedPlan(key, target.lookup, cached, trigger) { profileFetch(key, it) }
         val profile = load(key.source, listOf(plan))[key]
         val fetched = profile.data?.takeIf { plan is Fetch<*, *> && profile.status == DataStatus.FRESH }
         if (fetched != null) watchlistCompanies.profileFetched(target.profile, key.source, symbol, fetched)
@@ -160,12 +162,12 @@ class CompanyDataService(
         key: CacheKey<T>,
         lookup: SymbolLookup,
         cached: CacheEntry<T>?,
-        refresh: Boolean,
+        trigger: RequestTrigger,
         fetch: (CacheEntry<T>?) -> Fetch<T, *>,
     ): Plan<T> = when {
         !supports(key, lookup) -> notSupported(key)
-        refresh || cached == null -> fetch(cached)
-        else -> Settled(key, fromCache(key, cached))
+        !shouldCall(key, cached, trigger, autoRefreshAfter = null) -> notCalled(key, cached)
+        else -> fetch(cached)
     }
 
     private fun watchlistQuotePlan(
@@ -176,7 +178,7 @@ class CompanyDataService(
         val listing = lookup.listing
         return when {
             !supports(key, lookup) -> notSupported(key)
-            cached != null && freshness.isFresh(cached.fetchedAt) -> Settled(key, fromCache(key, cached))
+            !shouldCall(key, cached, RequestTrigger.AUTO, FreshnessPolicy.FRESHNESS_WINDOW) -> notCalled(key, cached)
             listing == null -> Settled(key, fallback(key, cached, DataStatus.SOURCE_ERROR))
             else -> quoteFetch(key, cached, listing)
         }
@@ -188,7 +190,7 @@ class CompanyDataService(
         cached: CacheEntry<Ratios>?,
     ): Plan<Ratios> = when {
         !supports(key, lookup) -> notSupported(key)
-        cached != null && freshness.isWatchlistRatiosUpToDate(cached.fetchedAt) -> Settled(key, fromCache(key, cached))
+        !shouldCall(key, cached, RequestTrigger.AUTO, FreshnessPolicy.WATCHLIST_RATIOS_MAX_AGE) -> notCalled(key, cached)
         lookup.listing == null -> Settled(key, fallback(key, cached, DataStatus.SOURCE_ERROR))
         else -> ratiosFetch(key, cached)
     }
@@ -199,9 +201,19 @@ class CompanyDataService(
         cached: CacheEntry<CompanyProfile>?,
     ): Plan<CompanyProfile> = when {
         !supports(key, lookup) -> notSupported(key)
-        cached != null && !freshness.isProfileExpired(cached.fetchedAt) -> Settled(key, fromCache(key, cached))
+        !shouldCall(key, cached, RequestTrigger.AUTO, FreshnessPolicy.PROFILE_MAX_AGE) -> notCalled(key, cached)
         else -> profileFetch(key, cached)
     }
+
+    private fun shouldCall(
+        key: CacheKey<*>,
+        cached: CacheEntry<*>?,
+        trigger: RequestTrigger,
+        autoRefreshAfter: Duration?,
+    ): Boolean = freshness.shouldCallSource(catalog.automaticRequests(key.source), trigger, cached?.fetchedAt, autoRefreshAfter)
+
+    private fun <T : Any> notCalled(key: CacheKey<T>, cached: CacheEntry<T>?): Plan<T> =
+        Settled(key, cached?.let { fromCache(key, it) } ?: SourceData(key.source, DataStatus.NOT_REQUESTED, data = null, fetchedAt = null))
 
     private fun quoteFetch(key: CacheKey<QuoteRecord>, cached: CacheEntry<QuoteRecord>?, listing: ListedSymbol) =
         Fetch(

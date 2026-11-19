@@ -65,6 +65,9 @@ private fun fullConfig(): AppConfig = testConfig().let { config ->
     )
 }
 
+private fun AppConfig.manualOnlyFinnhub(): AppConfig =
+    copy(sources = sources.map { if (it.id.value == "finnhub") it.copy(automaticRequests = false) else it })
+
 private val ratios = Ratios(RatioCode.entries.map { Ratio(it, if (it == RatioCode.PE) 30.5 else null) })
 
 private val profile = CompanyProfile(
@@ -496,21 +499,21 @@ class CompanyRoutesTest : FunSpec({
             }
         }
 
-        withData(nameFn = { "$it: refresh=true with budget requests the source" }, tabs) { tab ->
+        withData(nameFn = { "$it: trigger=MANUAL with budget requests the source" }, tabs) { tab ->
             routeTest(config = fullConfig()) { ports ->
                 val saved = ports.savedProfile()
                 ports.listedApple()
                 ports.cacheEverything(age = Duration.ofMinutes(10))
                 ports.sourceAnswersEverything()
 
-                val body = client.get("/profiles/${saved.id}/companies/AAPL/$tab?refresh=true").json()
+                val body = client.get("/profiles/${saved.id}/companies/AAPL/$tab?trigger=MANUAL").json()
 
                 body.meta() shouldBe meta("FRESH", "2026-11-14T12:00:00Z")
                 (ports.sourceCallCount() > 0) shouldBe true
             }
         }
 
-        withData(nameFn = { "$it: refresh=true without budget answers the cache with LIMIT_REACHED" }, tabs) { tab ->
+        withData(nameFn = { "$it: trigger=MANUAL without budget answers the cache with LIMIT_REACHED" }, tabs) { tab ->
             routeTest(config = fullConfig()) { ports ->
                 val saved = ports.savedProfile()
                 ports.listedApple()
@@ -518,7 +521,7 @@ class CompanyRoutesTest : FunSpec({
                 ports.sourceAnswersEverything()
                 ports.exhaustBudget()
 
-                val body = client.get("/profiles/${saved.id}/companies/AAPL/$tab?refresh=true").json()
+                val body = client.get("/profiles/${saved.id}/companies/AAPL/$tab?trigger=MANUAL").json()
 
                 body.meta() shouldBe meta("LIMIT_REACHED", "2026-11-14T11:50:00Z")
                 body.isEmptyData() shouldBe false
@@ -540,13 +543,40 @@ class CompanyRoutesTest : FunSpec({
             }
         }
 
-        withData(nameFn = { "$it: refresh=false with a fresh cache makes no call" }, tabs) { tab ->
+        withData(nameFn = { "$it: a source with automatic requests off answers NOT_REQUESTED to AUTO without cache" }, tabs) { tab ->
+            routeTest(config = fullConfig().manualOnlyFinnhub()) { ports ->
+                val saved = ports.savedProfile()
+                ports.listedApple()
+                ports.sourceAnswersEverything()
+
+                val body = client.get("/profiles/${saved.id}/companies/AAPL/$tab").json()
+
+                body.status() shouldBe JsonPrimitive("NOT_REQUESTED")
+                body.isEmptyData() shouldBe true
+                ports.sourceCallCount() shouldBe 0
+            }
+        }
+
+        withData(nameFn = { "$it: a source with automatic requests off is called for trigger=MANUAL without cache" }, tabs) { tab ->
+            routeTest(config = fullConfig().manualOnlyFinnhub()) { ports ->
+                val saved = ports.savedProfile()
+                ports.listedApple()
+                ports.sourceAnswersEverything()
+
+                val body = client.get("/profiles/${saved.id}/companies/AAPL/$tab?trigger=MANUAL").json()
+
+                body.status() shouldBe JsonPrimitive("FRESH")
+                (ports.sourceCallCount() > 0) shouldBe true
+            }
+        }
+
+        withData(nameFn = { "$it: trigger=AUTO with a fresh cache makes no call" }, tabs) { tab ->
             routeTest(config = fullConfig()) { ports ->
                 val saved = ports.savedProfile()
                 ports.listedApple()
                 ports.cacheEverything(age = Duration.ofMinutes(10))
 
-                val body = client.get("/profiles/${saved.id}/companies/AAPL/$tab?refresh=false").json()
+                val body = client.get("/profiles/${saved.id}/companies/AAPL/$tab?trigger=AUTO").json()
 
                 body.meta() shouldBe meta("FRESH", "2026-11-14T11:50:00Z")
                 ports.sourceCallCount() shouldBe 0
@@ -560,7 +590,7 @@ class CompanyRoutesTest : FunSpec({
                 ports.cacheEverything(age = Duration.ofDays(2))
                 ports.sourceFailsEverything()
 
-                val response = client.get("/profiles/${saved.id}/companies/AAPL/$tab?refresh=true")
+                val response = client.get("/profiles/${saved.id}/companies/AAPL/$tab?trigger=MANUAL")
 
                 response.status shouldBe HttpStatusCode.OK
                 val body = response.json()
@@ -598,7 +628,7 @@ class CompanyRoutesTest : FunSpec({
         withData(
             nameFn = { "${it.tab}?${it.query} is a bad request" },
             tabs.flatMap { tab ->
-                listOf("source=Finnhub", "source=fin_hub", "source=", "refresh=yes", "refresh=TRUE", "refresh=1", "refresh=")
+                listOf("source=Finnhub", "source=fin_hub", "source=", "trigger=auto", "trigger=Manual", "trigger=REFRESH", "trigger=true", "trigger=")
                     .map { InvalidParameter(tab, it) }
             },
         ) { (tab, query) ->

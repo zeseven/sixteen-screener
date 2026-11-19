@@ -53,6 +53,7 @@ private fun sourcesConfig(): AppConfig = testConfig().let { config ->
                 id = tiingo,
                 name = "Tiingo",
                 capabilities = setOf(Capability.QUOTE, Capability.SEARCH),
+                automaticRequests = false,
                 limits = listOf(
                     RequestLimit(LimitInterval.HOUR, 50),
                     RequestLimit(LimitInterval.MONTH, 500, LimitUnit.UNIQUE_SYMBOLS),
@@ -112,6 +113,7 @@ class SourceRoutesTest : FunSpec({
                     "capabilities" to JsonArray(listOf("SEARCH", "QUOTE", "RATIOS").map(::JsonPrimitive)),
                     "selectableAsDefault" to JsonPrimitive(true),
                     "isDefault" to JsonPrimitive(true),
+                    "automaticRequests" to JsonPrimitive(true),
                     "limits" to JsonArray(listOf(limit("MINUTE", 60, 0, "2026-11-14T12:01:00Z"))),
                     "lastCall" to JsonNull,
                     "totalCalls" to JsonNull,
@@ -134,6 +136,18 @@ class SourceRoutesTest : FunSpec({
             )
             body.item(logoapi)["limits"] shouldBe JsonArray(emptyList())
             body.item(secEdgar)["selectableAsDefault"] shouldBe JsonPrimitive(false)
+        }
+    }
+
+    test("a source with automatic requests off is marked, sources without the setting have them on") {
+        routeTest(config = sourcesConfig()) { ports ->
+            val saved = ports.savedProfile()
+
+            val body = client.get("/profiles/${saved.id}/sources").json()
+
+            body.item(tiingo)["automaticRequests"] shouldBe JsonPrimitive(false)
+            body.item(secEdgar)["automaticRequests"] shouldBe JsonPrimitive(true)
+            body.item(finnhubLogos)["automaticRequests"] shouldBe JsonPrimitive(true)
         }
     }
 

@@ -8,6 +8,7 @@ import com.sixteenscreener.domain.model.SourceId
 class SourceCatalog(
     val defaultSource: SourceId,
     private val capabilitiesBySource: Map<SourceId, Set<Capability>>,
+    private val manualOnlySources: Set<SourceId> = emptySet(),
 ) {
     init {
         require(defaultSource in capabilitiesBySource) { "Default source '$defaultSource' is not configured" }
@@ -17,6 +18,8 @@ class SourceCatalog(
 
     fun supports(source: SourceId, capability: Capability): Boolean =
         capabilitiesBySource[source].orEmpty().contains(capability)
+
+    fun automaticRequests(source: SourceId): Boolean = source !in manualOnlySources
 
     fun defaultSourceOf(profile: Profile): SourceId = profile.defaultSource?.takeIf(::isKnown) ?: defaultSource
 

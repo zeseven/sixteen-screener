@@ -7,12 +7,14 @@ package com.sixteenscreener.domain.model
  * @property name display name
  * @property capabilities data the source provides
  * @property selectableAsDefault whether a profile can choose it as its default source
+ * @property automaticRequests whether the source may be called without a manual request (ADR-083)
  */
 data class SourceDescription(
     val id: SourceId,
     val name: String,
     val capabilities: Set<Capability>,
     val selectableAsDefault: Boolean,
+    val automaticRequests: Boolean = true,
 )
 
 /**

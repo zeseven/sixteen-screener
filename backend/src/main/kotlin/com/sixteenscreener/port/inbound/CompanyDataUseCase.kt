@@ -4,6 +4,7 @@ import com.sixteenscreener.domain.model.BalanceSheet
 import com.sixteenscreener.domain.model.CompanyProfileData
 import com.sixteenscreener.domain.model.PriceAndRatios
 import com.sixteenscreener.domain.model.ProfileId
+import com.sixteenscreener.domain.model.RequestTrigger
 import com.sixteenscreener.domain.model.SourceData
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.Symbol
@@ -11,8 +12,14 @@ import com.sixteenscreener.domain.model.Symbol
 /**
  * Company data of the detailed screen, per source (ADR-026, ADR-027).
  *
- * Every operation returns cached data as is; the source is requested when nothing is cached or when [refresh] is true,
- * within the source request limits. Source failures and reached limits never fail the operation: the cached data,
+ * Whether the source is called depends on its automatic requests setting and the request trigger (ADR-083):
+ * - a source with automatic requests on is called for [RequestTrigger.AUTO] only when nothing is cached (cached data is
+ *   returned as is), and always for [RequestTrigger.MANUAL];
+ * - a source with automatic requests off is never called for [RequestTrigger.AUTO]: cached data is returned as is, and
+ *   without cached data empty data with `NOT_REQUESTED`; for [RequestTrigger.MANUAL] it is called only when nothing is
+ *   cached or the cached data is older than 1 hour.
+ *
+ * Calls are made within the source request limits. Source failures and reached limits never fail the operation: the cached data,
  * or empty data without a cache, is returned with the corresponding status. A source without the capability gives
  * `NOT_SUPPORTED` without a call. Quotes, ratios and company profiles of a symbol whose exchange is not covered by the
  * source of the exchange directory are `NOT_SUPPORTED` from that source without a call (ADR-062).
@@ -26,11 +33,11 @@ interface CompanyDataUseCase {
      * Latest quote and ratios of [symbol] with the indicators of the profile's settings; the combined status is
      * defined by [PriceAndRatios].
      */
-    suspend fun priceAndRatios(profileId: ProfileId, symbol: Symbol, source: SourceId?, refresh: Boolean): PriceAndRatios
+    suspend fun priceAndRatios(profileId: ProfileId, symbol: Symbol, source: SourceId?, trigger: RequestTrigger): PriceAndRatios
 
     /** Annual balance sheet periods of [symbol], newest first. */
-    suspend fun balanceSheet(profileId: ProfileId, symbol: Symbol, source: SourceId?, refresh: Boolean): SourceData<BalanceSheet>
+    suspend fun balanceSheet(profileId: ProfileId, symbol: Symbol, source: SourceId?, trigger: RequestTrigger): SourceData<BalanceSheet>
 
     /** Company profile of [symbol] with its identity (exchange, name, market) resolved by the backend. */
-    suspend fun companyProfile(profileId: ProfileId, symbol: Symbol, source: SourceId?, refresh: Boolean): CompanyProfileData
+    suspend fun companyProfile(profileId: ProfileId, symbol: Symbol, source: SourceId?, trigger: RequestTrigger): CompanyProfileData
 }

@@ -123,7 +123,9 @@ class AppConfigLoaderTest : FunSpec({
         source.timeout shouldBe 5000.milliseconds
         source.countTotalCalls shouldBe false
         source.directoryExchanges shouldBe null
+        source.automaticRequests shouldBe true
         config.totalCountedSources shouldBe emptySet()
+        config.manualOnlySources shouldBe emptySet()
     }
 
     test("parses directory exchanges") {
@@ -176,6 +178,34 @@ class AppConfigLoaderTest : FunSpec({
     test("fails for an invalid total call counter flag") {
         loadErrors(configWith(source("finnhub", selectable = true, extra = "countTotalCalls = maybe"))) shouldContainExactly
             listOf("Source 'finnhub': invalid countTotalCalls 'maybe'")
+    }
+
+    test("a source with automatic requests off is manual only") {
+        val config = AppConfigLoader.load(
+            configWith(
+                source("finnhub", selectable = true, extra = "automaticRequests = true"),
+                source("eodhd", extra = "automaticRequests = false"),
+            ),
+            FULL_ENV,
+        )
+
+        config.source(SourceId.of("finnhub"))!!.automaticRequests shouldBe true
+        config.source(SourceId.of("eodhd"))!!.automaticRequests shouldBe false
+        config.manualOnlySources shouldBe setOf(SourceId.of("eodhd"))
+    }
+
+    test("a disabled source with automatic requests off is not listed as manual only") {
+        val config = AppConfigLoader.load(
+            configWith(source("finnhub", selectable = true), source("eodhd", enabled = false, extra = "automaticRequests = false")),
+            FULL_ENV,
+        )
+
+        config.manualOnlySources shouldBe emptySet()
+    }
+
+    test("fails for an invalid automatic requests flag") {
+        loadErrors(configWith(source("finnhub", selectable = true, extra = "automaticRequests = sometimes"))) shouldContainExactly
+            listOf("Source 'finnhub': invalid automaticRequests 'sometimes'")
     }
 
     test("parses several limits with units") {

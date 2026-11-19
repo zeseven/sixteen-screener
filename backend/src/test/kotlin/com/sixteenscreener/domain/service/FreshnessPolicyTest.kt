@@ -1,6 +1,9 @@
 package com.sixteenscreener.domain.service
 
 import com.sixteenscreener.domain.model.DataType
+import com.sixteenscreener.domain.model.RequestTrigger
+import com.sixteenscreener.domain.model.RequestTrigger.AUTO
+import com.sixteenscreener.domain.model.RequestTrigger.MANUAL
 import com.sixteenscreener.fakes.MutableClock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
@@ -58,6 +61,61 @@ class FreshnessPolicyTest : FunSpec({
     context("other cache entries expire 14 days after fetch") {
         withData(nameFn = { it.name }, DataType.QUOTE, DataType.RATIOS, DataType.BALANCE_SHEET) { type ->
             policy.cacheExpireAt(type, now) shouldBe now + Duration.ofDays(14)
+        }
+    }
+
+    context("whether the source is called") {
+        data class Case(
+            val automaticRequests: Boolean,
+            val trigger: RequestTrigger,
+            val cacheAge: Duration?,
+            val autoRefreshAfter: Duration?,
+            val expected: Boolean,
+        )
+
+        val fresh = Duration.ofMinutes(10)
+        val stale = Duration.ofHours(2)
+        val hour = Duration.ofHours(1)
+
+        withData(
+            nameFn = {
+                "automatic requests ${if (it.automaticRequests) "on" else "off"}, ${it.trigger}, " +
+                    "cache ${it.cacheAge ?: "missing"}, auto refresh after ${it.autoRefreshAfter ?: "never"}: " +
+                    if (it.expected) "call" else "no call"
+            },
+            Case(true, AUTO, null, null, expected = true),
+            Case(true, AUTO, fresh, null, expected = false),
+            Case(true, AUTO, stale, null, expected = false),
+            Case(true, AUTO, Duration.ofDays(400), null, expected = false),
+            Case(true, AUTO, null, hour, expected = true),
+            Case(true, AUTO, fresh, hour, expected = false),
+            Case(true, AUTO, stale, hour, expected = true),
+            Case(true, AUTO, hour, hour, expected = true),
+            Case(true, AUTO, hour - Duration.ofMillis(1), hour, expected = false),
+            Case(true, MANUAL, null, null, expected = true),
+            Case(true, MANUAL, fresh, null, expected = true),
+            Case(true, MANUAL, stale, null, expected = true),
+            Case(true, MANUAL, fresh, hour, expected = true),
+            Case(false, AUTO, null, null, expected = false),
+            Case(false, AUTO, fresh, null, expected = false),
+            Case(false, AUTO, stale, null, expected = false),
+            Case(false, AUTO, null, hour, expected = false),
+            Case(false, AUTO, stale, hour, expected = false),
+            Case(false, AUTO, Duration.ofDays(400), Duration.ofDays(90), expected = false),
+            Case(false, MANUAL, null, null, expected = true),
+            Case(false, MANUAL, fresh, null, expected = false),
+            Case(false, MANUAL, hour - Duration.ofMillis(1), null, expected = false),
+            Case(false, MANUAL, hour, null, expected = true),
+            Case(false, MANUAL, stale, null, expected = true),
+            Case(false, MANUAL, fresh, Duration.ofMinutes(5), expected = false),
+            Case(false, MANUAL, stale, Duration.ofDays(1), expected = true),
+        ) { case ->
+            policy.shouldCallSource(
+                automaticRequests = case.automaticRequests,
+                trigger = case.trigger,
+                cachedAt = case.cacheAge?.let { now - it },
+                autoRefreshAfter = case.autoRefreshAfter,
+            ) shouldBe case.expected
         }
     }
 })

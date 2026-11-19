@@ -94,7 +94,11 @@ class AppServices(
     val defaultLogo: ByteArray = bundledDefaultLogo(),
     private val resources: List<AutoCloseable> = emptyList(),
 ) : AutoCloseable {
-    val sourceCatalog = SourceCatalog(config.defaultSource, config.enabledSources.associate { it.id to it.capabilities })
+    val sourceCatalog = SourceCatalog(
+        defaultSource = config.defaultSource,
+        capabilitiesBySource = config.enabledSources.associate { it.id to it.capabilities },
+        manualOnlySources = config.manualOnlySources,
+    )
     val marketResolver = MarketResolver()
 
     private val identities = CompanyIdentityResolver(marketResolver)
@@ -141,7 +145,7 @@ class AppServices(
     )
 
     val sourcesUseCase: SourcesUseCase = SourceService(
-        sources = config.enabledSources.map { SourceDescription(it.id, it.name, it.capabilities, it.selectableAsDefault) },
+        sources = config.enabledSources.map { SourceDescription(it.id, it.name, it.capabilities, it.selectableAsDefault, it.automaticRequests) },
         profiles = profiles,
         catalog = sourceCatalog,
         rateLimiter = rateLimiter,

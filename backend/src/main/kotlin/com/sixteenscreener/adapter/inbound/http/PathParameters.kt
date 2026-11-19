@@ -1,7 +1,7 @@
 package com.sixteenscreener.adapter.inbound.http
 
-import com.sixteenscreener.domain.model.InvalidInputException
 import com.sixteenscreener.domain.model.ProfileId
+import com.sixteenscreener.domain.model.RequestTrigger
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.Symbol
 import io.ktor.server.application.ApplicationCall
@@ -16,7 +16,5 @@ fun ApplicationCall.symbolsParameter(): List<Symbol> =
 
 fun ApplicationCall.sourceParameter(): SourceId? = request.queryParameters["source"]?.let(SourceId::of)
 
-fun ApplicationCall.refreshParameter(): Boolean =
-    request.queryParameters["refresh"]?.let { raw ->
-        raw.toBooleanStrictOrNull() ?: throw InvalidInputException("Invalid refresh value '$raw', expected true or false")
-    } ?: false
+fun ApplicationCall.triggerParameter(): RequestTrigger =
+    request.queryParameters["trigger"]?.let(RequestTrigger::of) ?: RequestTrigger.AUTO

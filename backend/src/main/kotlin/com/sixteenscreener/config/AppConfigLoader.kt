@@ -149,6 +149,7 @@ object AppConfigLoader {
             val enabled = boolean(block, "enabled", default = true, label)
             val selectableAsDefault = boolean(block, "selectableAsDefault", default = false, label)
             val countTotalCalls = boolean(block, "countTotalCalls", default = false, label)
+            val automaticRequests = boolean(block, "automaticRequests", default = true, label)
             val capabilities = capabilities(block, label)
             val limits = limits(block, label)
             val directoryExchanges = directoryExchanges(block, label)
@@ -172,6 +173,7 @@ object AppConfigLoader {
                 timeout = timeoutMillis.milliseconds,
                 countTotalCalls = countTotalCalls,
                 directoryExchanges = directoryExchanges,
+                automaticRequests = automaticRequests,
             )
         }
 

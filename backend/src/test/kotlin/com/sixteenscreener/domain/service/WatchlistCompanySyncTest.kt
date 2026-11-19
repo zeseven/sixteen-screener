@@ -1,5 +1,6 @@
 package com.sixteenscreener.domain.service
 
+import com.sixteenscreener.domain.model.RequestTrigger
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
@@ -24,8 +25,8 @@ private class CompanyFixture(defaultSource: SourceId? = null, vararg entries: Wa
         profiles.save(profile.copy(watchlist = entries.toList()))
     }
 
-    suspend fun companyProfile(source: SourceId? = null, refresh: Boolean = false) =
-        data.service.companyProfile(data.profile.id, AAPL, source, refresh)
+    suspend fun companyProfile(source: SourceId? = null, trigger: RequestTrigger = RequestTrigger.AUTO) =
+        data.service.companyProfile(data.profile.id, AAPL, source, trigger)
 
     suspend fun watchlist() = data.profiles.findById(data.profile.id)!!.watchlist
 }
@@ -91,7 +92,7 @@ class WatchlistCompanySyncTest : FunSpec({
         f.data.cached(profileKey("AAPL"), sampleProfile(sector = "Old"), age = Duration.ofDays(1))
         f.data.profileFromSource("AAPL", sampleProfile(sector = "Technology"))
 
-        f.companyProfile(refresh = true)
+        f.companyProfile(trigger = RequestTrigger.MANUAL)
 
         f.watchlist() shouldContainExactly listOf(apple(sector = "Technology"))
     }
@@ -149,7 +150,7 @@ class WatchlistCompanySyncTest : FunSpec({
         f.data.cached(profileKey("AAPL"), sampleProfile(sector = "Technology"), age = Duration.ofDays(1))
         f.data.source.profiles[AAPL] = SourceResult.SourceError(SourceCallOutcome.httpError(500, f.data.now))
 
-        f.companyProfile(refresh = true)
+        f.companyProfile(trigger = RequestTrigger.MANUAL)
 
         f.watchlist() shouldContainExactly listOf(apple(sector = "Old", name = "AAPL"))
         f.data.profiles.companyUpdates shouldBe 0

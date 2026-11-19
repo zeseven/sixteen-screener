@@ -1,6 +1,7 @@
 package com.sixteenscreener.adapter.inbound.http
 
 import com.sixteenscreener.domain.model.ProfileId
+import com.sixteenscreener.domain.model.RequestTrigger
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.port.inbound.CompanyDataUseCase
@@ -14,29 +15,29 @@ private data class CompanyDataRequest(
     val profileId: ProfileId,
     val symbol: Symbol,
     val source: SourceId?,
-    val refresh: Boolean,
+    val trigger: RequestTrigger,
 )
 
 private fun ApplicationCall.companyDataRequest() = CompanyDataRequest(
     profileId = profileIdParameter(),
     symbol = symbolParameter(),
     source = sourceParameter(),
-    refresh = refreshParameter(),
+    trigger = triggerParameter(),
 )
 
 fun Route.companyRoutes(companyData: CompanyDataUseCase) {
     route("/profiles/{profileId}/companies/{symbol}") {
         get("/price-ratios") {
-            val (profileId, symbol, source, refresh) = call.companyDataRequest()
-            call.respond(companyData.priceAndRatios(profileId, symbol, source, refresh).toDto())
+            val (profileId, symbol, source, trigger) = call.companyDataRequest()
+            call.respond(companyData.priceAndRatios(profileId, symbol, source, trigger).toDto())
         }
         get("/balance-sheet") {
-            val (profileId, symbol, source, refresh) = call.companyDataRequest()
-            call.respond(companyData.balanceSheet(profileId, symbol, source, refresh).toDto())
+            val (profileId, symbol, source, trigger) = call.companyDataRequest()
+            call.respond(companyData.balanceSheet(profileId, symbol, source, trigger).toDto())
         }
         get("/profile") {
-            val (profileId, symbol, source, refresh) = call.companyDataRequest()
-            call.respond(companyData.companyProfile(profileId, symbol, source, refresh).toDto())
+            val (profileId, symbol, source, trigger) = call.companyDataRequest()
+            call.respond(companyData.companyProfile(profileId, symbol, source, trigger).toDto())
         }
     }
 }

@@ -61,6 +61,36 @@ private fun CompanyDataFixture.listedWithQuotes(tickers: List<String>) = tickers
 
 class CompanyDataServiceWatchlistTest : FunSpec({
 
+    context("source with automatic requests off") {
+        test("stale quotes and ratios are returned as CACHED and missing ones as NOT_REQUESTED, without calls") {
+            val f = CompanyDataFixture(automaticRequests = false)
+            f.listedWithQuotes(listOf("AAA", "BBB"))
+            f.ratiosFromSource("AAA")
+            f.cachedQuote("AAA", 50.0, age = Duration.ofDays(3))
+            f.cached(ratiosKey("AAA"), sampleRatios(), age = Duration.ofDays(3))
+
+            val data = f.watchlistData(listOf("AAA", "BBB"))
+
+            data.getValue(Symbol.of("AAA")).quote.status shouldBe DataStatus.CACHED
+            data.getValue(Symbol.of("AAA")).quote.data?.quote?.price shouldBe 50.0
+            data.getValue(Symbol.of("AAA")).ratios.status shouldBe DataStatus.CACHED
+            data.getValue(Symbol.of("BBB")).quote.status shouldBe DataStatus.NOT_REQUESTED
+            data.getValue(Symbol.of("BBB")).quote.data.shouldBeNull()
+            data.getValue(Symbol.of("BBB")).ratios.status shouldBe DataStatus.NOT_REQUESTED
+            f.source.calls.shouldBeEmpty()
+            f.countingCounters.tryAcquireCalls shouldBe 0
+        }
+
+        test("a fresh quote is returned as FRESH") {
+            val f = CompanyDataFixture(automaticRequests = false)
+            f.listedWithQuotes(listOf("AAA"))
+            f.cachedQuote("AAA", 50.0, age = Duration.ofMinutes(5))
+
+            f.watchlist("AAA").getValue(Symbol.of("AAA")).status shouldBe DataStatus.FRESH
+            f.source.calls.shouldBeEmpty()
+        }
+    }
+
     test("empty watchlist reads nothing and calls nothing") {
         val f = CompanyDataFixture()
 

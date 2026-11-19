@@ -23,6 +23,9 @@ enum class DataStatus {
 
     /** The source has no data for the company. */
     NO_DATA,
+
+    /** Nothing is cached and the source wasn't called: its automatic requests are off and the request wasn't manual. */
+    NOT_REQUESTED,
 }
 
 /**

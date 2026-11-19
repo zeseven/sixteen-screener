@@ -13,6 +13,7 @@ import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.Quote
 import com.sixteenscreener.domain.model.RatioCode
 import com.sixteenscreener.domain.model.Ratios
+import com.sixteenscreener.domain.model.RequestTrigger
 import com.sixteenscreener.domain.model.ResourceNotFoundException
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceCallResult
@@ -20,6 +21,7 @@ import com.sixteenscreener.domain.model.SourceData
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.SymbolLookup
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.balanceSheetKey
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.profileKey
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.quoteKey
@@ -64,7 +66,7 @@ class CompanyDataServiceTest : FunSpec({
             f.quoteFromSource("AAPL", 190.0)
             f.ratiosFromSource("AAPL")
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             result.status shouldBe DataStatus.FRESH
             result.fetchedAt shouldBe f.now
@@ -82,7 +84,7 @@ class CompanyDataServiceTest : FunSpec({
             f.quoteFromSource("AAPL", 190.0)
             f.ratiosFromSource("AAPL", sampleRatios(pe = 45.0))
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             result.indicators shouldContainExactly listOf(Indicator(RatioCode.PE, IndicatorLevel.BAD))
             f.profiles.findById(f.profile.id)?.indicatorSettings shouldBe IndicatorDefaults.all.map { it.setting }
@@ -93,7 +95,7 @@ class CompanyDataServiceTest : FunSpec({
             f.quoteFromSource("AAPL", 13.9)
             f.ratiosFromSource("AAPL", Ratios.of(mapOf(RatioCode.EPS to -2.252)))
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             result.indicators shouldContainExactly listOf(Indicator(RatioCode.PE, IndicatorLevel.BAD))
             result.ratios.data?.valueOf(RatioCode.PE) shouldBe null
@@ -103,7 +105,7 @@ class CompanyDataServiceTest : FunSpec({
             val f = fixture()
             f.quoteFromSource("AAPL", 190.0)
 
-            f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false).indicators.shouldBeEmpty()
+            f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO).indicators.shouldBeEmpty()
         }
 
         test("budget for both calls is reserved in one transaction") {
@@ -111,7 +113,7 @@ class CompanyDataServiceTest : FunSpec({
             f.quoteFromSource("AAPL", 190.0)
             f.ratiosFromSource("AAPL")
 
-            f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+            f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             f.countingCounters.tryAcquireCalls shouldBe 1
         }
@@ -121,7 +123,7 @@ class CompanyDataServiceTest : FunSpec({
             val quote = f.cachedQuote("AAPL", 189.0, age = Duration.ofMinutes(10))
             val ratios = f.cached(ratiosKey("AAPL"), sampleRatios(), age = Duration.ofMinutes(20))
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             result.status shouldBe DataStatus.FRESH
             result.fetchedAt shouldBe ratios.fetchedAt
@@ -135,7 +137,7 @@ class CompanyDataServiceTest : FunSpec({
             f.cachedQuote("AAPL", 189.0, age = Duration.ofHours(5))
             f.cached(ratiosKey("AAPL"), sampleRatios(), age = Duration.ofDays(3))
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             result.status shouldBe DataStatus.CACHED
             result.quote.status shouldBe DataStatus.CACHED
@@ -148,7 +150,7 @@ class CompanyDataServiceTest : FunSpec({
             f.cachedQuote("AAPL", 189.0, age = Duration.ofHours(5))
             f.ratiosFromSource("AAPL")
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             f.source.calls shouldContainExactly listOf("ratios:AAPL")
             result.quote.status shouldBe DataStatus.CACHED
@@ -163,7 +165,7 @@ class CompanyDataServiceTest : FunSpec({
             f.quoteFromSource("AAPL", 191.0)
             f.ratiosFromSource("AAPL", sampleRatios(31.0))
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = true)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.MANUAL)
 
             result.status shouldBe DataStatus.FRESH
             result.fetchedAt shouldBe f.now
@@ -176,7 +178,7 @@ class CompanyDataServiceTest : FunSpec({
             f.exhaustBudget()
             f.quoteFromSource("AAPL", 190.0)
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             result.status shouldBe DataStatus.LIMIT_REACHED
             result.fetchedAt.shouldBeNull()
@@ -191,7 +193,7 @@ class CompanyDataServiceTest : FunSpec({
             f.cached(ratiosKey("AAPL"), sampleRatios(), age = Duration.ofMinutes(10))
             f.exhaustBudget()
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = true)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.MANUAL)
 
             result.status shouldBe DataStatus.LIMIT_REACHED
             result.fetchedAt shouldBe quote.fetchedAt
@@ -206,7 +208,7 @@ class CompanyDataServiceTest : FunSpec({
             f.quoteFromSource("AAPL", 190.0)
             f.ratiosFromSource("AAPL")
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             f.source.calls shouldContainExactly listOf("quote:AAPL")
             result.quote.status shouldBe DataStatus.FRESH
@@ -221,7 +223,7 @@ class CompanyDataServiceTest : FunSpec({
             f.quoteFails("AAPL")
             f.source.ratios[AAPL] = SourceResult.SourceError(SourceCallOutcome.timeout(f.now))
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = true)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.MANUAL)
 
             result.status shouldBe DataStatus.SOURCE_ERROR
             result.fetchedAt shouldBe quote.fetchedAt
@@ -236,7 +238,7 @@ class CompanyDataServiceTest : FunSpec({
             f.quoteFails("AAPL", 503)
             f.source.ratios[AAPL] = SourceResult.SourceError(SourceCallOutcome.appError(f.now))
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             result.status shouldBe DataStatus.SOURCE_ERROR
             result.fetchedAt.shouldBeNull()
@@ -249,7 +251,7 @@ class CompanyDataServiceTest : FunSpec({
             f.source.quotes[AAPL] = SourceResult.NoData(f.success())
             f.source.ratios[AAPL] = SourceResult.NoData(f.success())
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             result.status shouldBe DataStatus.NO_DATA
             result.fetchedAt.shouldBeNull()
@@ -260,7 +262,7 @@ class CompanyDataServiceTest : FunSpec({
             f.quoteRateLimited("AAPL")
             f.source.ratios[AAPL] = SourceResult.LimitReached(SourceCallOutcome.httpError(429, f.now))
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             result.status shouldBe DataStatus.LIMIT_REACHED
             f.limiter.tryAcquire(FINNHUB, 1) shouldBe 0
@@ -269,7 +271,7 @@ class CompanyDataServiceTest : FunSpec({
         test("source lacking the capabilities gives NOT_SUPPORTED without a call") {
             val f = fixture(capabilities = setOf(Capability.SEARCH))
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = true)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.MANUAL)
 
             result.status shouldBe DataStatus.NOT_SUPPORTED
             result.fetchedAt.shouldBeNull()
@@ -279,7 +281,7 @@ class CompanyDataServiceTest : FunSpec({
         test("source without a market data adapter gives NOT_SUPPORTED") {
             val f = fixture()
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = SEC_EDGAR, refresh = false)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = SEC_EDGAR, trigger = RequestTrigger.AUTO)
 
             result.status shouldBe DataStatus.NOT_SUPPORTED
             result.source shouldBe SEC_EDGAR
@@ -290,7 +292,7 @@ class CompanyDataServiceTest : FunSpec({
             val f = fixture(capabilities = setOf(Capability.QUOTE))
             f.quoteFromSource("AAPL", 190.0)
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             result.ratios.status shouldBe DataStatus.NOT_SUPPORTED
             result.status shouldBe DataStatus.FRESH
@@ -302,7 +304,7 @@ class CompanyDataServiceTest : FunSpec({
             f.quoteFromSource("AAPL", 190.0)
             f.ratiosFromSource("AAPL")
 
-            val quote = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = true).quote.data
+            val quote = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.MANUAL).quote.data
 
             quote.shouldNotBeNull()
             quote.previousPrice?.price shouldBe 180.0
@@ -316,7 +318,7 @@ class CompanyDataServiceTest : FunSpec({
             f.ratiosFromSource("AAPL")
             f.cache.failWrites = true
 
-            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = true)
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.MANUAL)
 
             result.status shouldBe DataStatus.FRESH
             result.fetchedAt shouldBe f.now
@@ -332,7 +334,7 @@ class CompanyDataServiceTest : FunSpec({
             f.quoteFromSource("AAPL", 190.0)
             f.cache.failWrites = true
 
-            val quote = f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false).quote
+            val quote = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO).quote
 
             quote.status shouldBe DataStatus.FRESH
             quote.data?.previousPrice.shouldBeNull()
@@ -344,7 +346,7 @@ class CompanyDataServiceTest : FunSpec({
             f.quoteFromSource("AAPL", 190.0)
             f.source.ratios[AAPL] = SourceResult.SourceError(SourceCallOutcome.httpError(502, f.now))
 
-            f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+            f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             f.sourceCalls.writes.map { it.first } shouldContainExactly listOf(FINNHUB)
         }
@@ -355,7 +357,7 @@ class CompanyDataServiceTest : FunSpec({
             val f = fixture()
             f.finnhubBalanceSheets.balanceSheets[AAPL] = SourceResult.Success(sampleBalanceSheet(), f.success())
 
-            val result = f.service.balanceSheet(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.balanceSheet(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             result.status shouldBe DataStatus.FRESH
             result.data shouldBe sampleBalanceSheet()
@@ -368,7 +370,7 @@ class CompanyDataServiceTest : FunSpec({
             f.finnhubBalanceSheets.balanceSheets[AAPL] = SourceResult.Success(sampleBalanceSheet(), f.success())
             f.cache.failWrites = true
 
-            val result = f.service.balanceSheet(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.balanceSheet(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             result.status shouldBe DataStatus.FRESH
             result.data shouldBe sampleBalanceSheet()
@@ -379,7 +381,7 @@ class CompanyDataServiceTest : FunSpec({
             val f = fixture()
             f.secBalanceSheets.balanceSheets[AAPL] = SourceResult.Success(sampleBalanceSheet(), f.success())
 
-            val result = f.service.balanceSheet(f.profile.id, AAPL, source = SEC_EDGAR, refresh = false)
+            val result = f.service.balanceSheet(f.profile.id, AAPL, source = SEC_EDGAR, trigger = RequestTrigger.AUTO)
 
             result.source shouldBe SEC_EDGAR
             result.status shouldBe DataStatus.FRESH
@@ -391,7 +393,7 @@ class CompanyDataServiceTest : FunSpec({
             val f = fixture()
             f.secBalanceSheets.balanceSheets[AAPL] = SourceResult.NotSupported(outcome = null)
 
-            val result = f.service.balanceSheet(f.profile.id, AAPL, source = SEC_EDGAR, refresh = false)
+            val result = f.service.balanceSheet(f.profile.id, AAPL, source = SEC_EDGAR, trigger = RequestTrigger.AUTO)
 
             result.status shouldBe DataStatus.NOT_SUPPORTED
             result.data.shouldBeNull()
@@ -400,7 +402,7 @@ class CompanyDataServiceTest : FunSpec({
         test("source without the capability gives NOT_SUPPORTED without a call or cache read") {
             val f = fixture(capabilities = setOf(Capability.QUOTE, Capability.RATIOS))
 
-            val result = f.service.balanceSheet(f.profile.id, AAPL, source = null, refresh = true)
+            val result = f.service.balanceSheet(f.profile.id, AAPL, source = null, trigger = RequestTrigger.MANUAL)
 
             result.status shouldBe DataStatus.NOT_SUPPORTED
             f.finnhubBalanceSheets.calls.shouldBeEmpty()
@@ -410,7 +412,7 @@ class CompanyDataServiceTest : FunSpec({
             val f = fixture()
             val cached = f.cached(balanceSheetKey("AAPL"), sampleBalanceSheet(), age = Duration.ofDays(10))
 
-            val result = f.service.balanceSheet(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.balanceSheet(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             result.status shouldBe DataStatus.CACHED
             result.fetchedAt shouldBe cached.fetchedAt
@@ -423,7 +425,7 @@ class CompanyDataServiceTest : FunSpec({
             val f = fixture()
             f.profileFromSource("AAPL")
 
-            val result = f.service.companyProfile(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.companyProfile(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             result.profile.status shouldBe DataStatus.FRESH
             result.identity.symbol shouldBe AAPL
@@ -438,7 +440,7 @@ class CompanyDataServiceTest : FunSpec({
             f.cached(profileKey("AAPL"), sampleProfile(sector = "Old"), age = Duration.ofDays(1))
             f.profileFromSource("AAPL")
 
-            val result = f.service.companyProfile(f.profile.id, AAPL, source = null, refresh = true)
+            val result = f.service.companyProfile(f.profile.id, AAPL, source = null, trigger = RequestTrigger.MANUAL)
 
             result.profile.data?.sector shouldBe "Technology"
             f.profileCalls() shouldContainExactly listOf("profile:AAPL")
@@ -448,7 +450,7 @@ class CompanyDataServiceTest : FunSpec({
             val f = fixture()
             f.exhaustBudget()
 
-            val result = f.service.companyProfile(f.profile.id, AAPL, source = null, refresh = false)
+            val result = f.service.companyProfile(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
             result.profile.status shouldBe DataStatus.LIMIT_REACHED
             result.profile.data.shouldBeNull()
@@ -460,7 +462,7 @@ class CompanyDataServiceTest : FunSpec({
             val f = CompanyDataFixture().apply { listed(listing("AAPL", name = "APPLE INC").copy(type = "ADR")) }
             f.profileFromSource("AAPL")
 
-            val identity = f.service.companyProfile(f.profile.id, AAPL, source = null, refresh = false).identity
+            val identity = f.service.companyProfile(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO).identity
 
             identity.name shouldBe "Apple Inc"
             identity.type shouldBe "ADR"
@@ -485,7 +487,7 @@ class CompanyDataServiceTest : FunSpec({
                 val f = CompanyDataFixture().apply { listed(ListedSymbol(symbol, case.symbol, case.mic, "USD", case.type)) }
                 f.profileFromSource(case.symbol, sampleProfile().copy(country = case.country))
 
-                f.service.companyProfile(f.profile.id, symbol, source = null, refresh = false).homeExchange shouldBe case.home
+                f.service.companyProfile(f.profile.id, symbol, source = null, trigger = RequestTrigger.AUTO).homeExchange shouldBe case.home
             }
         }
     }
@@ -495,21 +497,21 @@ class CompanyDataServiceTest : FunSpec({
             val f = fixture(defaultSource = SEC_EDGAR)
             f.secBalanceSheets.balanceSheets[AAPL] = SourceResult.Success(sampleBalanceSheet(), f.success())
 
-            f.service.balanceSheet(f.profile.id, AAPL, source = null, refresh = false).source shouldBe SEC_EDGAR
+            f.service.balanceSheet(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO).source shouldBe SEC_EDGAR
         }
 
         test("profile default source that is no longer configured falls back to the configured default") {
             val f = fixture(defaultSource = SourceId.of("tiingo"))
             f.finnhubBalanceSheets.balanceSheets[AAPL] = SourceResult.Success(sampleBalanceSheet(), f.success())
 
-            f.service.balanceSheet(f.profile.id, AAPL, source = null, refresh = false).source shouldBe FINNHUB
+            f.service.balanceSheet(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO).source shouldBe FINNHUB
         }
 
         test("unknown source is not found") {
             val f = fixture()
 
             shouldThrow<ResourceNotFoundException> {
-                f.service.priceAndRatios(f.profile.id, AAPL, source = SourceId.of("tiingo"), refresh = false)
+                f.service.priceAndRatios(f.profile.id, AAPL, source = SourceId.of("tiingo"), trigger = RequestTrigger.AUTO)
             }.message shouldContain "tiingo"
         }
 
@@ -517,7 +519,7 @@ class CompanyDataServiceTest : FunSpec({
             val f = fixture()
 
             shouldThrow<ResourceNotFoundException> {
-                f.service.companyProfile(ProfileId.random(), AAPL, source = null, refresh = false)
+                f.service.companyProfile(ProfileId.random(), AAPL, source = null, trigger = RequestTrigger.AUTO)
             }
         }
 
@@ -525,7 +527,7 @@ class CompanyDataServiceTest : FunSpec({
             val f = fixture()
 
             shouldThrow<ResourceNotFoundException> {
-                f.service.balanceSheet(f.profile.id, Symbol.of("NOPE"), source = null, refresh = false)
+                f.service.balanceSheet(f.profile.id, Symbol.of("NOPE"), source = null, trigger = RequestTrigger.AUTO)
             }.message shouldContain "NOPE"
             f.source.calls.shouldBeEmpty()
         }
@@ -535,7 +537,7 @@ class CompanyDataServiceTest : FunSpec({
             f.directory.unavailable(ExchangeCode("AS"))
 
             shouldThrow<ResourceNotFoundException> {
-                f.service.priceAndRatios(f.profile.id, AD, source = null, refresh = false)
+                f.service.priceAndRatios(f.profile.id, AD, source = null, trigger = RequestTrigger.AUTO)
             }
             f.source.calls.shouldBeEmpty()
         }
@@ -550,7 +552,7 @@ class CompanyDataServiceTest : FunSpec({
             f.quoteFromSource("AD.AS", 30.0, "EUR")
             f.ratiosFromSource("AD.AS")
 
-            val result = f.service.priceAndRatios(f.profile.id, AD, source = null, refresh = true)
+            val result = f.service.priceAndRatios(f.profile.id, AD, source = null, trigger = RequestTrigger.MANUAL)
 
             result.status shouldBe DataStatus.NOT_SUPPORTED
             result.quote.status shouldBe DataStatus.NOT_SUPPORTED
@@ -564,7 +566,7 @@ class CompanyDataServiceTest : FunSpec({
             val f = notCovered()
             f.profileFromSource("AD.AS")
 
-            val result = f.service.companyProfile(f.profile.id, AD, source = null, refresh = true)
+            val result = f.service.companyProfile(f.profile.id, AD, source = null, trigger = RequestTrigger.MANUAL)
 
             result.profile.status shouldBe DataStatus.NOT_SUPPORTED
             result.identity shouldBe CompanyIdentity(AD, "AMS", "AD", Market.EU, null)
@@ -576,7 +578,7 @@ class CompanyDataServiceTest : FunSpec({
             val entry = watchlistEntry("AD.AS", name = "Koninklijke Ahold Delhaize NV")
             f.profiles.save(f.profile.copy(watchlist = listOf(entry)))
 
-            f.service.companyProfile(f.profile.id, AD, source = null, refresh = false).identity.name shouldBe
+            f.service.companyProfile(f.profile.id, AD, source = null, trigger = RequestTrigger.AUTO).identity.name shouldBe
                 "Koninklijke Ahold Delhaize NV"
             f.profiles.findById(f.profile.id)!!.watchlist shouldContainExactly listOf(entry)
             f.profiles.companyUpdates shouldBe 0
@@ -587,7 +589,7 @@ class CompanyDataServiceTest : FunSpec({
             f.cached(balanceSheetKey("AD.AS"), sampleBalanceSheet(), age = Duration.ofDays(1))
             f.finnhubBalanceSheets.balanceSheets[AD] = SourceResult.Success(sampleBalanceSheet(), f.success())
 
-            val result = f.service.balanceSheet(f.profile.id, AD, source = null, refresh = false)
+            val result = f.service.balanceSheet(f.profile.id, AD, source = null, trigger = RequestTrigger.AUTO)
 
             result shouldBe SourceData(FINNHUB, DataStatus.NOT_SUPPORTED, data = null, fetchedAt = null)
             f.finnhubBalanceSheets.calls.shouldBeEmpty()
@@ -597,7 +599,7 @@ class CompanyDataServiceTest : FunSpec({
         test("balance sheet of the directory source is NOT_SUPPORTED without a call on refresh") {
             val f = notCovered()
 
-            f.service.balanceSheet(f.profile.id, AD, source = FINNHUB, refresh = true).status shouldBe DataStatus.NOT_SUPPORTED
+            f.service.balanceSheet(f.profile.id, AD, source = FINNHUB, trigger = RequestTrigger.MANUAL).status shouldBe DataStatus.NOT_SUPPORTED
             f.finnhubBalanceSheets.calls.shouldBeEmpty()
             f.countingCounters.tryAcquireCalls shouldBe 0
         }
@@ -606,14 +608,14 @@ class CompanyDataServiceTest : FunSpec({
             val f = notCovered()
             f.finnhubBalanceSheets.balanceSheets[AAPL] = SourceResult.Success(sampleBalanceSheet(), f.success())
 
-            f.service.balanceSheet(f.profile.id, AAPL, source = null, refresh = false).status shouldBe DataStatus.FRESH
+            f.service.balanceSheet(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO).status shouldBe DataStatus.FRESH
             f.finnhubBalanceSheets.calls shouldContainExactly listOf(AAPL)
         }
 
         test("balance sheet of SEC EDGAR is requested from its adapter instead of not found") {
             val f = notCovered()
 
-            f.service.balanceSheet(f.profile.id, AD, source = SEC_EDGAR, refresh = false).source shouldBe SEC_EDGAR
+            f.service.balanceSheet(f.profile.id, AD, source = SEC_EDGAR, trigger = RequestTrigger.AUTO).source shouldBe SEC_EDGAR
             f.secBalanceSheets.calls shouldContainExactly listOf(AD)
         }
 
@@ -622,7 +624,7 @@ class CompanyDataServiceTest : FunSpec({
             f.quoteFromSource("AD.AS", 30.0, "EUR")
             f.ratiosFromSource("AD.AS")
 
-            val result = f.service.priceAndRatios(f.profile.id, AD, source = null, refresh = false)
+            val result = f.service.priceAndRatios(f.profile.id, AD, source = null, trigger = RequestTrigger.AUTO)
 
             result.status shouldBe DataStatus.FRESH
             result.quote.data?.quote shouldBe Quote(30.0, "EUR")
@@ -630,11 +632,159 @@ class CompanyDataServiceTest : FunSpec({
         }
     }
 
+    context("source with automatic requests off") {
+        fun manualOnly(limit: Int = 60) = CompanyDataFixture(limit = limit, automaticRequests = false).apply { listed(apple) }
+
+        test("AUTO without cache is NOT_REQUESTED with empty data, no call and no budget reservation") {
+            val f = manualOnly()
+            f.quoteFromSource("AAPL", 190.0)
+            f.ratiosFromSource("AAPL")
+
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
+
+            result.status shouldBe DataStatus.NOT_REQUESTED
+            result.quote.status shouldBe DataStatus.NOT_REQUESTED
+            result.ratios.status shouldBe DataStatus.NOT_REQUESTED
+            result.fetchedAt.shouldBeNull()
+            result.quote.data.shouldBeNull()
+            result.ratios.data.shouldBeNull()
+            f.source.calls.shouldBeEmpty()
+            f.countingCounters.tryAcquireCalls shouldBe 0
+        }
+
+        test("AUTO with a stale cache returns it as CACHED without a call") {
+            val f = manualOnly()
+            f.cachedQuote("AAPL", 189.0, age = Duration.ofDays(5))
+            f.cached(ratiosKey("AAPL"), sampleRatios(), age = Duration.ofDays(5))
+
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
+
+            result.status shouldBe DataStatus.CACHED
+            result.quote.data?.quote?.price shouldBe 189.0
+            f.source.calls.shouldBeEmpty()
+        }
+
+        test("AUTO with a fresh cache returns it as FRESH without a call") {
+            val f = manualOnly()
+            f.cachedQuote("AAPL", 189.0, age = Duration.ofMinutes(5))
+            f.cached(ratiosKey("AAPL"), sampleRatios(), age = Duration.ofMinutes(5))
+
+            f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO).status shouldBe
+                DataStatus.FRESH
+            f.source.calls.shouldBeEmpty()
+        }
+
+        test("AUTO with only the quote cached combines to NOT_REQUESTED") {
+            val f = manualOnly()
+            f.cachedQuote("AAPL", 189.0, age = Duration.ofDays(1))
+
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
+
+            result.quote.status shouldBe DataStatus.CACHED
+            result.ratios.status shouldBe DataStatus.NOT_REQUESTED
+            result.status shouldBe DataStatus.NOT_REQUESTED
+            f.source.calls.shouldBeEmpty()
+        }
+
+        test("MANUAL without cache calls the source") {
+            val f = manualOnly()
+            f.quoteFromSource("AAPL", 190.0)
+            f.ratiosFromSource("AAPL")
+
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.MANUAL)
+
+            result.status shouldBe DataStatus.FRESH
+            f.source.calls shouldContainExactlyInAnyOrder listOf("quote:AAPL", "ratios:AAPL")
+        }
+
+        test("MANUAL with a cache younger than 1 hour returns it without a call") {
+            val f = manualOnly()
+            f.cachedQuote("AAPL", 189.0, age = Duration.ofMinutes(59))
+            f.cached(ratiosKey("AAPL"), sampleRatios(), age = Duration.ofMinutes(59))
+            f.quoteFromSource("AAPL", 190.0)
+
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.MANUAL)
+
+            result.status shouldBe DataStatus.FRESH
+            result.quote.data?.quote?.price shouldBe 189.0
+            f.source.calls.shouldBeEmpty()
+        }
+
+        test("MANUAL with a cache of 1 hour or older calls the source") {
+            val f = manualOnly()
+            f.cachedQuote("AAPL", 189.0, age = Duration.ofHours(1))
+            f.cached(ratiosKey("AAPL"), sampleRatios(), age = Duration.ofHours(3))
+            f.quoteFromSource("AAPL", 190.0)
+            f.ratiosFromSource("AAPL", sampleRatios(12.0))
+
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.MANUAL)
+
+            result.status shouldBe DataStatus.FRESH
+            result.quote.data?.quote?.price shouldBe 190.0
+            result.ratios.data shouldBe sampleRatios(12.0)
+        }
+
+        test("MANUAL with a stale cache and a reached limit returns the cache with LIMIT_REACHED") {
+            val f = manualOnly()
+            val quote = f.cachedQuote("AAPL", 189.0, age = Duration.ofHours(2))
+            f.cached(ratiosKey("AAPL"), sampleRatios(), age = Duration.ofHours(2))
+            f.exhaustBudget()
+
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.MANUAL)
+
+            result.status shouldBe DataStatus.LIMIT_REACHED
+            result.quote.data shouldBe quote.data
+            f.source.calls.shouldBeEmpty()
+        }
+
+        test("MANUAL without cache and a reached limit returns empty data with LIMIT_REACHED") {
+            val f = manualOnly()
+            f.exhaustBudget()
+
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.MANUAL)
+
+            result.status shouldBe DataStatus.LIMIT_REACHED
+            result.quote.data.shouldBeNull()
+        }
+
+        test("balance sheet and company profile are NOT_REQUESTED for AUTO without cache") {
+            val f = manualOnly()
+            f.profileFromSource("AAPL")
+
+            f.service.balanceSheet(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO).status shouldBe
+                DataStatus.NOT_REQUESTED
+            f.service.companyProfile(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO).profile.status shouldBe
+                DataStatus.NOT_REQUESTED
+            f.source.calls.shouldBeEmpty()
+            f.finnhubBalanceSheets.calls.shouldBeEmpty()
+        }
+
+        test("an unexpired company profile for adding to the watchlist is not requested") {
+            val f = manualOnly()
+            f.profileFromSource("AAPL")
+
+            f.service.unexpiredCompanyProfile(FINNHUB, AAPL, SymbolLookup.Listed(apple)).status shouldBe DataStatus.NOT_REQUESTED
+            f.source.calls.shouldBeEmpty()
+        }
+
+        test("an expired company profile for adding to the watchlist is returned as CACHED without a call") {
+            val f = manualOnly()
+            f.cached(profileKey("AAPL"), sampleProfile(), age = Duration.ofDays(120))
+            f.profileFromSource("AAPL")
+
+            val profile = f.service.unexpiredCompanyProfile(FINNHUB, AAPL, SymbolLookup.Listed(apple))
+
+            profile.status shouldBe DataStatus.CACHED
+            profile.data shouldBe sampleProfile()
+            f.source.calls.shouldBeEmpty()
+        }
+    }
+
     test("outcome of a skipped call is not recorded") {
         val f = fixture()
         f.exhaustBudget()
 
-        f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+        f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
         f.sourceCalls.writes.shouldBeEmpty()
     }
@@ -644,7 +794,7 @@ class CompanyDataServiceTest : FunSpec({
         f.quoteFails("AAPL", 503)
         f.source.ratios[AAPL] = SourceResult.SourceError(SourceCallOutcome.httpError(503, f.now))
 
-        f.service.priceAndRatios(f.profile.id, AAPL, source = null, refresh = false)
+        f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
 
         f.sourceCalls.writes.single().second.result shouldBe SourceCallResult.HTTP_ERROR
     }

@@ -20,6 +20,8 @@ data class AppConfig(
 
     val totalCountedSources: Set<SourceId> get() = sources.filter { it.countTotalCalls }.map { it.id }.toSet()
 
+    val manualOnlySources: Set<SourceId> get() = enabledSources.filterNot { it.automaticRequests }.map { it.id }.toSet()
+
     fun source(id: SourceId): SourceConfig? = sources.firstOrNull { it.id == id }
 }
 
@@ -35,6 +37,7 @@ data class SourceConfig(
     val timeout: Duration,
     val countTotalCalls: Boolean = false,
     val directoryExchanges: Set<ExchangeCode>? = null,
+    val automaticRequests: Boolean = true,
 )
 
 data class SourceSecrets(

@@ -98,6 +98,7 @@ class CompanyDataFixture(
     limit: Int = 60,
     capabilities: Set<Capability> = ALL_MARKET_DATA,
     defaultSource: SourceId? = null,
+    automaticRequests: Boolean = true,
     marketDataSource: (FakeMarketDataSource) -> MarketDataSource = { it },
 ) {
     val clock = MutableClock()
@@ -115,7 +116,11 @@ class CompanyDataFixture(
         countingCounters,
         clock,
     )
-    val catalog = SourceCatalog(FINNHUB, mapOf(FINNHUB to capabilities, SEC_EDGAR to setOf(Capability.BALANCE_SHEET)))
+    val catalog = SourceCatalog(
+        FINNHUB,
+        mapOf(FINNHUB to capabilities, SEC_EDGAR to setOf(Capability.BALANCE_SHEET)),
+        manualOnlySources = if (automaticRequests) emptySet() else setOf(FINNHUB),
+    )
     val marketResolver = MarketResolver()
     val identities = CompanyIdentityResolver(marketResolver)
     val watchlistCompanies = WatchlistCompanySync(profiles, catalog, clock)

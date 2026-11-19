@@ -71,7 +71,8 @@ data class WatchlistMarketData(
  * The combined [status] and [fetchedAt] are derived from both parts:
  * - parts with `NOT_SUPPORTED` or `NO_DATA` are ignored, unless no other part is left: then `NO_DATA` when any part has
  *   no data, otherwise `NOT_SUPPORTED`;
- * - otherwise the worst status of the remaining parts wins, in the order `SOURCE_ERROR`, `LIMIT_REACHED`, `CACHED`, `FRESH`;
+ * - otherwise the worst status of the remaining parts wins, in the order `SOURCE_ERROR`, `LIMIT_REACHED`,
+ *   `NOT_REQUESTED`, `CACHED`, `FRESH`;
  * - [fetchedAt] is the oldest fetch time of the returned data, null when no data is returned.
  *
  * @property quote latest quote
@@ -94,7 +95,13 @@ data class PriceAndRatios(
 
     private companion object {
         private val IGNORED = setOf(DataStatus.NOT_SUPPORTED, DataStatus.NO_DATA)
-        private val SEVERITY = listOf(DataStatus.SOURCE_ERROR, DataStatus.LIMIT_REACHED, DataStatus.CACHED, DataStatus.FRESH)
+        private val SEVERITY = listOf(
+            DataStatus.SOURCE_ERROR,
+            DataStatus.LIMIT_REACHED,
+            DataStatus.NOT_REQUESTED,
+            DataStatus.CACHED,
+            DataStatus.FRESH,
+        )
 
         fun combinedStatus(statuses: List<DataStatus>): DataStatus {
             val relevant = statuses.filterNot { it in IGNORED }
