@@ -5,7 +5,9 @@ Backend works as an accumulator of data from different sources and caches collec
 ## Sources
 Backend uses several external sources to gather info from.
 - Company logo is being downloaded from logo source and cached in a file storage (see ARCHITECTURE.md)
-- Company stock price and ratios are downloaded from mentioned sources. One of those sources is a 'default' one, and user can switch it on sources screen. Data from all sources is being gathered and displayed on a comparison screen.
+- Company stock price and ratios are downloaded from mentioned sources. Sources differ in request limits and in the data they provide, so each source is configured with the roles it can serve: search, US stocks, international (non-US) stocks.
+- Each profile has one default source per role, chosen only among the sources configured for that role (e.g. Finnhub can't be the international source). The user can change these defaults on the sources screen. The app is unaware of the roles: it just asks for the data it needs, and the backend picks the source by role (search) or by the company's market (US or international).
+- Some sources have request limits too low for automatic requests. Each source has an 'automatic requests' setting (on/off). A source with automatic requests off is called only when the user refreshes the data manually on the detailed screen.
 - In addition to common sources (providing prices + ratios + balance sheet) there is a "source of truth" balance sheet loaded on demand on the comparison screen. Balance sheet displays annual data only (quarterly reports are not requested or displayed).
 
 ### USA stocks financial info
@@ -34,12 +36,12 @@ https://logoapi.sh/ticker/AAPL.svg
 There are 4 tabs on the main screen of the app:
 - Watchlist. Displays selected companies. The user can add a stock and remove any existing one.
 Contains filters (drop-down controls): Market (USA/EU/all), sector (finances/technology/etc), user tags.
-- Search. Contains input box for search; searches default source by company ticker or first letters from company name.
+- Search. Contains input box for search; searches the profile's default search source by company ticker or first letters from company name.
 Search is triggered when the user stops typing for 500 ms, or at once with the keyboard's search action.
 Companies found displayed as a list of rows without stock price and indicators (logo, ticker with exchange name, company name, flag); any company can be added to the watchlist. Search makes no source requests other than the search itself.
 If the source request limit is reached or the source fails, the search shows no results and the reason under the input box.
-- Exchanges. A table of known exchanges, with a text filter above it that matches any field. Each exchange shows its country and whether it is a main venue (an exchange where domestic companies have their primary listing).
-- Sources. Displays all the sources for stock prices and ratios. Default one is marked and can be changed by user.
+- Exchanges. A table of known exchanges, with a text filter above it that matches any field. Each exchange shows its country and whether it is a main venue (an exchange where domestic companies have their primary listing). Each exchange also shows the exchange code used by the international source for its symbols (e.g. XETRA for the `.DE` suffix).
+- Sources. Displays all the sources. The default search source is marked 'default'. Each source shows the roles it is the default source for (search, US, international), and is marked 'manual only' when its automatic requests are off. The default source of each role can be changed by the user, limited to the sources configured for that role.
 Each source shows its request limits and counter for requests already made per corresponding interval (min, hour, day).
 Each source also shows a connection indicator for the last call made to it: nothing if the last call succeeded; the response code (e.g. 400) if the response was outside 2XX; 'T' for a timeout; 'NPE' for an unexpected application error.
 On the watchlist and search screens, each company has a button to display full info. That button opens a new 'detailed', or 'comparison' screen.
@@ -48,7 +50,7 @@ That screen contains several tabs:
 - Dividends,
 - Balance sheet (annual data only; a table with one column per year, scrolled horizontally when the years don't fit),
 - Company profile.
-Each tab displays data from the 'default' source. Each tab contains a dropdown to select the source (balance sheet contains additionally government source, the 'source of truth'). On company profile tab user can append its own tags (for filtering on the Watchlist screen). Tags belong to the watchlist: only companies in the watchlist can have tags (tag editing is disabled for other companies), and removing a company from the watchlist removes its tags.
+Each tab displays data from the profile's default source for the company's market (US or international). Each tab contains a dropdown to select another source configured for that market (balance sheet contains additionally government source, the 'source of truth'). On company profile tab user can append its own tags (for filtering on the Watchlist screen). Tags belong to the watchlist: only companies in the watchlist can have tags (tag editing is disabled for other companies), and removing a company from the watchlist removes its tags.
 Right under the company row at the top of the detailed screen, a smaller row shows the security type (for example 'Common Stock' or 'ADR'). A type that is not a stock is highlighted. When the exchange is the company's home exchange (an exchange of the company's own country), a checkmark and 'home exchange' follow the type. Both are approximations to help the user pick the stock among several listings of the same company.
 There should be one more 'settings' screen, accessible by 'settings' button, with indicators and other app settings.
 
@@ -93,6 +95,6 @@ Profile name can be switched in settings at any time (so the user can get access
 ## Data freshness
 If company's data has been collected less than an hour ago, it's considered fresh data and doesn't require a refresh.
 The watchlist itself (companies with their sector and tags) is loaded without any source requests. Stock prices and indicators are loaded separately, only for the displayed companies.
-If data collected more than an hour ago, it needs a refresh for a watchlist screen. Only the displayed companies are refreshed, plus 5 more below them as a buffer for scrolling: rows scrolled into view are refreshed as they appear, and a filter change refreshes all displayed rows (plus the buffer). Companies that are not displayed keep the data the app already has. If our source ran out of request limit, we don't refresh data and show latest cached data only.
-For the 'detailed' screen we don't make a separate request on the screen opening - just display the existing data. If there is no cached data at all, it is requested from the source automatically. At the same time, that screen has a refresh button to be triggered manually at any time user decides to refresh; it refreshes all tabs.
+If data collected more than an hour ago, it needs a refresh for a watchlist screen. Only the displayed companies are refreshed, plus 5 more below them as a buffer for scrolling: rows scrolled into view are refreshed as they appear, and a filter change refreshes all displayed rows (plus the buffer). Companies that are not displayed keep the data the app already has. If our source ran out of request limit, we don't refresh data and show latest cached data only. Sources with automatic requests off are never called for the watchlist: their latest cached data is shown, even when it's older than an hour, or '-' in the default text color if nothing is cached.
+For the 'detailed' screen we don't make a separate request on the screen opening - just display the existing data. If there is no cached data at all, it is requested from the source automatically, only for sources with automatic requests on. For sources with automatic requests off, the fields are shown as '-' (in the default text color) together with a hint to refresh. A manual refresh calls such a source only when its cached data is older than an hour. At the same time, that screen has a refresh button to be triggered manually at any time user decides to refresh; it refreshes all tabs.
 If a source returns an error, times out or its request limit is reached, the latest cached data is shown. If there is no cached data, the data fields are shown as '-'.

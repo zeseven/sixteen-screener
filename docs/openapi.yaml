@@ -8,14 +8,19 @@ info:
     Conventions:
     - `x-milestone` on operations and schema properties marks the milestone (alpha, beta, rc) in which the element is implemented.
       Elements without the marker belong to alpha.
-    - Per-user data (watchlist, tags, default source, indicator settings) is scoped by the profile ID (UUID) in the path.
+    - Per-user data (watchlist, tags, default sources, indicator settings) is scoped by the profile ID (UUID) in the path.
       The app gets the ID from `POST /profiles` by profile name. Profiles are not protected: any profile name can be used.
     - Company data is cached and shared between users. Data younger than 1 hour is fresh and is not re-requested from a source.
       When a source request limit is reached, or the source returns a response outside 2XX, times out or fails with an unexpected
       application error, the latest cached data is returned with a corresponding status. Without cached data the same status is
       returned with empty data (nullable fields are null, lists are empty); the app displays missing values as "-".
       Source failures don't produce error responses for company data.
-    - Detailed screen endpoints return cached data as is; when nothing is cached, the data is requested from the source automatically.
+    - Sources serve roles: `SEARCH`, `US` (companies of US exchanges) and `INTERNATIONAL` (companies of any other exchange).
+      The backend takes the profile's default source of the company's role; the app is unaware of the roles.
+    - Company data endpoints take a `trigger` (`AUTO` or `MANUAL`). A source with automatic requests on is called with `AUTO`
+      when nothing is cached (detailed screen) or the cache is stale (watchlist market data), and always with `MANUAL`.
+      A source with automatic requests off is never called with `AUTO`: stale cached data is returned as is, and without cached
+      data the status is `NOT_REQUESTED`; with `MANUAL` it is called when nothing is cached or the cache is older than 1 hour.
     - Indicators are calculated by the backend using the profile's indicator settings. The app only renders them.
     - All timestamps are in UTC (RFC 3339).
 
@@ -107,8 +112,10 @@ paths:
       tags: [Profiles]
       operationId: updateProfile
       summary: Update profile settings
-      description: Changes the profile's default source.
-      x-milestone: beta
+      description: |
+        Changes the profile's default source of one or more roles. A source must be configured for the role it is set for,
+        otherwise `400` is returned.
+      x-milestone: rc
       requestBody:
         required: true
         content:
@@ -162,7 +169,9 @@ paths:
       operationId: getWatchlistMarketData
       summary: Get market data of watchlist rows
       description: |
-        Returns the quote and indicators of the given watchlist companies from the profile's default source, refreshing
+        Returns the quote and indicators of the given watchlist companies, each from the profile's default source of the
+        company's role (`US` or `INTERNATIONAL`). Always an `AUTO` request: sources with automatic requests off are not
+        called (stale cached data, or `NOT_REQUESTED` without cached data). Sources with automatic requests on refresh
         stale quotes (older than 1 hour) oldest first if the source limits allow; otherwise, or when the source fails,
         cached data is returned with the corresponding status. Company profiles are not requested.
         The app calls it for the rows it displays plus a buffer of 5 rows below them: when the watchlist is shown, when
@@ -205,10 +214,11 @@ paths:
       description: |
         Idempotent. A new company is stored with its name and its sector. The name comes from the exchange directory when
         the symbol is listed there, otherwise from the request body (the name of the search result), otherwise the ticker.
-        Symbols of exchanges the source provides no symbol list for (e.g. European exchanges on the Finnhub free plan) are
-        accepted without validation; other symbols missing from the directory return `404`.
-        The sector comes from the company profile of the profile's default source:
-        the cached profile if not expired, otherwise the profile is requested from the source. When the request fails or
+        Symbols of exchanges the search source provides no symbol list for (e.g. European exchanges on the Finnhub free plan)
+        are accepted without validation; other symbols missing from the directory return `404`.
+        The sector comes from the company profile of the profile's default source of the company's role:
+        the cached profile if not expired, otherwise the profile is requested from the source (an `AUTO` request, so a
+        source with automatic requests off is not called). When the request fails or
         the source limit is reached, the sector of an expired cached profile is used; the company is added with
         `sector = null` only when no profile is known (nothing cached and the request failed, or the source has no data).
         Adding a company that is already in the watchlist returns it unchanged without source requests.
@@ -253,12 +263,13 @@ paths:
       operationId: searchCompanies
       summary: Search companies
       description: |
-        Searches the profile's default source by ticker or the first letters of a company name.
+        Searches the profile's default `SEARCH` source by ticker or the first letters of a company name.
         Results contain directory data only (ticker, exchange, name, market, logo); no company data is read from the cache
         and no requests other than the search itself are made.
         Queries of 1 or 2 characters match tickers only: results whose ticker starts with the query, exact ticker matches first.
         Longer queries match tickers and company names. At most 25 results are returned.
-        The app sends requests from the first character, no more than 1 request per second, and never sends an empty query.
+        The app sends a request after a 500 ms pause in typing or at once with the keyboard's search action, and never sends
+        an empty query.
         When the source request limit is reached or the source call fails, the response is still `200` with empty items and
         the corresponding status; the app shows the reason under the search box.
       x-milestone: alpha
@@ -287,7 +298,7 @@ paths:
       - $ref: '#/components/parameters/ProfileId'
       - $ref: '#/components/parameters/Symbol'
       - $ref: '#/components/parameters/Source'
-      - $ref: '#/components/parameters/Refresh'
+      - $ref: '#/components/parameters/Trigger'
     get:
       tags: [Companies]
       operationId: getPriceAndRatios
@@ -311,7 +322,7 @@ paths:
       - $ref: '#/components/parameters/ProfileId'
       - $ref: '#/components/parameters/Symbol'
       - $ref: '#/components/parameters/Source'
-      - $ref: '#/components/parameters/Refresh'
+      - $ref: '#/components/parameters/Trigger'
     get:
       tags: [Companies]
       operationId: getDividends
@@ -335,7 +346,7 @@ paths:
       - $ref: '#/components/parameters/ProfileId'
       - $ref: '#/components/parameters/Symbol'
       - $ref: '#/components/parameters/Source'
-      - $ref: '#/components/parameters/Refresh'
+      - $ref: '#/components/parameters/Trigger'
     get:
       tags: [Companies]
       operationId: getBalanceSheet
@@ -362,7 +373,7 @@ paths:
       - $ref: '#/components/parameters/ProfileId'
       - $ref: '#/components/parameters/Symbol'
       - $ref: '#/components/parameters/Source'
-      - $ref: '#/components/parameters/Refresh'
+      - $ref: '#/components/parameters/Trigger'
     get:
       tags: [Companies]
       operationId: getCompanyProfile
@@ -511,7 +522,9 @@ paths:
       tags: [Sources]
       operationId: getSources
       summary: Get sources
-      description: All configured sources with capabilities, request limits and current usage. The profile's default source is marked.
+      description: |
+        All configured sources with capabilities, roles, request limits and current usage. The roles each source is the
+        profile's default source for are listed, and the default `SEARCH` source is marked.
       x-milestone: alpha
       responses:
         '200':
@@ -613,20 +626,27 @@ components:
       name: source
       in: query
       required: false
-      description: Source to take data from. Defaults to the profile's default source.
+      description: |
+        Source to take data from. Defaults to the profile's default source of the company's role. A source not configured
+        for the company's role returns `NOT_SUPPORTED` without a request; `sec-edgar` is accepted for the balance sheet of
+        US companies.
       schema:
         $ref: '#/components/schemas/SourceId'
-    Refresh:
-      name: refresh
+    Trigger:
+      name: trigger
       in: query
       required: false
       description: |
-        Manual refresh from the detailed screen. When true, data is requested from the source even if the cache is fresh,
-        unless the source limit is reached. When false, cached data is returned as is; if nothing is cached, the data is
-        requested from the source.
+        What caused the request. MANUAL - the refresh button of the detailed screen; AUTO - anything else.
+        AUTO returns cached data as is; when nothing is cached, the source is called only if its automatic requests are on,
+        otherwise the status is `NOT_REQUESTED`.
+        MANUAL calls a source with automatic requests on even if the cache is fresh, and a source with automatic requests
+        off when nothing is cached or the cache is older than 1 hour. Source limits apply in both cases.
       schema:
-        type: boolean
-        default: false
+        type: string
+        enum: [AUTO, MANUAL]
+        default: AUTO
+      x-milestone: beta
 
   responses:
     BadRequest:
@@ -654,8 +674,8 @@ components:
     SourceId:
       type: string
       description: |
-        Configured source identifier. Known values: `finnhub`, `sec-edgar`, `logoapi` (alpha); `finnhub-logos`, `fmp`, `tiingo` (beta);
-        `alpha-vantage`, `eodhd` (rc).
+        Configured source identifier. Known values: `finnhub`, `sec-edgar`, `logoapi` (alpha); `finnhub-logos`,
+        `eodhd` (beta); `fmp`, `tiingo`, `alpha-vantage` (rc).
       pattern: '^[a-z0-9\-]{1,30}$'
       example: finnhub
 
@@ -683,7 +703,7 @@ components:
 
     Profile:
       type: object
-      required: [id, name, defaultSource]
+      required: [id, name, defaultSources]
       properties:
         id:
           type: string
@@ -691,8 +711,22 @@ components:
           description: Profile ID assigned by the backend when the profile is created.
         name:
           type: string
-        defaultSource:
+        defaultSources:
+          $ref: '#/components/schemas/DefaultSources'
+
+    DefaultSources:
+      type: object
+      description: |
+        Default source of each role. Taken from the backend configuration; stored per profile once switching is added (rc).
+      required: [search, us, international]
+      properties:
+        search:
           $ref: '#/components/schemas/SourceId'
+        us:
+          $ref: '#/components/schemas/SourceId'
+        international:
+          $ref: '#/components/schemas/SourceId'
+      x-milestone: beta
 
     ProfileCreate:
       type: object
@@ -707,10 +741,15 @@ components:
 
     ProfileUpdate:
       type: object
-      required: [defaultSource]
+      description: Roles that are left out keep their default source.
       properties:
-        defaultSource:
+        search:
           $ref: '#/components/schemas/SourceId'
+        us:
+          $ref: '#/components/schemas/SourceId'
+        international:
+          $ref: '#/components/schemas/SourceId'
+      x-milestone: rc
 
     WatchlistAdd:
       type: object
@@ -775,13 +814,14 @@ components:
               description: |
                 Company name stored with the watchlist entry when the company is added (exchange directory, otherwise the
                 search result, otherwise the ticker); updated when the detailed screen fetches the company profile from the
-                default source.
+                default source of the company's role.
             sector:
               type: string
               nullable: true
               description: |
-                Sector as provided by the profile's default source, stored with the watchlist entry when the company is added
-                and updated when the detailed screen fetches the company profile from the default source. Null when unknown.
+                Sector as provided by the profile's default source of the company's role, stored with the watchlist entry when
+                the company is added and updated when the detailed screen fetches the company profile from that source. Null
+                when unknown.
               example: Technology
             sectorGroup:
               type: string
@@ -826,14 +866,15 @@ components:
           type: string
           description: |
             Status of the quote, as in `SourceDataMeta.status`. The app draws the price in orange for
-            LIMIT_REACHED and SOURCE_ERROR, and in the neutral color when there is no quote for NOT_SUPPORTED and NO_DATA.
-          enum: [FRESH, CACHED, LIMIT_REACHED, SOURCE_ERROR, NOT_SUPPORTED, NO_DATA]
+            LIMIT_REACHED and SOURCE_ERROR, and in the neutral color when there is no quote for NOT_SUPPORTED, NO_DATA and
+            NOT_REQUESTED.
+          enum: [FRESH, CACHED, LIMIT_REACHED, SOURCE_ERROR, NOT_SUPPORTED, NO_DATA, NOT_REQUESTED]
         indicatorsStatus:
           type: string
           description: |
             Status of the ratios the indicators are calculated from, as in `SourceDataMeta.status`. Ratios are refreshed
             when older than 1 day. The app draws the indicators in orange for LIMIT_REACHED and SOURCE_ERROR.
-          enum: [FRESH, CACHED, LIMIT_REACHED, SOURCE_ERROR, NOT_SUPPORTED, NO_DATA]
+          enum: [FRESH, CACHED, LIMIT_REACHED, SOURCE_ERROR, NOT_SUPPORTED, NO_DATA, NOT_REQUESTED]
           x-milestone: beta
         quote:
           allOf:
@@ -990,8 +1031,10 @@ components:
             SOURCE_ERROR - the source call failed (response outside 2XX, timeout, unexpected application error); cached data returned,
             or empty data if nothing is cached;
             NOT_SUPPORTED - the source doesn't provide this data;
-            NO_DATA - the source has no data for the company.
-          enum: [FRESH, CACHED, LIMIT_REACHED, SOURCE_ERROR, NOT_SUPPORTED, NO_DATA]
+            NO_DATA - the source has no data for the company;
+            NOT_REQUESTED - nothing is cached and the source was not called because its automatic requests are off and the
+            request was not manual (beta); the app shows empty data and a hint to refresh.
+          enum: [FRESH, CACHED, LIMIT_REACHED, SOURCE_ERROR, NOT_SUPPORTED, NO_DATA, NOT_REQUESTED]
         fetchedAt:
           type: string
           format: date-time
@@ -1323,9 +1366,17 @@ components:
       type: string
       enum: [SEARCH, QUOTE, RATIOS, DIVIDENDS, BALANCE_SHEET, COMPANY_PROFILE, LOGO]
 
+    SourceRole:
+      type: string
+      description: |
+        SEARCH - company search; US - data of companies listed on US exchanges; INTERNATIONAL - data of companies listed on
+        any other exchange.
+      enum: [SEARCH, US, INTERNATIONAL]
+      x-milestone: beta
+
     Source:
       type: object
-      required: [id, name, capabilities, selectableAsDefault, isDefault, limits]
+      required: [id, name, capabilities, roles, defaultFor, isDefault, automaticRequests, limits]
       properties:
         id:
           $ref: '#/components/schemas/SourceId'
@@ -1336,12 +1387,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Capability'
-        selectableAsDefault:
-          type: boolean
-          description: True for price and ratio sources; false for SEC EDGAR and the logo sources.
+        roles:
+          type: array
+          description: Roles the source is configured for; empty for SEC EDGAR and the logo sources.
+          items:
+            $ref: '#/components/schemas/SourceRole'
+          x-milestone: beta
+        defaultFor:
+          type: array
+          description: Roles the source is the profile's default source for.
+          items:
+            $ref: '#/components/schemas/SourceRole'
+          x-milestone: beta
         isDefault:
           type: boolean
-          description: Whether this is the profile's default source.
+          description: Whether this is the profile's default `SEARCH` source; the app marks it 'default'.
+        automaticRequests:
+          type: boolean
+          description: False for sources called only on a manual refresh; the app marks them 'manual only'.
+          x-milestone: beta
         limits:
           type: array
           items:
@@ -1412,6 +1476,14 @@ components:
           type: string
           description: ISO 10383 market identifier code.
           example: XTSX
+        eodhdCode:
+          type: string
+          nullable: true
+          description: |
+            EODHD exchange code used to build EODHD symbols (`SAP.DE` is `SAP.XETRA`); null for exchanges EODHD doesn't
+            cover. Shown next to the MIC.
+          example: V
+          x-milestone: beta
         country:
           type: string
           description: ISO 3166-1 alpha-2 country code of the exchange.

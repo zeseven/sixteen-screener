@@ -855,3 +855,20 @@ The static exchange table (ADR-062) gets an ISO 3166-1 alpha-2 country and a mai
 **Decision:** The app sends a search request only when no letter was typed for 500 ms. The keyboard's search action sends the current query at once. An empty input (after trimming) clears the results at once without a request. A newer request still cancels the one in flight. The rest of ADR-054 (query length, ticker-only matching of 1- and 2-character queries, 25 results) is unchanged.
 
 **Consequences:** Typing a name usually costs one or two requests. Results appear 500 ms after the last letter instead of while typing. A cancelled request may still have spent a source request on the backend.
+
+## ADR-083: Source roles and manual-only sources
+
+**Date:** 2026-11-19
+**Status:** Accepted
+
+**Context:** The free plans of the additional sources (`docs/api/FREE-TIER-COMPARISON.md`) differ in coverage as much as in limits: Finnhub has no European data, and EODHD is the only free source of European prices and dividends but allows 20 requests per day. One default source per profile can't serve both markets, the sources can't replace each other, and automatic requests (watchlist refresh, data loaded when nothing is cached) would spend the EODHD day in a few seconds.
+
+**Decision:**
+- Sources serve roles: `SEARCH`, `US` (companies of US exchanges) and `INTERNATIONAL` (companies of any other exchange, EU or not). Each source is configured with the roles it can serve, and a default source per role: Finnhub for `SEARCH` and `US`, EODHD for `INTERNATIONAL`. The global `defaultSource` setting and the single `Profile.defaultSource` are replaced by `defaultSources` per role.
+- In beta every profile uses the configured defaults; there is nothing to switch between. Storing defaults per profile and switching them on the Sources screen (limited to the sources configured for the role) moves to RC.
+- The app is unaware of the roles. The backend picks the source of the company's role; a source not configured for that role answers `NOT_SUPPORTED` without a request (SEC EDGAR stays an additional balance sheet source for US companies). The source dropdown of the detailed screen lists only sources configured for the company's role.
+- Each source has an `automaticRequests` setting, on for Finnhub only. Company data requests carry `trigger=AUTO|MANUAL` (replacing `refresh`); `MANUAL` is sent only by the refresh button of the detailed screen. A source with automatic requests off is never called for `AUTO`: stale cached data is returned as is, and without cached data the new status `NOT_REQUESTED` with empty data (shown as '-' in the neutral color, with a hint to refresh on the detailed screen). A `MANUAL` request calls it only when nothing is cached or the cache is older than 1 hour.
+- EODHD symbols are built from the EODHD exchange code kept per suffix in the static exchange table (`SAP.DE` is `SAP.XETRA`), shown next to the MIC on the Exchanges screen. EODHD downloads no symbol lists, and its `402` (daily limit reached) is handled like `429`.
+- FMP, Tiingo and Alpha Vantage, the source comparison and the switching of defaults move to RC.
+
+**Consequences:** International companies get prices and dividends, but no ratios, indicators, profiles or balance sheets on the free plans. Their watchlist prices change only after a manual refresh on the detailed screen (the cache is shared between users). US companies get no dividends until a US dividends source is added. A source routing per market and data type (e.g. dividends of US companies from another source) is not supported; the configuration has one source per role.
