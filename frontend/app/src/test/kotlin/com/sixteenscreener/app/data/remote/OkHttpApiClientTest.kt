@@ -33,6 +33,7 @@ import com.sixteenscreener.app.domain.model.SearchStatus
 import com.sixteenscreener.app.domain.model.SourceCallOutcome
 import com.sixteenscreener.app.domain.model.SourceDataMeta
 import com.sixteenscreener.app.domain.model.SourceId
+import com.sixteenscreener.app.domain.model.SourceRole
 import com.sixteenscreener.app.domain.model.Symbol
 import com.sixteenscreener.app.domain.model.Trend
 import com.sixteenscreener.app.domain.model.WatchlistItem
@@ -715,17 +716,19 @@ class OkHttpApiClientTest {
     }
 
     @Test
-    fun `getSources parses limits, last call outcomes and total calls`() = runTest {
+    fun `getSources parses roles, limits, last call outcomes and total calls`() = runTest {
         enqueueFixture("sources.json")
 
         val sources = client.getSources(profileId).value()
 
         assertEquals("/profiles/${profileId.value}/sources", server.takeRequest().pathAndQuery())
-        assertEquals(listOf("finnhub", "sec-edgar", "logoapi", "finnhub-logos"), sources.map { it.id.value })
+        assertEquals(listOf("finnhub", "sec-edgar", "logoapi", "finnhub-logos", "eodhd"), sources.map { it.id.value })
         val finnhub = sources[0]
         assertEquals("Finnhub", finnhub.name)
         assertTrue(finnhub.isDefault)
-        assertTrue(finnhub.selectableAsDefault)
+        assertEquals(listOf(SourceRole.SEARCH, SourceRole.US), finnhub.roles)
+        assertEquals(listOf(SourceRole.SEARCH, SourceRole.US), finnhub.defaultFor)
+        assertTrue(finnhub.automaticRequests)
         assertEquals(
             listOf(Capability.SEARCH, Capability.QUOTE, Capability.RATIOS, Capability.BALANCE_SHEET, Capability.COMPANY_PROFILE),
             finnhub.capabilities,
@@ -750,6 +753,25 @@ class OkHttpApiClientTest {
         assertEquals(emptyList<RequestLimit>(), finnhubLogos.limits)
         assertEquals(SourceCallOutcome(CallResult.SUCCESS, null, Instant.parse("2026-11-14T11:05:00Z")), finnhubLogos.lastCall)
         assertEquals(5_000_000_000L, finnhubLogos.totalCalls)
+        assertEquals(emptyList<SourceRole>(), finnhubLogos.roles)
+        assertEquals(emptyList<SourceRole>(), finnhubLogos.defaultFor)
+        val eodhd = sources[4]
+        assertFalse(eodhd.isDefault)
+        assertFalse(eodhd.automaticRequests)
+        assertEquals(listOf(SourceRole.INTERNATIONAL), eodhd.roles)
+        assertEquals(listOf(SourceRole.INTERNATIONAL), eodhd.defaultFor)
+    }
+
+    @Test
+    fun `getSources parses a source without roles as automatic and default for no role`() = runTest {
+        enqueue(body = """{"items":[{"id":"finnhub","name":"Finnhub","capabilities":[],"isDefault":true,"limits":[]}]}""")
+
+        val source = client.getSources(profileId).value().single()
+
+        assertEquals(emptyList<SourceRole>(), source.roles)
+        assertEquals(emptyList<SourceRole>(), source.defaultFor)
+        assertTrue(source.automaticRequests)
+        assertTrue(source.isDefault)
     }
 
     @Test
@@ -823,7 +845,8 @@ class OkHttpApiClientTest {
         )
         enqueue(
             body = """
-                {"items":[{"id":"fmp","name":"FMP","capabilities":["QUOTE","NEWS"],"selectableAsDefault":true,"isDefault":false,
+                {"items":[{"id":"fmp","name":"FMP","capabilities":["QUOTE","NEWS"],"roles":["US","CRYPTO"],"defaultFor":["CRYPTO"],
+                  "isDefault":false,"automaticRequests":true,
                   "limits":[{"interval":"WEEK","unit":"CREDITS","limit":1,"used":0}],
                   "lastCall":{"result":"REFUSED","at":"2026-11-14T10:00:00Z"}}]}
             """.trimIndent(),
@@ -845,6 +868,8 @@ class OkHttpApiClientTest {
         assertNull(search.items.single().market)
         assertEquals(Trend.UNCHANGED, marketData.quote!!.trend)
         assertEquals(listOf(Capability.QUOTE, Capability.UNKNOWN), source.capabilities)
+        assertEquals(listOf(SourceRole.US, SourceRole.UNKNOWN), source.roles)
+        assertEquals(listOf(SourceRole.UNKNOWN), source.defaultFor)
         assertEquals(LimitInterval.UNKNOWN, source.limits.single().interval)
         assertEquals(LimitUnit.UNKNOWN, source.limits.single().unit)
         assertEquals(CallResult.UNKNOWN, source.lastCall!!.result)

@@ -8,6 +8,7 @@ import com.sixteenscreener.app.domain.model.RequestLimit
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceCallOutcome
 import com.sixteenscreener.app.domain.model.SourceId
+import com.sixteenscreener.app.domain.model.SourceRole
 import java.time.Instant
 
 object Sources {
@@ -27,6 +28,9 @@ object Sources {
         name: String = "Finnhub",
         capabilities: List<Capability> = listOf(Capability.SEARCH, Capability.QUOTE, Capability.BALANCE_SHEET),
         isDefault: Boolean = false,
+        roles: List<SourceRole> = emptyList(),
+        defaultFor: List<SourceRole> = emptyList(),
+        automaticRequests: Boolean = true,
         limits: List<RequestLimit> = listOf(limit()),
         lastCall: SourceCallOutcome? = null,
         totalCalls: Long? = null,
@@ -34,8 +38,10 @@ object Sources {
         id = SourceId(id),
         name = name,
         capabilities = capabilities,
-        selectableAsDefault = true,
+        roles = roles,
+        defaultFor = defaultFor,
         isDefault = isDefault,
+        automaticRequests = automaticRequests,
         limits = limits,
         lastCall = lastCall,
         totalCalls = totalCalls,

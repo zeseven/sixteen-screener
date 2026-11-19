@@ -49,6 +49,7 @@ import com.sixteenscreener.app.domain.model.RequestLimit
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceCallOutcome
 import com.sixteenscreener.app.domain.model.SourceId
+import com.sixteenscreener.app.domain.model.SourceRole
 import com.sixteenscreener.app.ui.component.CenteredMessage
 import com.sixteenscreener.app.ui.component.LocalClock
 import com.sixteenscreener.app.ui.component.apiErrorMessage
@@ -59,6 +60,8 @@ object SourcesScreenTags {
     const val CARD = "source_card"
     const val NAME = "source_name"
     const val DEFAULT_MARKER = "source_default_marker"
+    const val MANUAL_ONLY_MARKER = "source_manual_only_marker"
+    const val DEFAULT_FOR = "source_default_for"
     const val CONNECTION_INDICATOR = "source_connection_indicator"
     const val LIMIT = "source_limit"
     const val TOTAL_CALLS = "source_total_calls"
@@ -143,10 +146,14 @@ fun SourceCard(source: Source, modifier: Modifier = Modifier) {
                         .semantics { heading() }
                         .testTag(SourcesScreenTags.NAME),
                 )
-                if (source.isDefault) DefaultMarker()
+                if (source.isDefault) Marker(stringResource(R.string.source_default), SourcesScreenTags.DEFAULT_MARKER)
+                if (!source.automaticRequests) Marker(stringResource(R.string.source_manual_only), SourcesScreenTags.MANUAL_ONLY_MARKER)
                 Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
                     ConnectionIndicatorText(source.lastCall)
                 }
+            }
+            defaultForText(source.defaultFor)?.let {
+                Text(text = it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag(SourcesScreenTags.DEFAULT_FOR))
             }
             capabilitiesText(source.capabilities)?.let {
                 Text(text = it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -161,14 +168,14 @@ fun SourceCard(source: Source, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun DefaultMarker() {
+private fun Marker(text: String, testTag: String) {
     Surface(
         color = MaterialTheme.colorScheme.secondaryContainer,
         shape = MaterialTheme.shapes.small,
-        modifier = Modifier.testTag(SourcesScreenTags.DEFAULT_MARKER),
+        modifier = Modifier.testTag(testTag),
     ) {
         Text(
-            text = stringResource(R.string.source_default),
+            text = text,
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
         )
@@ -192,6 +199,19 @@ private fun ConnectionIndicatorText(lastCall: SourceCallOutcome?) {
             .semantics { contentDescription = description }
             .testTag(SourcesScreenTags.CONNECTION_INDICATOR),
     )
+}
+
+@Composable
+private fun defaultForText(roles: List<SourceRole>): String? {
+    val names = roles.mapNotNull { roleName(it) }.map { stringResource(it) }
+    return names.takeIf { it.isNotEmpty() }?.let { stringResource(R.string.source_default_for, it.joinToString(", ")) }
+}
+
+private fun roleName(role: SourceRole): Int? = when (role) {
+    SourceRole.SEARCH -> R.string.source_role_search
+    SourceRole.US -> R.string.source_role_us
+    SourceRole.INTERNATIONAL -> R.string.source_role_international
+    SourceRole.UNKNOWN -> null
 }
 
 @Composable
@@ -261,8 +281,10 @@ private fun SourcesContentPreview() {
                         id = SourceId.FINNHUB,
                         name = "Finnhub",
                         capabilities = listOf(Capability.SEARCH, Capability.QUOTE, Capability.BALANCE_SHEET),
-                        selectableAsDefault = true,
+                        roles = listOf(SourceRole.SEARCH, SourceRole.US),
+                        defaultFor = listOf(SourceRole.SEARCH, SourceRole.US),
                         isDefault = true,
+                        automaticRequests = true,
                         limits = listOf(RequestLimit(LimitInterval.MINUTE, LimitUnit.REQUESTS, 60, 12, Instant.now().plusSeconds(30))),
                         lastCall = SourceCallOutcome(CallResult.HTTP_ERROR, 429, Instant.now()),
                     ),
@@ -270,11 +292,24 @@ private fun SourcesContentPreview() {
                         id = SourceId("finnhub-logos"),
                         name = "Finnhub logos",
                         capabilities = listOf(Capability.LOGO),
-                        selectableAsDefault = false,
+                        roles = emptyList(),
+                        defaultFor = emptyList(),
                         isDefault = false,
+                        automaticRequests = true,
                         limits = emptyList(),
                         lastCall = SourceCallOutcome(CallResult.TIMEOUT, null, Instant.now()),
                         totalCalls = 1234,
+                    ),
+                    Source(
+                        id = SourceId.EODHD,
+                        name = "EODHD",
+                        capabilities = listOf(Capability.QUOTE, Capability.DIVIDENDS),
+                        roles = listOf(SourceRole.INTERNATIONAL),
+                        defaultFor = listOf(SourceRole.INTERNATIONAL),
+                        isDefault = false,
+                        automaticRequests = false,
+                        limits = listOf(RequestLimit(LimitInterval.DAY, LimitUnit.REQUESTS, 20, 3, null)),
+                        lastCall = null,
                     ),
                 ),
             ),

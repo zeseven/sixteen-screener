@@ -17,6 +17,7 @@ import com.sixteenscreener.app.domain.model.Capability
 import com.sixteenscreener.app.domain.model.LimitInterval
 import com.sixteenscreener.app.domain.model.LimitUnit
 import com.sixteenscreener.app.domain.model.Source
+import com.sixteenscreener.app.domain.model.SourceRole
 import com.sixteenscreener.app.testing.MutableClock
 import com.sixteenscreener.app.testing.Sources.limit
 import com.sixteenscreener.app.testing.Sources.outcome
@@ -63,6 +64,44 @@ class SourcesContentTest {
         setSources(source(isDefault = false))
 
         composeRule.onNodeWithTag(SourcesScreenTags.DEFAULT_MARKER, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `default search source lists the roles it is the default for`() {
+        setSources(source(isDefault = true, defaultFor = listOf(SourceRole.SEARCH, SourceRole.US)))
+
+        composeRule.onNodeWithTag(SourcesScreenTags.DEFAULT_FOR, useUnmergedTree = true).assertTextEquals("Default for: Search, US")
+        composeRule.onNodeWithTag(SourcesScreenTags.DEFAULT_MARKER, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `international default source without the search role has roles but no default marker`() {
+        setSources(source(id = "eodhd", name = "EODHD", isDefault = false, defaultFor = listOf(SourceRole.INTERNATIONAL)))
+
+        composeRule.onNodeWithTag(SourcesScreenTags.DEFAULT_FOR, useUnmergedTree = true).assertTextEquals("Default for: International")
+        composeRule.onNodeWithTag(SourcesScreenTags.DEFAULT_MARKER, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `source that is the default for no role or only unknown roles shows no roles`() {
+        setSources(source(id = "sec-edgar", name = "SEC EDGAR"), source(id = "fmp", name = "FMP", defaultFor = listOf(SourceRole.UNKNOWN)))
+
+        composeRule.onNodeWithTag(SourcesScreenTags.DEFAULT_FOR, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `manual-only source is marked`() {
+        setSources(source(id = "eodhd", name = "EODHD", automaticRequests = false))
+
+        composeRule.onNodeWithTag(SourcesScreenTags.MANUAL_ONLY_MARKER, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Manual only").assertExists()
+    }
+
+    @Test
+    fun `source with automatic requests has no manual-only mark`() {
+        setSources(source(automaticRequests = true))
+
+        composeRule.onNodeWithTag(SourcesScreenTags.MANUAL_ONLY_MARKER, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test

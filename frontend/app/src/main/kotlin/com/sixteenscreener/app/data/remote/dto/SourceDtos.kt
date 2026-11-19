@@ -8,6 +8,7 @@ import com.sixteenscreener.app.domain.model.RequestLimit
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceCallOutcome
 import com.sixteenscreener.app.domain.model.SourceId
+import com.sixteenscreener.app.domain.model.SourceRole
 import kotlinx.serialization.Serializable
 import java.time.Instant
 
@@ -21,8 +22,10 @@ data class SourceDto(
     val id: String,
     val name: String,
     val capabilities: List<String>,
-    val selectableAsDefault: Boolean,
+    val roles: List<String> = emptyList(),
+    val defaultFor: List<String> = emptyList(),
     val isDefault: Boolean,
+    val automaticRequests: Boolean = true,
     val limits: List<RequestLimitDto>,
     val lastCall: SourceCallOutcomeDto? = null,
     val totalCalls: Long? = null,
@@ -50,8 +53,10 @@ fun SourceDto.toDomain() = Source(
     id = SourceId(id),
     name = name,
     capabilities = capabilities.map { it.toEnumOr(Capability.UNKNOWN) },
-    selectableAsDefault = selectableAsDefault,
+    roles = roles.map { it.toEnumOr(SourceRole.UNKNOWN) },
+    defaultFor = defaultFor.map { it.toEnumOr(SourceRole.UNKNOWN) },
     isDefault = isDefault,
+    automaticRequests = automaticRequests,
     limits = limits.map { limit ->
         RequestLimit(
             interval = limit.interval.toEnumOr(LimitInterval.UNKNOWN),

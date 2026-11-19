@@ -5,6 +5,9 @@ import java.time.Instant
 /** Kind of data a source provides. */
 enum class Capability { SEARCH, QUOTE, RATIOS, DIVIDENDS, BALANCE_SHEET, COMPANY_PROFILE, LOGO, UNKNOWN }
 
+/** Role a source serves: company search, data of US companies or data of companies of any other exchange. */
+enum class SourceRole { SEARCH, US, INTERNATIONAL, UNKNOWN }
+
 /** Interval a request limit applies to. */
 enum class LimitInterval { MINUTE, HOUR, DAY, MONTH, UNKNOWN }
 
@@ -52,10 +55,14 @@ data class Source(
     val name: String,
     /** Kinds of data the source provides. */
     val capabilities: List<Capability>,
-    /** Whether the source can be chosen as the profile's default source. */
-    val selectableAsDefault: Boolean,
-    /** Whether this is the profile's default source. */
+    /** Roles the source is configured for; empty for SEC EDGAR and the logo sources. */
+    val roles: List<SourceRole>,
+    /** Roles the source is the profile's default source for. */
+    val defaultFor: List<SourceRole>,
+    /** Whether this is the profile's default search source. */
     val isDefault: Boolean,
+    /** Whether the source may be called without a manual refresh; `false` for manual-only sources. */
+    val automaticRequests: Boolean,
     /** Request limits with current usage. */
     val limits: List<RequestLimit>,
     /** Outcome of the last call, `null` if the source has not been called yet. */

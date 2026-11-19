@@ -44,8 +44,10 @@ interface SourceRepository {
             id = id,
             name = name,
             capabilities = listOf(Capability.BALANCE_SHEET),
-            selectableAsDefault = isDefault,
+            roles = emptyList(),
+            defaultFor = emptyList(),
             isDefault = isDefault,
+            automaticRequests = true,
             limits = emptyList(),
             lastCall = null,
         )

@@ -73,6 +73,11 @@
     <string name="search_add_failed">Cannot add %1$s: %2$s</string>
 
     <string name="source_default">Default</string>
+    <string name="source_manual_only">Manual only</string>
+    <string name="source_default_for">Default for: %1$s</string>
+    <string name="source_role_search">Search</string>
+    <string name="source_role_us">US</string>
+    <string name="source_role_international">International</string>
     <string name="source_capabilities">Provides: %1$s</string>
     <string name="source_no_limits">No request limits</string>
     <string name="source_total_calls">Total: %1$d</string>

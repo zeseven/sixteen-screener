@@ -4,8 +4,10 @@
       "id": "finnhub",
       "name": "Finnhub",
       "capabilities": ["SEARCH", "QUOTE", "RATIOS", "BALANCE_SHEET", "COMPANY_PROFILE"],
-      "selectableAsDefault": true,
+      "roles": ["SEARCH", "US"],
+      "defaultFor": ["SEARCH", "US"],
       "isDefault": true,
+      "automaticRequests": true,
       "limits": [
         { "interval": "MINUTE", "unit": "REQUESTS", "limit": 60, "used": 12, "resetsAt": "2026-11-14T15:43:00Z" }
       ],
@@ -15,8 +17,10 @@
       "id": "sec-edgar",
       "name": "SEC EDGAR",
       "capabilities": ["BALANCE_SHEET"],
-      "selectableAsDefault": false,
+      "roles": [],
+      "defaultFor": [],
       "isDefault": false,
+      "automaticRequests": true,
       "limits": [
         { "interval": "DAY", "unit": "REQUESTS", "limit": 10000, "used": 3, "resetsAt": null }
       ],
@@ -26,8 +30,10 @@
       "id": "logoapi",
       "name": "Logo API",
       "capabilities": ["LOGO"],
-      "selectableAsDefault": false,
+      "roles": [],
+      "defaultFor": [],
       "isDefault": false,
+      "automaticRequests": true,
       "limits": [
         { "interval": "HOUR", "unit": "REQUESTS", "limit": 500, "used": 0 },
         { "interval": "MONTH", "unit": "UNIQUE_SYMBOLS", "limit": 5000, "used": 41, "resetsAt": "2026-12-01T00:00:00Z" }
@@ -39,11 +45,26 @@
       "id": "finnhub-logos",
       "name": "Finnhub logos",
       "capabilities": ["LOGO"],
-      "selectableAsDefault": false,
+      "roles": [],
+      "defaultFor": [],
       "isDefault": false,
+      "automaticRequests": true,
       "limits": [],
       "lastCall": { "result": "SUCCESS", "at": "2026-11-14T11:05:00Z" },
       "totalCalls": 5000000000
+    },
+    {
+      "id": "eodhd",
+      "name": "EODHD",
+      "capabilities": ["QUOTE", "DIVIDENDS"],
+      "roles": ["INTERNATIONAL"],
+      "defaultFor": ["INTERNATIONAL"],
+      "isDefault": false,
+      "automaticRequests": false,
+      "limits": [
+        { "interval": "DAY", "unit": "REQUESTS", "limit": 20, "used": 3, "resetsAt": "2026-11-15T00:00:00Z" }
+      ],
+      "lastCall": { "result": "HTTP_ERROR", "httpStatus": 402, "at": "2026-11-14T09:00:00Z" }
     }
   ]
 }
