@@ -19,6 +19,6 @@ object ExchangeFilter {
     fun displaySuffix(exchange: Exchange): String = exchange.suffix.takeIf { it.isNotEmpty() }?.let { ".$it" }.orEmpty()
 
     private fun searchableTexts(exchange: Exchange): List<String> = with(exchange) {
-        listOf(displaySuffix(this), shortName, fullName, mic, country, currency, timeZone)
+        listOfNotNull(displaySuffix(this), shortName, fullName, mic, eodhdCode, country, currency, timeZone)
     }
 }

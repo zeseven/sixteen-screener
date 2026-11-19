@@ -12,6 +12,8 @@ data class Exchange(
     val fullName: String,
     /** ISO 10383 market identifier code. */
     val mic: String,
+    /** EODHD exchange code used to build EODHD symbols, e.g. `XETRA` for the `DE` suffix; `null` when EODHD doesn't cover it. */
+    val eodhdCode: String?,
     /** ISO 3166-1 alpha-2 country code of the exchange; empty when not reported. */
     val country: String,
     /** Whether domestic companies have their primary listing on the exchange. */

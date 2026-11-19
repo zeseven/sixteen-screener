@@ -87,12 +87,12 @@ class ExchangesContentTest {
 
     @Test
     fun `row shows the market flag between suffix and short name`() {
-        setContent(ExchangesUiState(exchanges = listOf(xetra)))
+        setContent(ExchangesUiState(exchanges = listOf(paris)))
 
-        val suffix = leftOfText(".DE")
+        val suffix = leftOfText(".PA")
         val flag = leftOfTag(ExchangesScreenTags.FLAG)
-        val shortName = leftOfText("XETRA")
-        val fullName = leftOfText("Deutsche Boerse Xetra")
+        val shortName = leftOfText("Paris")
+        val fullName = leftOfText("Euronext Paris")
 
         assertTrue(suffix < flag)
         assertTrue(flag < shortName)
@@ -122,6 +122,32 @@ class ExchangesContentTest {
 
         assertTrue(mic < country)
         assertTrue(country < currency)
+    }
+
+    @Test
+    fun `header shows the EODHD column between MIC and country`() {
+        setContent(ExchangesUiState(exchanges = listOf(xetra)))
+
+        assertTrue(leftOfText("MIC") < leftOfText("EODHD"))
+        assertTrue(leftOfText("EODHD") < leftOfText("Country"))
+    }
+
+    @Test
+    fun `row shows the EODHD code between MIC and country`() {
+        setContent(ExchangesUiState(exchanges = listOf(xetra)))
+
+        val eodhdCode = leftOfTag(ExchangesScreenTags.EODHD_CODE)
+
+        composeRule.onNodeWithTag(ExchangesScreenTags.EODHD_CODE, useUnmergedTree = true).assertTextEquals("XETRA")
+        assertTrue(leftOfText("XETR") < eodhdCode)
+        assertTrue(eodhdCode < leftOfTag(ExchangesScreenTags.COUNTRY))
+    }
+
+    @Test
+    fun `exchange not covered by EODHD shows an empty EODHD code`() {
+        setContent(ExchangesUiState(exchanges = listOf(xetra.copy(eodhdCode = null))))
+
+        composeRule.onNodeWithTag(ExchangesScreenTags.EODHD_CODE, useUnmergedTree = true).assertTextEquals("")
     }
 
     @Test

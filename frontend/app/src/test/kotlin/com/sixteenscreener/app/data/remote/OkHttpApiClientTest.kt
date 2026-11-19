@@ -785,9 +785,9 @@ class OkHttpApiClientTest {
         assertEquals("/exchanges", request.pathAndQuery())
         assertEquals(
             listOf(
-                Exchange("", "NYSE", "New York Stock Exchange", "XNYS", "US", true, "USD", "America/New_York", Market.US),
-                Exchange("DE", "XETRA", "Deutsche Boerse Xetra", "XETR", "DE", true, "EUR", "Europe/Berlin", Market.EU),
-                Exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", "CA", false, "CAD", "America/Toronto", null),
+                Exchange("", "NYSE", "New York Stock Exchange", "XNYS", "US", "US", true, "USD", "America/New_York", Market.US),
+                Exchange("DE", "XETRA", "Deutsche Boerse Xetra", "XETR", "XETRA", "DE", true, "EUR", "Europe/Berlin", Market.EU),
+                Exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", null, "CA", false, "CAD", "America/Toronto", null),
             ),
             exchanges,
         )
@@ -806,7 +806,7 @@ class OkHttpApiClientTest {
     }
 
     @Test
-    fun `getExchanges defaults country and main venue when absent`() = runTest {
+    fun `getExchanges defaults country, main venue and EODHD code when absent`() = runTest {
         enqueue(
             body = """
                 {"items":[{"suffix":"HK","shortName":"HKEX","fullName":"Hong Kong Exchanges","mic":"XHKG","currency":"HKD",
@@ -818,6 +818,7 @@ class OkHttpApiClientTest {
 
         assertEquals("", exchange.country)
         assertFalse(exchange.mainVenue)
+        assertNull(exchange.eodhdCode)
     }
 
     @Test

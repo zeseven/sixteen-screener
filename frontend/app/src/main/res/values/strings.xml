@@ -116,6 +116,7 @@
     <string name="exchange_column_short_name">Short name</string>
     <string name="exchange_column_full_name">Full name</string>
     <string name="exchange_column_mic">MIC</string>
+    <string name="exchange_column_eodhd_code">EODHD</string>
     <string name="exchange_column_currency">Currency</string>
     <string name="exchange_column_time_zone">Time zone</string>
     <string name="exchange_column_market">Market</string>

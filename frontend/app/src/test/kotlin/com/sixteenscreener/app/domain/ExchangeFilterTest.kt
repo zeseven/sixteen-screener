@@ -12,7 +12,7 @@ import org.junit.Test
 
 class ExchangeFilterTest {
 
-    private val onlyMarketMentions = Exchange("CO", "CPH", "Copenhagen", "XCSE", "DK", true, "DKK", "CET", Market.US)
+    private val onlyMarketMentions = Exchange("CO", "CPH", "Copenhagen", "XCSE", "CO", "DK", true, "DKK", "CET", Market.US)
 
     private fun filtered(query: String): List<Exchange> = ExchangeFilter.apply(all, query)
 
@@ -62,6 +62,21 @@ class ExchangeFilterTest {
     fun `matches the country code`() {
         assertEquals(listOf(paris), filtered("fr"))
         assertEquals(listOf(paris), filtered("FR"))
+    }
+
+    @Test
+    fun `matches the EODHD code`() {
+        val byEodhdCodeOnly = nyse.copy(eodhdCode = "QQX")
+
+        assertEquals(listOf(byEodhdCodeOnly), ExchangeFilter.apply(all + byEodhdCodeOnly, "qqx"))
+    }
+
+    @Test
+    fun `exchange without an EODHD code matches its other fields only`() {
+        val uncovered = tsxVenture.copy(eodhdCode = null)
+
+        assertEquals(listOf(uncovered), ExchangeFilter.apply(listOf(uncovered), "xtsx"))
+        assertEquals(emptyList<Exchange>(), ExchangeFilter.apply(listOf(uncovered), "null"))
     }
 
     @Test
