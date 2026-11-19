@@ -16,7 +16,8 @@ One-time configuration of the GCP project (Firestore, bucket, secrets, service a
 ## Configuration
 
 Static configuration is in `src/main/resources/application.conf`: the list of sources with their base URLs,
-capabilities, request limits and timeouts. Environment variables override or complete it:
+capabilities, request limits and timeouts, and optionally `directoryExchanges`, the exchange codes whose symbol lists
+a source is asked for (`[US]` for the Finnhub free plan; without it, any exchange). Environment variables override or complete it:
 
 | Variable                  | Required           | Description                                                                 |
 |---------------------------|--------------------|-----------------------------------------------------------------------------|
