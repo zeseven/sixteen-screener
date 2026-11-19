@@ -35,6 +35,7 @@ class ExchangeDirectoryService(
     private val outcomes: SourceCallOutcomes,
     private val clock: Clock,
     private val policy: ExchangeDirectoryPolicy = ExchangeDirectoryPolicy(),
+    private val directoryExchanges: Set<ExchangeCode>? = null,
 ) : SymbolDirectory {
 
     private enum class Coverage { COVERED, NOT_COVERED, UNAVAILABLE }
@@ -61,11 +62,15 @@ class ExchangeDirectoryService(
     }
 
     private suspend fun lookupIn(exchangeCode: ExchangeCode, symbols: List<Symbol>): Map<Symbol, SymbolLookup> {
+        if (!isDirectoryExchange(exchangeCode)) return symbols.associateWith { SymbolLookup.NotCovered(source.id) }
         val directory = directoryOf(exchangeCode)
         val missed = symbols.any { it !in directory.listings }
         val searched = if (missed && isMissRefreshDue(exchangeCode, directory)) refreshAfterMiss(exchangeCode, directory) else directory
         return symbols.associateWith { searched.lookup(it) }
     }
+
+    private fun isDirectoryExchange(exchangeCode: ExchangeCode): Boolean =
+        directoryExchanges?.contains(exchangeCode) ?: true
 
     private fun isMissRefreshDue(exchangeCode: ExchangeCode, directory: LoadedDirectory): Boolean {
         val lastDownloadAttempt = lastDownloadAttempts[exchangeCode]

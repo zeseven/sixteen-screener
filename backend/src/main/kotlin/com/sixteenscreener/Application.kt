@@ -206,6 +206,7 @@ fun wireServices(config: AppConfig): AppServices {
             guard = sourceCallGuard,
             outcomes = sourceCallOutcomes,
             clock = clock,
+            directoryExchanges = config.source(source.id)?.directoryExchanges,
         )
     } ?: NoSymbolDirectory
     return AppServices(

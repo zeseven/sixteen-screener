@@ -1,6 +1,7 @@
 package com.sixteenscreener.config
 
 import com.sixteenscreener.domain.model.Capability
+import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.RequestLimit
 import com.sixteenscreener.domain.model.SourceId
 import kotlin.time.Duration
@@ -33,6 +34,7 @@ data class SourceConfig(
     val limits: List<RequestLimit>,
     val timeout: Duration,
     val countTotalCalls: Boolean = false,
+    val directoryExchanges: Set<ExchangeCode>? = null,
 )
 
 data class SourceSecrets(

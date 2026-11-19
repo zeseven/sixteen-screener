@@ -6,6 +6,7 @@ import com.sixteenscreener.adapter.outbound.http.SourceHttpCall
 import com.sixteenscreener.adapter.outbound.http.SourceHttpClient
 import com.sixteenscreener.domain.model.Capability
 import com.sixteenscreener.domain.model.CompanyIdentity
+import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.InvalidInputException
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.Market
@@ -19,8 +20,10 @@ import com.sixteenscreener.domain.model.SourceCallResult
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.profileKey
+import com.sixteenscreener.fakes.InMemoryExchangeDirectoryStore
 import com.sixteenscreener.port.inbound.SearchResults
 import com.sixteenscreener.port.outbound.MarketDataSource
+import com.sixteenscreener.port.outbound.SymbolDirectory
 import com.sixteenscreener.watchlistEntries
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -45,6 +48,7 @@ private class SearchFixture(
     capabilities: Set<Capability> = ALL_MARKET_DATA,
     limit: Int = 60,
     searchSource: ((CompanyDataFixture) -> MarketDataSource)? = null,
+    symbolDirectory: ((CompanyDataFixture) -> SymbolDirectory)? = null,
 ) {
     val data = CompanyDataFixture(limit = limit, capabilities = capabilities)
     val responses = SearchResponseCache(data.clock)
@@ -52,7 +56,7 @@ private class SearchFixture(
         profiles = data.profiles,
         catalog = data.catalog,
         marketDataSources = mapOf(FINNHUB to (searchSource?.invoke(data) ?: data.source)),
-        symbolDirectory = data.directory,
+        symbolDirectory = symbolDirectory?.invoke(data) ?: data.directory,
         identities = data.identities,
         guard = SourceCallGuard(data.limiter),
         outcomes = SourceCallOutcomes(data.sourceCalls),
@@ -167,6 +171,29 @@ class SearchServiceTest : FunSpec({
             result.items.map { it.identity.market } shouldContainExactly listOf(Market.US, Market.EU, Market.EU, null)
             result.items[1].identity.exchange shouldBe "XETRA"
             result.items[3].identity.name shouldBe "APPLE INC CDR"
+        }
+
+        test("results of exchanges outside the directory exchanges cost no symbol list request") {
+            val f = SearchFixture(
+                symbolDirectory = { data ->
+                    ExchangeDirectoryService(
+                        source = data.source,
+                        store = InMemoryExchangeDirectoryStore(),
+                        guard = SourceCallGuard(data.limiter),
+                        outcomes = SourceCallOutcomes(data.sourceCalls),
+                        clock = data.clock,
+                        directoryExchanges = setOf(ExchangeCode.US),
+                    )
+                },
+            )
+            f.data.source.exchanges[ExchangeCode.US] = SourceResult.Success(listOf(listing("AAPL", name = "APPLE INC")), f.data.success())
+            f.hits("apple", "AAPL" to "Apple Inc", "APC.DE" to "APPLE INC", "AAPL.SW" to "APPLE INC", "AAPL.NE" to "APPLE INC - CDR")
+
+            val result = f.search("apple")
+
+            result.symbols() shouldContainExactly listOf("AAPL", "APC.DE", "AAPL.SW", "AAPL.NE")
+            result.items.map { it.identity.exchange } shouldContainExactly listOf("NASDAQ", "XETRA", "SIX", "NEO")
+            f.data.source.calls shouldContainExactly listOf("search:apple", "exchange:US")
         }
 
         test("result missing from the directory gets exchange and market from the static exchange table") {

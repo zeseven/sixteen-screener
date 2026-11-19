@@ -1,6 +1,7 @@
 package com.sixteenscreener.config
 
 import com.sixteenscreener.domain.model.Capability
+import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.LimitUnit
 import com.sixteenscreener.domain.model.RequestLimit
@@ -76,6 +77,7 @@ class AppConfigLoaderTest : FunSpec({
         )
         finnhub.limits shouldContainExactly listOf(RequestLimit(LimitInterval.MINUTE, 60))
         finnhub.timeout shouldBe 5.seconds
+        finnhub.directoryExchanges shouldBe setOf(ExchangeCode.US)
 
         config.source(SourceId.of("logoapi"))!!.limits shouldContainExactly listOf(RequestLimit(LimitInterval.DAY, 1000))
 
@@ -120,7 +122,40 @@ class AppConfigLoaderTest : FunSpec({
         source.limits shouldBe emptyList()
         source.timeout shouldBe 5000.milliseconds
         source.countTotalCalls shouldBe false
+        source.directoryExchanges shouldBe null
         config.totalCountedSources shouldBe emptySet()
+    }
+
+    test("parses directory exchanges") {
+        val config = AppConfigLoader.load(
+            configWith(source("finnhub", selectable = true, extra = "directoryExchanges = [US, DE, L]")),
+            FULL_ENV,
+        )
+
+        config.sources.single().directoryExchanges shouldBe setOf(ExchangeCode.US, ExchangeCode("DE"), ExchangeCode("L"))
+    }
+
+    test("an empty directory exchange list covers no exchange") {
+        val config = AppConfigLoader.load(
+            configWith(source("finnhub", selectable = true, extra = "directoryExchanges = []")),
+            FULL_ENV,
+        )
+
+        config.sources.single().directoryExchanges shouldBe emptySet()
+    }
+
+    test("fails for unknown directory exchange codes") {
+        loadErrors(configWith(source("finnhub", selectable = true, extra = "directoryExchanges = [US, XX, de, \"\"]"))) shouldContainExactly
+            listOf(
+                "Source 'finnhub': unknown exchange code 'XX' in directoryExchanges",
+                "Source 'finnhub': unknown exchange code 'de' in directoryExchanges",
+                "Source 'finnhub': unknown exchange code '' in directoryExchanges",
+            )
+    }
+
+    test("fails for directory exchanges that are not a list") {
+        loadErrors(configWith(source("finnhub", selectable = true, extra = "directoryExchanges = { US = true }"))) shouldContainExactly
+            listOf("Source 'finnhub': invalid directoryExchanges")
     }
 
     test("a source with an empty limit list and a total call counter") {

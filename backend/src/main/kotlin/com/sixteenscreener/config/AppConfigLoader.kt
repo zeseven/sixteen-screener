@@ -1,6 +1,8 @@
 package com.sixteenscreener.config
 
 import com.sixteenscreener.domain.model.Capability
+import com.sixteenscreener.domain.model.ExchangeCode
+import com.sixteenscreener.domain.model.KnownExchangeCodes
 import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.LimitUnit
 import com.sixteenscreener.domain.model.RequestLimit
@@ -26,6 +28,7 @@ object AppConfigLoader {
     const val SEC_EDGAR_FILES_BASE_URL = "files"
 
     private const val ADDITIONAL_BASE_URLS = "additionalBaseUrls"
+    private const val DIRECTORY_EXCHANGES = "directoryExchanges"
 
     private val REQUIRED_ADDITIONAL_BASE_URLS: Map<String, List<String>> = mapOf(
         "sec-edgar" to listOf(SEC_EDGAR_FILES_BASE_URL),
@@ -148,6 +151,7 @@ object AppConfigLoader {
             val countTotalCalls = boolean(block, "countTotalCalls", default = false, label)
             val capabilities = capabilities(block, label)
             val limits = limits(block, label)
+            val directoryExchanges = directoryExchanges(block, label)
             val timeoutMillis = block.stringOrNull("timeoutMillis")?.let { raw ->
                 raw.toLongOrNull()?.takeIf { it > 0 } ?: null.also { errors += "$label: invalid timeoutMillis '$raw'" }
             } ?: DEFAULT_TIMEOUT_MILLIS
@@ -167,6 +171,7 @@ object AppConfigLoader {
                 limits = limits,
                 timeout = timeoutMillis.milliseconds,
                 countTotalCalls = countTotalCalls,
+                directoryExchanges = directoryExchanges,
             )
         }
 
@@ -193,6 +198,17 @@ object AppConfigLoader {
                         ?: null.also { errors += "$label: unknown capability '$raw' (known: ${Capability.entries.joinToString()})" }
                 }
                 .toSet()
+
+        private fun directoryExchanges(block: ApplicationConfig, label: String): Set<ExchangeCode>? {
+            if (DIRECTORY_EXCHANGES !in block.toMap()) return null
+            val codes = block.stringListOrNull(DIRECTORY_EXCHANGES) ?: return null.also {
+                errors += "$label: invalid $DIRECTORY_EXCHANGES"
+            }
+            return codes.mapNotNull { raw ->
+                raw.takeIf(KnownExchangeCodes::isKnown)?.let(::ExchangeCode)
+                    ?: null.also { errors += "$label: unknown exchange code '$raw' in $DIRECTORY_EXCHANGES" }
+            }.toSet()
+        }
 
         private fun limits(block: ApplicationConfig, label: String): List<RequestLimit> {
             if ("limits" !in block.toMap()) return emptyList()

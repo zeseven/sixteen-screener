@@ -60,13 +60,15 @@ private class Fixture(limit: Int = 60) {
         clock,
     )
 
-    fun directory(source: MarketDataSource = this.source) = ExchangeDirectoryService(
-        source = source,
-        store = store,
-        guard = SourceCallGuard(limiter),
-        outcomes = SourceCallOutcomes(outcomeRepository),
-        clock = clock,
-    )
+    fun directory(source: MarketDataSource = this.source, directoryExchanges: Set<ExchangeCode>? = null) =
+        ExchangeDirectoryService(
+            source = source,
+            store = store,
+            guard = SourceCallGuard(limiter),
+            outcomes = SourceCallOutcomes(outcomeRepository),
+            clock = clock,
+            directoryExchanges = directoryExchanges,
+        )
 
     fun listed(exchangeCode: ExchangeCode, vararg listings: ListedSymbol) {
         source.exchanges[exchangeCode] = SourceResult.Success(listings.toList(), SourceCallOutcome.success(clock.now()))
@@ -362,6 +364,80 @@ class ExchangeDirectoryServiceTest : FunSpec({
 
         fixture.exchangeCalls shouldBe listOf("exchange:DE")
         fixture.outcomeRepository.writes shouldBe listOf(fixture.source.id to SourceCallOutcome.httpError(403, fixture.clock.now() - Duration.ofHours(12)))
+    }
+
+    context("directory exchanges") {
+        test("exchange not listed is not covered without a source call, a store read or a recorded outcome") {
+            val fixture = Fixture()
+            fixture.listed(de, sap)
+            fixture.stored(de, Duration.ofDays(1), sap)
+            val directory = fixture.directory(directoryExchanges = setOf(us))
+
+            directory.lookup(sap.symbol) shouldBe SymbolLookup.NotCovered(fixture.source.id)
+            directory.lookupAll(listOf(sap.symbol, siemens.symbol)) shouldBe mapOf(
+                sap.symbol to SymbolLookup.NotCovered(fixture.source.id),
+                siemens.symbol to SymbolLookup.NotCovered(fixture.source.id),
+            )
+
+            fixture.source.calls.shouldBeEmpty()
+            fixture.store.loads shouldBe 0
+            fixture.outcomeRepository.writes.shouldBeEmpty()
+            fixture.limiter.usage(fixture.source.id).single().used shouldBe 0
+        }
+
+        test("exchange not listed stays not covered after the retry period without a source call") {
+            val fixture = Fixture()
+            val directory = fixture.directory(directoryExchanges = setOf(us))
+            directory.lookup(sap.symbol)
+
+            fixture.clock.advanceBy(Duration.ofDays(30))
+
+            directory.lookup(sap.symbol) shouldBe SymbolLookup.NotCovered(fixture.source.id)
+            fixture.source.calls.shouldBeEmpty()
+        }
+
+        test("listed exchange is downloaded") {
+            val fixture = Fixture()
+            fixture.listed(us, apple)
+
+            fixture.directory(directoryExchanges = setOf(us)).lookup(apple.symbol) shouldBe SymbolLookup.Listed(apple)
+            fixture.exchangeCalls shouldBe listOf("exchange:US")
+        }
+
+        test("lookup of several exchanges downloads only the listed ones") {
+            val fixture = Fixture()
+            fixture.listed(us, apple)
+            fixture.listed(de, sap)
+
+            val lookups = fixture.directory(directoryExchanges = setOf(us)).lookupAll(listOf(apple.symbol, sap.symbol, Symbol.of("AD.AS")))
+
+            lookups shouldBe mapOf(
+                apple.symbol to SymbolLookup.Listed(apple),
+                sap.symbol to SymbolLookup.NotCovered(fixture.source.id),
+                Symbol.of("AD.AS") to SymbolLookup.NotCovered(fixture.source.id),
+            )
+            fixture.exchangeCalls shouldBe listOf("exchange:US")
+        }
+
+        test("empty list covers no exchange") {
+            val fixture = Fixture()
+            fixture.listed(us, apple)
+
+            fixture.directory(directoryExchanges = emptySet()).lookup(apple.symbol) shouldBe SymbolLookup.NotCovered(fixture.source.id)
+            fixture.source.calls.shouldBeEmpty()
+        }
+
+        test("without the setting every exchange is downloaded") {
+            val fixture = Fixture()
+            fixture.listed(us, apple)
+            fixture.listed(de, sap)
+
+            fixture.directory().lookupAll(listOf(apple.symbol, sap.symbol)) shouldBe mapOf(
+                apple.symbol to SymbolLookup.Listed(apple),
+                sap.symbol to SymbolLookup.Listed(sap),
+            )
+            fixture.exchangeCalls.sorted() shouldBe listOf("exchange:DE", "exchange:US")
+        }
     }
 
     context("coverage") {
