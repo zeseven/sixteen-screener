@@ -97,6 +97,57 @@ object KnownExchangeCodes {
         "CR" to "XCAR",
     )
 
+    private val eodhdCodesByCode: Map<String, String> = mapOf(
+        "US" to "US",
+        "DE" to "XETRA",
+        "F" to "F",
+        "BE" to "BE",
+        "DU" to "DU",
+        "MU" to "MU",
+        "SG" to "STU",
+        "L" to "LSE",
+        "SW" to "SW",
+        "PA" to "PA",
+        "AS" to "AS",
+        "BR" to "BR",
+        "LS" to "LS",
+        "IR" to "IR",
+        "OL" to "OL",
+        "MC" to "MC",
+        "ST" to "ST",
+        "HE" to "HE",
+        "CO" to "CO",
+        "IC" to "IC",
+        "VI" to "VI",
+        "WA" to "WAR",
+        "PR" to "PR",
+        "BD" to "BUD",
+        "AT" to "AT",
+        "TO" to "TO",
+        "V" to "V",
+        "NE" to "NEO",
+        "HK" to "HK",
+        "AX" to "AU",
+        "SS" to "SHG",
+        "SZ" to "SHE",
+        "KS" to "KO",
+        "KQ" to "KQ",
+        "TW" to "TW",
+        "TWO" to "TWO",
+        "BK" to "BK",
+        "JK" to "JK",
+        "KL" to "KLSE",
+        "PM" to "PSE",
+        "VN" to "VN",
+        "TA" to "TA",
+        "CA" to "EGX",
+        "NL" to "XNSA",
+        "SA" to "SA",
+        "MX" to "MX",
+        "BA" to "BA",
+        "SN" to "SN",
+    )
+
     /** All known exchange codes. */
     val codes: Set<ExchangeCode> = (micsByCode.keys + ExchangeCode.US.value).map(::ExchangeCode).toSet()
 
@@ -108,4 +159,10 @@ object KnownExchangeCodes {
 
     /** MIC of the exchange identified by [code]; null for [ExchangeCode.US], whose symbols trade on several exchanges, and for unknown codes. */
     fun micOf(code: ExchangeCode): String? = micsByCode[code.value]
+
+    /**
+     * EODHD exchange code of the exchange identified by [code], used to build EODHD symbols (`SAP.DE` is `SAP.XETRA`);
+     * `US` for [ExchangeCode.US]; null for exchanges EODHD doesn't cover and for unknown codes (ADR-083).
+     */
+    fun eodhdCodeOf(code: ExchangeCode): String? = eodhdCodesByCode[code.value]
 }

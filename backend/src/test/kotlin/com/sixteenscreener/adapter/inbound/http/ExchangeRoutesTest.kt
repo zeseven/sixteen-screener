@@ -21,6 +21,7 @@ private fun exchange(
     shortName: String,
     fullName: String,
     mic: String,
+    eodhdCode: String?,
     country: String,
     mainVenue: Boolean,
     currency: String,
@@ -32,6 +33,7 @@ private fun exchange(
         "shortName" to JsonPrimitive(shortName),
         "fullName" to JsonPrimitive(fullName),
         "mic" to JsonPrimitive(mic),
+        "eodhdCode" to (eodhdCode?.let(::JsonPrimitive) ?: JsonNull),
         "country" to JsonPrimitive(country),
         "mainVenue" to JsonPrimitive(mainVenue),
         "currency" to JsonPrimitive(currency),
@@ -50,9 +52,9 @@ class ExchangeRoutesTest : FunSpec({
             val body = response.json()
             body.keys shouldBe setOf("items")
             body.itemWithSuffix("V") shouldBe
-                exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", "CA", true, "CAD", "America/Toronto", null)
+                exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", "V", "CA", true, "CAD", "America/Toronto", null)
             body.itemWithSuffix("AS") shouldBe
-                exchange("AS", "AMS", "Euronext Amsterdam", "XAMS", "NL", true, "EUR", "Europe/Amsterdam", "EU")
+                exchange("AS", "AMS", "Euronext Amsterdam", "XAMS", "AS", "NL", true, "EUR", "Europe/Amsterdam", "EU")
         }
     }
 
@@ -62,7 +64,7 @@ class ExchangeRoutesTest : FunSpec({
 
             items.first()["suffix"] shouldBe JsonPrimitive("")
             items.single { it["mic"] == JsonPrimitive("XNYS") } shouldBe
-                exchange("", "NYSE", "New York Stock Exchange", "XNYS", "US", true, "USD", "America/New_York", "US")
+                exchange("", "NYSE", "New York Stock Exchange", "XNYS", "US", "US", true, "USD", "America/New_York", "US")
         }
     }
 
@@ -71,7 +73,7 @@ class ExchangeRoutesTest : FunSpec({
             val items = client.get("/exchanges").json().items()
 
             items.single { it["mic"] == JsonPrimitive("XFRA") } shouldBe
-                exchange("F", "FSE", "Frankfurt Stock Exchange", "XFRA", "DE", false, "EUR", "Europe/Berlin", "EU")
+                exchange("F", "FSE", "Frankfurt Stock Exchange", "XFRA", "F", "DE", false, "EUR", "Europe/Berlin", "EU")
             items.single { it["mic"] == JsonPrimitive("PINX") }["mainVenue"] shouldBe JsonPrimitive(false)
         }
     }
@@ -82,6 +84,15 @@ class ExchangeRoutesTest : FunSpec({
 
             items.filter { it["mic"] == JsonPrimitive("XLON") }.map { it.getValue("suffix").jsonPrimitive.content } shouldBe
                 listOf("IL", "L")
+        }
+    }
+
+    test("an exchange EODHD doesn't cover has a null EODHD code") {
+        routeTest {
+            val body = client.get("/exchanges").json()
+
+            body.itemWithSuffix("IL")["eodhdCode"] shouldBe JsonNull
+            body.itemWithSuffix("DE")["eodhdCode"] shouldBe JsonPrimitive("XETRA")
         }
     }
 

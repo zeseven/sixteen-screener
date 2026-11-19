@@ -1,5 +1,6 @@
 package com.sixteenscreener.domain.service
 
+import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.ExchangeEntry
 import com.sixteenscreener.domain.model.KnownExchangeCodes
 import com.sixteenscreener.domain.model.Market
@@ -64,6 +65,7 @@ class ExchangeServiceTest : FunSpec({
             shortName = "TSXV",
             fullName = "TSX Venture Exchange",
             mic = "XTSX",
+            eodhdCode = "V",
             currency = "CAD",
             timeZone = ZoneId.of("America/Toronto"),
             market = null,
@@ -78,6 +80,7 @@ class ExchangeServiceTest : FunSpec({
             shortName = "AMS",
             fullName = "Euronext Amsterdam",
             mic = "XAMS",
+            eodhdCode = "AS",
             currency = "EUR",
             timeZone = ZoneId.of("Europe/Amsterdam"),
             market = Market.EU,
@@ -92,6 +95,7 @@ class ExchangeServiceTest : FunSpec({
             shortName = "NASDAQ",
             fullName = "Nasdaq Global Select Market",
             mic = "XNGS",
+            eodhdCode = "US",
             currency = "USD",
             timeZone = ZoneId.of("America/New_York"),
             market = Market.US,
@@ -109,6 +113,27 @@ class ExchangeServiceTest : FunSpec({
     test("US OTC rows are not main venues") {
         entries.filter { it.suffix.isEmpty() && !it.mainVenue }.map { it.mic } shouldContainExactlyInAnyOrder
             listOf("OTCM", "OOTC", "PINX", "PSGM", "EXPM", "OTCB", "OTCQ", "XOTC")
+    }
+
+    test("every row carries the EODHD code of its suffix, US rows the US code") {
+        entries.filter { row ->
+            val code = if (row.suffix.isEmpty()) ExchangeCode.US else ExchangeCode(row.suffix)
+            row.eodhdCode != KnownExchangeCodes.eodhdCodeOf(code)
+        }.shouldBeEmpty()
+        entries.filter { it.suffix.isEmpty() }.map { it.eodhdCode }.toSet() shouldBe setOf("US")
+    }
+
+    test("EODHD codes differ from the suffix where EODHD names the exchange differently") {
+        entry("DE").eodhdCode shouldBe "XETRA"
+        entry("L").eodhdCode shouldBe "LSE"
+        entry("WA").eodhdCode shouldBe "WAR"
+        entry("SG").eodhdCode shouldBe "STU"
+        entry("AX").eodhdCode shouldBe "AU"
+    }
+
+    test("exchanges EODHD doesn't cover have no EODHD code") {
+        entry("IL").eodhdCode shouldBe null
+        entry("T").eodhdCode shouldBe null
     }
 
     test("the table is the same on every call") {
