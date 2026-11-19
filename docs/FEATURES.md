@@ -115,22 +115,22 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 ## Beta
 
 ### Sources
-- [ ] Source roles: each source configured with the roles it can serve (`SEARCH`, `US`, `INTERNATIONAL`); the backend picks the source by role (search) or by the company's market (US or international); the app is unaware of the roles
-- [ ] One default source per role, taken from the configuration for every profile (no switching): Finnhub for search and US, EODHD for international; the global `defaultSource` setting removed
-- [ ] `automaticRequests` setting per source, on for Finnhub only: a source with it off is called only on a manual refresh from the detailed screen; otherwise stale cached data is returned as is, and without cached data empty data with the `NOT_REQUESTED` status
-- [ ] A manual refresh calls a source with automatic requests off only when its cached data is older than 1 hour
-- [ ] Request trigger sent by the app with company data requests (`trigger=MANUAL|AUTO`, replacing `refresh`)
-- [ ] EODHD client (free plan): delayed quote with previous close, dividends (last year); limits 20 requests per day and per minute; no symbol lists downloaded; `402` (daily limit reached) handled like `429`
-- [ ] EODHD exchange code per symbol suffix in the static exchange table (`.DE` is `XETRA`), used to build EODHD symbols
-- [ ] International (EU and other non-US) prices and dividends through EODHD; ratios, profiles and balance sheets of international stocks `NOT_SUPPORTED` on the free plans
-- [ ] Sources screen: default search source marked 'default', roles each source is the default for, 'manual only' mark, counters for all configured intervals
+- [x] Source roles: each source configured with the roles it can serve (`SEARCH`, `US`, `INTERNATIONAL`); the backend picks the source by role (search) or by the company's market (US or international); the app is unaware of the roles
+- [x] One default source per role, taken from the configuration for every profile (no switching): Finnhub for search and US, EODHD for international; the global `defaultSource` setting removed
+- [x] `automaticRequests` setting per source, on for Finnhub only: a source with it off is called only on a manual refresh from the detailed screen; otherwise stale cached data is returned as is, and without cached data empty data with the `NOT_REQUESTED` status
+- [x] A manual refresh calls a source with automatic requests off only when its cached data is older than 1 hour
+- [x] Request trigger sent by the app with company data requests (`trigger=MANUAL|AUTO`, replacing `refresh`)
+- [x] EODHD client (free plan): delayed quote with previous close, dividends (last year); limits 20 requests per day and per minute; no symbol lists downloaded; `402` (daily limit reached) handled like `429`
+- [x] EODHD exchange code per symbol suffix in the static exchange table (`.DE` is `XETRA`), used to build EODHD symbols
+- [x] International (EU and other non-US) prices and dividends through EODHD; ratios, profiles and balance sheets of international stocks `NOT_SUPPORTED` on the free plans
+- [x] Sources screen: default search source marked 'default', roles each source is the default for, 'manual only' mark, counters for all configured intervals
 - [x] Backup logo source when logoapi.sh has no SVG logo: PNG logo from static2.finnhub.io (URL from the cached Finnhub company profile, otherwise built from the ticker; no Finnhub API calls), stored in the bucket under `finnhub-logos/`; the app renders SVG and PNG logos
 - [x] Sources screen: never-resetting total call counter for sources without request limits (Finnhub logos)
 
 ### Detailed screen
-- [ ] Dividends tab (EODHD for international stocks; no dividends for US stocks until a US dividends source is added)
+- [x] Dividends tab (EODHD for international stocks; no dividends for US stocks until a US dividends source is added)
 - [ ] Source dropdown on each tab, limited to the sources configured for the company's market; one source displayed at a time
-- [ ] Hint to refresh when a source with automatic requests off has no cached data (`NOT_REQUESTED`)
+- [x] Hint to refresh when a source with automatic requests off has no cached data (`NOT_REQUESTED`)
 - [ ] Company profile tab: add and remove user tags
 
 ### Watchlist screen
@@ -139,7 +139,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 
 ### Exchanges screen
 - [x] Exchanges tab between Search and Sources: a table with one row per symbol suffix (two suffixes of one exchange give two rows) and one row per US exchange (empty suffix); columns: suffix, market flag, short exchange name, full exchange name, MIC, country (with a checkmark for a main venue), currency, time zone
-- [ ] EODHD exchange code column next to the MIC (empty for exchanges EODHD doesn't cover)
+- [x] EODHD exchange code column next to the MIC (empty for exchanges EODHD doesn't cover)
 - [x] Table served by the backend from the static exchange table (`GET /exchanges`, full names hardcoded there); no source requests
 - [x] The app requests the table once when the screen is first opened and keeps it in memory only (not stored on the device)
 - [x] Text filter above the table: case-insensitive match in any field except the flag, done in memory without backend calls
