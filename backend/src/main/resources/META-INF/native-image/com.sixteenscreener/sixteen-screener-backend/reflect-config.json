@@ -1904,6 +1904,23 @@
     ]
   },
   {
+    "name": "kotlinx.serialization.json.JsonElement",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "kotlinx.serialization.json.JsonElement$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "kotlinx.serialization.json.JsonException",
     "allDeclaredFields": true
   },

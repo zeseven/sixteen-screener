@@ -1,44 +1,18 @@
 package com.sixteenscreener.adapter.inbound.http
 
+import com.sixteenscreener.nativeimage.hasGeneratedSerializer
+import com.sixteenscreener.nativeimage.missingSerializerRegistrations
+import com.sixteenscreener.nativeimage.reflectConfigText
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.nio.file.Path
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.nameWithoutExtension
 
 private const val DTO_PACKAGE = "com.sixteenscreener.adapter.inbound.http"
-private const val REFLECT_CONFIG =
-    "META-INF/native-image/com.sixteenscreener/sixteen-screener-backend/reflect-config.json"
-
-@Serializable
-private data class ReflectMember(val name: String, val parameterTypes: List<String> = emptyList())
-
-@Serializable
-private data class ReflectEntry(
-    val name: String,
-    val fields: List<ReflectMember> = emptyList(),
-    val methods: List<ReflectMember> = emptyList(),
-)
-
-private val ReflectConfigJson = Json { ignoreUnknownKeys = true }
-
-fun missingSerializerRegistrations(classNames: Collection<String>, reflectConfig: String): List<String> {
-    val entries = ReflectConfigJson.decodeFromString<List<ReflectEntry>>(reflectConfig).associateBy { it.name }
-    fun hasCompanionField(className: String) =
-        entries[className]?.fields.orEmpty().any { it.name == "Companion" }
-    fun hasSerializerMethod(className: String) =
-        entries["$className\$Companion"]?.methods.orEmpty()
-            .any { it.name == "serializer" && it.parameterTypes.isEmpty() }
-    return classNames.filterNot { hasCompanionField(it) && hasSerializerMethod(it) }.sorted()
-}
-
-private fun hasGeneratedSerializer(type: Class<*>): Boolean =
-    runCatching { type.getField("Companion").type.getMethod("serializer") }.isSuccess
 
 private fun serializableTopLevelDtoClassNames(): List<String> {
     val classLoader = Problem::class.java.classLoader
@@ -51,10 +25,6 @@ private fun serializableTopLevelDtoClassNames(): List<String> {
         .filter { hasGeneratedSerializer(Class.forName(it, false, classLoader)) }
         .sorted()
 }
-
-private fun reflectConfigText(): String =
-    requireNotNull(Problem::class.java.classLoader.getResource(REFLECT_CONFIG)) { "$REFLECT_CONFIG not found" }
-        .readText()
 
 private fun config(vararg entries: String) = entries.joinToString(prefix = "[", postfix = "]")
 
