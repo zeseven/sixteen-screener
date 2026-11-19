@@ -207,7 +207,7 @@ class WatchlistContentTest {
         setContent(loaded(apple, sap).copy(marketData = mapOf(apple.symbol to appleData)))
 
         val prices = composeRule.onAllNodesWithTag(CompanyRowTags.PRICE, useUnmergedTree = true)
-        prices[0].assertTextEquals("200.00 USD")
+        prices[0].assertTextEquals("$200.00")
         prices[1].assertTextEquals("-")
     }
 

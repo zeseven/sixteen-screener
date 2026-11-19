@@ -13,13 +13,27 @@ import kotlin.math.abs
 object NumberFormats {
     const val MISSING = "-"
 
+    private const val PRICE_PATTERN = "#,##0.00"
+    private const val PRICE_FRACTION_DIGITS = 2
     private const val THOUSAND = 1_000.0
     private const val MAX_THRESHOLD_FRACTION_DIGITS = 4
     private val SCALES = listOf("" to 1.0, "K" to 1e3, "M" to 1e6, "B" to 1e9, "T" to 1e12)
 
-    /** Price with 2 decimals followed by [currency], e.g. `1,234.50 USD`. */
-    fun price(value: Double?, currency: String?): String = value
-        ?.let { pattern("#,##0.00").format(it) }
+    /**
+     * Price with 2 decimals after the symbol of [currency], e.g. `$1,234.50` or `-$1.00`; a currency without a known symbol
+     * (see [CurrencySymbols]) follows the number as in [priceDescription], e.g. `1,234.50 SEK`.
+     */
+    fun price(value: Double?, currency: String?): String {
+        value ?: return MISSING
+        val symbol = currency?.let(CurrencySymbols::of) ?: return priceDescription(value, currency)
+        val rounded = roundedSigned(value, PRICE_FRACTION_DIGITS)
+        val sign = if (rounded.signum() < 0) "-" else ""
+        return sign + symbol + pattern(PRICE_PATTERN).format(rounded.abs())
+    }
+
+    /** Price with 2 decimals followed by the ISO code of [currency], e.g. `1,234.50 USD`, unambiguous for content descriptions. */
+    fun priceDescription(value: Double?, currency: String?): String = value
+        ?.let { pattern(PRICE_PATTERN).format(roundedSigned(it, PRICE_FRACTION_DIGITS)) }
         ?.let { formatted -> currency?.takeIf(String::isNotBlank)?.let { "$formatted $it" } ?: formatted }
         ?: MISSING
 

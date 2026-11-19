@@ -18,7 +18,7 @@ import com.sixteenscreener.app.domain.model.Trend
 import com.sixteenscreener.app.domain.NumberFormats
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 
-/** Price with currency in the trend color; the trend is also part of the content description. */
+/** Price with currency symbol in the trend color; the content description keeps the currency code and adds the trend. */
 @Composable
 fun QuotePrice(
     quote: Quote,
@@ -26,7 +26,11 @@ fun QuotePrice(
     style: TextStyle = MaterialTheme.typography.bodyMedium,
 ) {
     val price = NumberFormats.price(quote.price, quote.currency)
-    val description = stringResource(R.string.company_price_description, price, stringResource(trendDescription(quote.trend)))
+    val description = stringResource(
+        R.string.company_price_description,
+        NumberFormats.priceDescription(quote.price, quote.currency),
+        stringResource(trendDescription(quote.trend)),
+    )
     Text(
         text = price,
         style = style,

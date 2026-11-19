@@ -212,7 +212,7 @@ class CompanyRowTest {
         setWatchlistRow(loaded(quote(trend = Trend.UP)))
 
         assertEquals(priceColors.up, node(CompanyRowTags.PRICE).textColor())
-        node(CompanyRowTags.PRICE).assertTextEquals("189.84 USD")
+        node(CompanyRowTags.PRICE).assertTextEquals("$189.84")
             .assertContentDescriptionEquals("Price 189.84 USD, higher than the previous price")
     }
 
@@ -247,7 +247,7 @@ class CompanyRowTest {
     fun `loading row keeps the last price in its trend color`() {
         setWatchlistRow(RowMarketData(quote(trend = Trend.UP), lastLoad = MarketDataLoad.Loading))
 
-        node(CompanyRowTags.PRICE).assertTextEquals("189.84 USD")
+        node(CompanyRowTags.PRICE).assertTextEquals("$189.84")
         assertEquals(priceColors.up, node(CompanyRowTags.PRICE).textColor())
     }
 
@@ -264,7 +264,7 @@ class CompanyRowTest {
     fun `failed load keeps the last price in orange`() {
         setWatchlistRow(RowMarketData(quote(trend = Trend.DOWN, fetchedAt = now - Duration.ofHours(2)), lastLoad = MarketDataLoad.Failed))
 
-        node(CompanyRowTags.PRICE).assertTextEquals("189.84 USD")
+        node(CompanyRowTags.PRICE).assertTextEquals("$189.84")
             .assertContentDescriptionEquals("Price 189.84 USD, last update failed")
         node(CompanyRowTags.INDICATORS).assertContentDescriptionEquals("No indicators, last update failed")
         node(CompanyRowTags.CACHE_INDICATOR).assertTextEquals("\uD83D\uDD52" + "1")

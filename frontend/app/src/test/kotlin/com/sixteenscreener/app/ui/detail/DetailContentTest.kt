@@ -185,7 +185,7 @@ class DetailContentTest {
     fun `header shows the price of the company`() {
         setContent(state())
 
-        tagged(CompanyRowTags.PRICE).assertTextEquals("189.84 USD")
+        tagged(CompanyRowTags.PRICE).assertTextEquals("$189.84")
     }
 
     @Test
@@ -238,7 +238,7 @@ class DetailContentTest {
     fun `price with currency, cache indicator and ratios with missing values`() {
         setContent(state())
 
-        tagged(PriceAndRatiosTags.PRICE).assertTextEquals("189.84 USD")
+        tagged(PriceAndRatiosTags.PRICE).assertTextEquals("$189.84")
         tagged(PriceAndRatiosTags.CACHE_INDICATOR).assertExists()
         assertEquals(listOf("P/E, 31.25", "P/B, -"), texts(PriceAndRatiosTags.RATIO, useUnmergedTree = false))
     }
@@ -260,7 +260,7 @@ class DetailContentTest {
             composeRule.waitForIdle()
 
             assertEquals(status.name, listOfNotNull(notice), texts(SourceDataFrameTags.STATUS_NOTICE))
-            tagged(PriceAndRatiosTags.PRICE).assertTextEquals("189.84 USD")
+            tagged(PriceAndRatiosTags.PRICE).assertTextEquals("$189.84")
         }
     }
 
@@ -297,7 +297,7 @@ class DetailContentTest {
         setContent(state(priceAndRatios = TabData(CompanyData.priceAndRatios(), error = ApiError.Network(isTimeout = false))))
 
         composeRule.onNodeWithText("Cannot reach server. Check connection").assertExists()
-        tagged(PriceAndRatiosTags.PRICE).assertTextEquals("189.84 USD")
+        tagged(PriceAndRatiosTags.PRICE).assertTextEquals("$189.84")
     }
 
     @Test

@@ -68,14 +68,14 @@ fun QuotePriceAndCacheIndicator(quote: Quote?) {
 
 @Composable
 private fun MarketPriceText(display: RowMarketDisplay) {
-    val quote = display.quote
-    val state = when {
-        quote == null -> null
-        display.isLastLoadFailed -> stringResource(R.string.market_data_load_failed)
-        else -> stringResource(trendDescription(quote.trend))
-    }
-    val description = state?.let { stringResource(R.string.company_price_description, display.price.text, it) }
-        ?: stringResource(R.string.company_no_price).withLoadFailure(display.isLastLoadFailed)
+    val description = display.quote?.let { quote ->
+        val state = if (display.isLastLoadFailed) {
+            stringResource(R.string.market_data_load_failed)
+        } else {
+            stringResource(trendDescription(quote.trend))
+        }
+        stringResource(R.string.company_price_description, NumberFormats.priceDescription(quote.price, quote.currency), state)
+    } ?: stringResource(R.string.company_no_price).withLoadFailure(display.isLastLoadFailed)
     Text(
         text = display.price.text,
         style = MaterialTheme.typography.bodyMedium,

@@ -6,26 +6,69 @@ import org.junit.Test
 class NumberFormatsTest {
 
     @Test
-    fun `price has two decimals and the currency`() {
-        assertEquals("189.84 USD", NumberFormats.price(189.84, "USD"))
-        assertEquals("190.00 EUR", NumberFormats.price(190.0, "EUR"))
-        assertEquals("0.13 USD", NumberFormats.price(0.125, "USD"))
+    fun `price has the currency symbol before two decimals`() {
+        assertEquals("$189.84", NumberFormats.price(189.84, "USD"))
+        assertEquals("\u20AC190.00", NumberFormats.price(190.0, "EUR"))
+        assertEquals("$0.13", NumberFormats.price(0.125, "USD"))
+    }
+
+    @Test
+    fun `price matches the currency code case-insensitively after trimming`() {
+        assertEquals("\u00A31.50", NumberFormats.price(1.5, " gbp "))
     }
 
     @Test
     fun `price groups thousands`() {
-        assertEquals("1,234,567.89 USD", NumberFormats.price(1_234_567.891, "USD"))
+        assertEquals("$1,234,567.89", NumberFormats.price(1_234_567.891, "USD"))
+    }
+
+    @Test
+    fun `price with a currency without symbol is followed by the code`() {
+        assertEquals("1,234.50 SEK", NumberFormats.price(1_234.5, "SEK"))
+        assertEquals("12.00 CHF", NumberFormats.price(12.0, "CHF"))
     }
 
     @Test
     fun `price without currency is the number only`() {
         assertEquals("12.50", NumberFormats.price(12.5, null))
         assertEquals("12.50", NumberFormats.price(12.5, " "))
+        assertEquals("12.50", NumberFormats.price(12.5, ""))
+    }
+
+    @Test
+    fun `negative price has the sign before the symbol`() {
+        assertEquals("-$1.00", NumberFormats.price(-1.0, "USD"))
+        assertEquals("-1.00 SEK", NumberFormats.price(-1.0, "SEK"))
+    }
+
+    @Test
+    fun `price rounding to zero has no sign`() {
+        assertEquals("$0.00", NumberFormats.price(-0.001, "USD"))
     }
 
     @Test
     fun `missing price is a dash`() {
         assertEquals("-", NumberFormats.price(null, "USD"))
+        assertEquals("-", NumberFormats.price(null, null))
+    }
+
+    @Test
+    fun `price description has two decimals followed by the currency code`() {
+        assertEquals("189.84 USD", NumberFormats.priceDescription(189.84, "USD"))
+        assertEquals("1,234,567.89 EUR", NumberFormats.priceDescription(1_234_567.891, "EUR"))
+        assertEquals("0.13 SEK", NumberFormats.priceDescription(0.125, "SEK"))
+        assertEquals("-1.00 USD", NumberFormats.priceDescription(-1.0, "USD"))
+    }
+
+    @Test
+    fun `price description without currency is the number only`() {
+        assertEquals("12.50", NumberFormats.priceDescription(12.5, null))
+        assertEquals("12.50", NumberFormats.priceDescription(12.5, " "))
+    }
+
+    @Test
+    fun `missing price description is a dash`() {
+        assertEquals("-", NumberFormats.priceDescription(null, "USD"))
     }
 
     @Test

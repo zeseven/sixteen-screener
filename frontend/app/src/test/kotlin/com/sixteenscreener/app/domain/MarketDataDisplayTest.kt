@@ -48,7 +48,7 @@ class MarketDataDisplayTest {
 
         val display = MarketDataDisplay.of(RowMarketData(quote, lastLoad = MarketDataLoad.Loading))
 
-        assertEquals(MarketValue("189.84 USD", MarketValueColor.DOWN), display.price)
+        assertEquals(MarketValue("$189.84", MarketValueColor.DOWN), display.price)
         assertEquals(quote, display.quote)
     }
 
@@ -58,7 +58,7 @@ class MarketDataDisplayTest {
             .forEach { (trend, color) ->
                 val display = MarketDataDisplay.of(RowMarketData(quote(trend = trend), lastLoad = loaded(DataStatus.FRESH)))
 
-                assertEquals(trend.name, MarketValue("189.84 USD", color), display.price)
+                assertEquals(trend.name, MarketValue("$189.84", color), display.price)
                 assertEquals(trend.name, noIndicators, display.indicators)
             }
     }
@@ -92,7 +92,7 @@ class MarketDataDisplayTest {
 
         val display = MarketDataDisplay.of(RowMarketData(quote, lastLoad = MarketDataLoad.Failed))
 
-        assertEquals(MarketValue("189.84 USD", MarketValueColor.FAILED), display.price)
+        assertEquals(MarketValue("$189.84", MarketValueColor.FAILED), display.price)
         assertEquals(noIndicatorsFailed, display.indicators)
         assertEquals(quote, display.quote)
         assertTrue(display.isLastLoadFailed)
@@ -104,7 +104,7 @@ class MarketDataDisplayTest {
             val withQuote = MarketDataDisplay.of(RowMarketData(quote(), lastLoad = loaded(status)))
             val withoutQuote = MarketDataDisplay.of(RowMarketData(lastLoad = loaded(status)))
 
-            assertEquals(status.name, MarketValue("189.84 USD", MarketValueColor.FAILED), withQuote.price)
+            assertEquals(status.name, MarketValue("$189.84", MarketValueColor.FAILED), withQuote.price)
             assertEquals(status.name, noIndicatorsFailed, withQuote.indicators)
             assertEquals(status.name, missingFailed, withoutQuote.price)
         }
@@ -145,7 +145,7 @@ class MarketDataDisplayTest {
             RowMarketData(quote(trend = Trend.UP), listOf(pe), MarketDataLoad.Loaded(DataStatus.FRESH, DataStatus.LIMIT_REACHED)),
         )
 
-        assertEquals(MarketValue("189.84 USD", MarketValueColor.UP), display.price)
+        assertEquals(MarketValue("$189.84", MarketValueColor.UP), display.price)
         assertEquals(IndicatorsDisplay(listOf(pe), hasMore = false, isLoadFailed = true), display.indicators)
         assertFalse(display.isLastLoadFailed)
     }
