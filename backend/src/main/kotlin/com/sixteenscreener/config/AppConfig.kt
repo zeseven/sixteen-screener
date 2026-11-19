@@ -43,9 +43,11 @@ data class SourceConfig(
 data class SourceSecrets(
     val finnhubApiKey: String?,
     val secEdgarUserAgent: String?,
+    val eodhdApiKey: String? = null,
 ) {
     override fun toString(): String =
-        "SourceSecrets(finnhubApiKey=${mask(finnhubApiKey)}, secEdgarUserAgent=${mask(secEdgarUserAgent)})"
+        "SourceSecrets(finnhubApiKey=${mask(finnhubApiKey)}, secEdgarUserAgent=${mask(secEdgarUserAgent)}, " +
+            "eodhdApiKey=${mask(eodhdApiKey)})"
 
     private fun mask(secret: String?): String = if (secret == null) "null" else "***"
 }

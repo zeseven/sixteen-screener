@@ -658,6 +658,23 @@
     ]
   },
   {
+    "name": "com.sixteenscreener.adapter.outbound.eodhd.DividendDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.outbound.eodhd.DividendDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sixteenscreener.adapter.outbound.finnhub.BasicFinancialsDto",
     "fields": [
       {

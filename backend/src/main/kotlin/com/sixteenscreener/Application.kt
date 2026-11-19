@@ -4,6 +4,7 @@ import com.sixteenscreener.adapter.inbound.http.configureCallLogging
 import com.sixteenscreener.adapter.inbound.http.configureRouting
 import com.sixteenscreener.adapter.inbound.http.configureSerialization
 import com.sixteenscreener.adapter.inbound.http.configureStatusPages
+import com.sixteenscreener.adapter.outbound.eodhd.EodhdClient
 import com.sixteenscreener.adapter.outbound.finnhub.FinnhubClient
 import com.sixteenscreener.adapter.outbound.finnhublogos.FinnhubLogoClient
 import com.sixteenscreener.adapter.outbound.firestore.FirestoreClientFactory
@@ -202,6 +203,7 @@ fun wireServices(config: AppConfig): AppServices {
     val sourceCallGuard = SourceCallGuard(rateLimiter)
     val companyCache = FirestoreCompanyCache(firestore)
     val finnhub = finnhubClient(config, httpClient, clock)
+    val eodhd = eodhdClient(config, httpClient, clock)
     val secEdgar = secEdgarClient(config, httpClient, FirestoreSecCikRepository(firestore), rateLimiter, clock)
     val symbolDirectory = finnhub?.let { source ->
         ExchangeDirectoryService(
@@ -223,7 +225,7 @@ fun wireServices(config: AppConfig): AppServices {
         rateLimiter = rateLimiter,
         sourceCallOutcomes = sourceCallOutcomes,
         sourceCallGuard = sourceCallGuard,
-        marketDataSources = listOfNotNull<MarketDataSource>(finnhub).associateBy { it.id },
+        marketDataSources = listOfNotNull<MarketDataSource>(finnhub, eodhd).associateBy { it.id },
         balanceSheetSources = listOfNotNull<BalanceSheetSource>(finnhub, secEdgar).associateBy { it.id },
         symbolDirectory = symbolDirectory,
         logoTiers = listOf(
@@ -247,6 +249,17 @@ private fun finnhubClient(config: AppConfig, httpClient: HttpClient, clock: Cloc
             baseUrl = source.baseUrl,
             apiKey = checkNotNull(config.secrets.finnhubApiKey) { "Finnhub API key missing" },
             call = SourceHttpCall(httpClient, source.timeout, clock),
+        )
+    }
+
+private fun eodhdClient(config: AppConfig, httpClient: HttpClient, clock: Clock): EodhdClient? =
+    config.enabledSources.firstOrNull { it.id == EODHD }?.let { source ->
+        EodhdClient(
+            id = source.id,
+            baseUrl = source.baseUrl,
+            apiToken = checkNotNull(config.secrets.eodhdApiKey) { "EODHD API key missing" },
+            call = SourceHttpCall(httpClient, source.timeout, clock),
+            clock = clock,
         )
     }
 
@@ -304,6 +317,7 @@ private const val DEFAULT_LOGO_RESOURCE = "/default-logo.svg"
 
 private val FINNHUB = SourceId.of("finnhub")
 private val SEC_EDGAR = SourceId.of("sec-edgar")
+private val EODHD = SourceId.of("eodhd")
 private val LOGOAPI = SourceId.of("logoapi")
 private val FINNHUB_LOGOS = SourceId.of("finnhub-logos")
 

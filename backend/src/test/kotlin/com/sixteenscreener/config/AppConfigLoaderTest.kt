@@ -26,6 +26,7 @@ private val FULL_ENV = mapOf(
     "LOGO_BUCKET" to "test-bucket",
     "FINNHUB_API_KEY" to "finnhub-key",
     "SEC_EDGAR_USER_AGENT" to "Sixteen Screener test@example.com",
+    "EODHD_API_KEY" to "eodhd-key",
 )
 
 private const val SEC_FILES = "additionalBaseUrls = { files = \"https://www.sec.test\" }"
@@ -63,9 +64,10 @@ class AppConfigLoaderTest : FunSpec({
         config.gcpProjectId shouldBe "test-project"
         config.logoBucket shouldBe "test-bucket"
         config.defaultSource shouldBe SourceId.of("finnhub")
-        config.sources.map { it.id.value } shouldContainExactly listOf("finnhub", "sec-edgar", "logoapi", "finnhub-logos")
+        config.sources.map { it.id.value } shouldContainExactly listOf("finnhub", "eodhd", "sec-edgar", "logoapi", "finnhub-logos")
         config.secrets.finnhubApiKey shouldBe "finnhub-key"
         config.secrets.secEdgarUserAgent shouldBe "Sixteen Screener test@example.com"
+        config.secrets.eodhdApiKey shouldBe "eodhd-key"
 
         val finnhub = config.source(SourceId.of("finnhub"))!!
         finnhub.name shouldBe "Finnhub"
@@ -91,6 +93,18 @@ class AppConfigLoaderTest : FunSpec({
         finnhubLogos.countTotalCalls shouldBe true
         finnhubLogos.timeout shouldBe 5.seconds
         config.totalCountedSources shouldBe setOf(SourceId.of("finnhub-logos"))
+
+        finnhub.automaticRequests shouldBe true
+
+        val eodhd = config.source(SourceId.of("eodhd"))!!
+        eodhd.name shouldBe "EODHD"
+        eodhd.enabled shouldBe true
+        eodhd.baseUrl shouldBe "https://eodhd.com/api"
+        eodhd.capabilities shouldBe setOf(Capability.QUOTE, Capability.DIVIDENDS)
+        eodhd.automaticRequests shouldBe false
+        eodhd.limits shouldContainExactly listOf(RequestLimit(LimitInterval.DAY, 20), RequestLimit(LimitInterval.MINUTE, 20))
+        eodhd.directoryExchanges shouldBe emptySet()
+        config.manualOnlySources shouldBe setOf(SourceId.of("eodhd"))
 
         val secEdgar = config.source(SourceId.of("sec-edgar"))!!
         secEdgar.baseUrl shouldBe "https://data.sec.gov"
@@ -225,6 +239,11 @@ class AppConfigLoaderTest : FunSpec({
         )
     }
 
+    test("fails when the EODHD API key is missing") {
+        loadErrors(ApplicationConfig("application.conf"), FULL_ENV - "EODHD_API_KEY") shouldContainExactly
+            listOf("Source 'eodhd' is enabled but environment variable EODHD_API_KEY is not set")
+    }
+
     test("fails when the secret of an enabled source is missing") {
         val errors = loadErrors(ApplicationConfig("application.conf"), FULL_ENV - "FINNHUB_API_KEY")
         errors shouldContainExactly listOf("Source 'finnhub' is enabled but environment variable FINNHUB_API_KEY is not set")
@@ -353,6 +372,7 @@ class AppConfigLoaderTest : FunSpec({
     test("secrets are masked in toString") {
         val config = AppConfigLoader.load(ApplicationConfig("application.conf"), FULL_ENV)
         config.toString() shouldNotContain "finnhub-key"
+        config.toString() shouldNotContain "eodhd-key"
     }
 
     test("firestore database defaults to sixteen-screener") {

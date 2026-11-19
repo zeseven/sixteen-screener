@@ -19,6 +19,7 @@ object AppConfigLoader {
     const val ENV_DEFAULT_SOURCE = "DEFAULT_SOURCE"
     const val ENV_FINNHUB_API_KEY = "FINNHUB_API_KEY"
     const val ENV_SEC_EDGAR_USER_AGENT = "SEC_EDGAR_USER_AGENT"
+    const val ENV_EODHD_API_KEY = "EODHD_API_KEY"
     const val ENV_STORAGE_EMULATOR_HOST = "STORAGE_EMULATOR_HOST"
 
     private const val DEFAULT_TIMEOUT_MILLIS = 5000L
@@ -37,6 +38,7 @@ object AppConfigLoader {
     private val REQUIRED_SECRETS: Map<String, String> = mapOf(
         "finnhub" to ENV_FINNHUB_API_KEY,
         "sec-edgar" to ENV_SEC_EDGAR_USER_AGENT,
+        "eodhd" to ENV_EODHD_API_KEY,
     )
 
     fun load(config: ApplicationConfig, env: Map<String, String>): AppConfig {
@@ -50,6 +52,7 @@ object AppConfigLoader {
         val secrets = SourceSecrets(
             finnhubApiKey = env.secret(ENV_FINNHUB_API_KEY),
             secEdgarUserAgent = env.secret(ENV_SEC_EDGAR_USER_AGENT),
+            eodhdApiKey = env.secret(ENV_EODHD_API_KEY),
         )
         val errors = reader.errors +
             duplicateIdErrors(sources) +
