@@ -4,12 +4,17 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.CallResult
@@ -26,6 +31,7 @@ import com.sixteenscreener.app.ui.component.LocalClock
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 import java.time.Instant
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -49,6 +55,20 @@ class SourcesContentTest {
     private fun setSources(vararg sources: Source) = setContent(SourcesUiState(sources = sources.toList()))
 
     private fun indicator() = composeRule.onNodeWithTag(SourcesScreenTags.CONNECTION_INDICATOR, useUnmergedTree = true)
+
+    private fun boundsOfAll(tag: String): List<DpRect> {
+        val nodes = composeRule.onAllNodesWithTag(tag, useUnmergedTree = true)
+        return nodes.fetchSemanticsNodes().indices.map { nodes[it].getUnclippedBoundsInRoot() }
+    }
+
+    private fun assertDpEquals(expected: Dp, actual: Dp) = assertEquals(expected.value, actual.value, 0.5f)
+
+    private fun assertIndicatorsEndAtCardContentEdge() {
+        val cards = boundsOfAll(SourcesScreenTags.CARD)
+        val indicators = boundsOfAll(SourcesScreenTags.CONNECTION_INDICATOR)
+        assertEquals(cards.size, indicators.size)
+        cards.zip(indicators).forEach { (card, indicator) -> assertDpEquals(card.right - 16.dp, indicator.right) }
+    }
 
     @Test
     fun `card shows name, capabilities and the default marker`() {
@@ -234,5 +254,48 @@ class SourcesContentTest {
 
         composeRule.onNodeWithTag(SourcesScreenTags.LIMIT, useUnmergedTree = true)
             .assertTextEquals("61 / 60 per minute, limit reached, resets 10:01")
+    }
+
+    @Test
+    fun `connection indicators end at the card content edge regardless of name length`() {
+        setSources(
+            source(id = "fmp", name = "FMP", lastCall = outcome(CallResult.HTTP_ERROR, 404)),
+            source(id = "finnhub-logos", name = "Finnhub logos", isDefault = true, lastCall = outcome(CallResult.APP_ERROR)),
+            source(id = "eodhd", name = "EODHD", automaticRequests = false, lastCall = outcome(CallResult.TIMEOUT)),
+        )
+
+        assertIndicatorsEndAtCardContentEdge()
+        val rights = boundsOfAll(SourcesScreenTags.CONNECTION_INDICATOR).map { it.right }
+        rights.forEach { assertDpEquals(rights.first(), it) }
+    }
+
+    @Test
+    fun `markers stay next to the name`() {
+        setSources(source(isDefault = true, automaticRequests = false, lastCall = outcome(CallResult.HTTP_ERROR, 404)))
+
+        val name = boundsOfAll(SourcesScreenTags.NAME).single()
+        val defaultMarker = boundsOfAll(SourcesScreenTags.DEFAULT_MARKER).single()
+        val manualOnlyMarker = boundsOfAll(SourcesScreenTags.MANUAL_ONLY_MARKER).single()
+        assertDpEquals(name.right + 8.dp, defaultMarker.left)
+        assertDpEquals(defaultMarker.right + 8.dp, manualOnlyMarker.left)
+        assertTrue(manualOnlyMarker.right < boundsOfAll(SourcesScreenTags.CONNECTION_INDICATOR).single().left)
+    }
+
+    @Test
+    fun `very long name with markers keeps the indicator visible at the card content edge`() {
+        setSources(
+            source(
+                name = "A very long source name that does not fit on a single line of the card at all",
+                isDefault = true,
+                automaticRequests = false,
+                lastCall = outcome(CallResult.HTTP_ERROR, 404),
+            ),
+        )
+
+        indicator().assertIsDisplayed()
+        assertIndicatorsEndAtCardContentEdge()
+        val indicatorLeft = boundsOfAll(SourcesScreenTags.CONNECTION_INDICATOR).single().left
+        assertTrue(boundsOfAll(SourcesScreenTags.MANUAL_ONLY_MARKER).single().right <= indicatorLeft)
+        assertTrue(boundsOfAll(SourcesScreenTags.NAME).single().right <= indicatorLeft)
     }
 }

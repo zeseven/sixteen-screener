@@ -138,19 +138,23 @@ fun SourceCard(source: Source, modifier: Modifier = Modifier) {
     Card(modifier = modifier.fillMaxWidth().testTag(SourcesScreenTags.CARD)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = source.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .semantics { heading() }
-                        .testTag(SourcesScreenTags.NAME),
-                )
-                if (source.isDefault) Marker(stringResource(R.string.source_default), SourcesScreenTags.DEFAULT_MARKER)
-                if (!source.automaticRequests) Marker(stringResource(R.string.source_manual_only), SourcesScreenTags.MANUAL_ONLY_MARKER)
-                Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
-                    ConnectionIndicatorText(source.lastCall)
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = source.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .semantics { heading() }
+                            .testTag(SourcesScreenTags.NAME),
+                    )
+                    if (source.isDefault) Marker(stringResource(R.string.source_default), SourcesScreenTags.DEFAULT_MARKER)
+                    if (!source.automaticRequests) Marker(stringResource(R.string.source_manual_only), SourcesScreenTags.MANUAL_ONLY_MARKER)
                 }
+                ConnectionIndicatorText(source.lastCall)
             }
             defaultForText(source.defaultFor)?.let {
                 Text(text = it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag(SourcesScreenTags.DEFAULT_FOR))
