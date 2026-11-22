@@ -132,10 +132,8 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Dividends tab (EODHD for international stocks; no dividends for US stocks until a US dividends source is added)
 - [ ] Source dropdown on each tab, limited to the sources configured for the company's market; one source displayed at a time
 - [x] Hint to refresh when a source with automatic requests off has no cached data (`NOT_REQUESTED`)
-- [ ] Company profile tab: add and remove user tags
 
 ### Watchlist screen
-- [ ] Filter by user tags
 - [ ] Optional: map source sector names to a fixed list of predefined sectors
 
 ### Exchanges screen
@@ -157,8 +155,16 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Detailed screen: ratios colored by their indicator level; `, %` appended to names of percent ratios
 - [x] Indicator settings page opened from the settings screen: ratios grouped by category, a checkbox and an interval bar per ratio (draggable thresholds, tap to change an interval color, long press for an exact value)
 
-### Profiles
-- [ ] Per-profile user tags stored in Firestore
+### User tags
+- [ ] A user tag is an icon and a text, both required: the icon is chosen from a predefined set of 32 icons, the text is a free text of 1 to 100 characters (trimmed)
+- [ ] Icon set bundled into the app as vector drawables: Bootstrap Icons, plus chess king, chess queen, poker chip and factory from Tabler Icons (MIT license notices kept with the icons); a tag stores the icon ID, an unknown ID is shown with a fallback icon
+- [ ] Tags stored per profile in the watchlist entry in Firestore: only watchlist companies have tags, removing a company from the watchlist removes its tags; at most 20 tags per company; two tags with equal icons and texts equal ignoring case are the same tag (no duplicates on one company)
+- [ ] Company profile tab: tags shown as a list (icon and text) in the first section of the tab, above the profile data; shown and editable also when the profile data is unavailable (source error, reached limit, not supported, not requested); disabled for companies outside the watchlist
+- [ ] Adding a tag on the company profile tab: an icon picker (grid of the predefined icons) and a text input limited to 100 characters; the tags already used by the profile offered for reuse
+- [ ] Removing a tag on the company profile tab
+- [ ] Detailed screen header: icons of the company's tags (without texts) in the row of the security type and home exchange mark, aligned to the right; the row doesn't grow because of them, icons that don't fit are replaced by `…`
+- [ ] Watchlist screen: no tags on company rows
+- [ ] Watchlist filter by user tag: each tag used by the profile shown with its icon and text, the text truncated with an ellipsis to fit
 
 ---
 

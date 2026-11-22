@@ -403,7 +403,8 @@ paths:
       description: |
         Replaces all profile tags of the company. An empty list removes all tags. Tags are stored with the watchlist
         entry, so only companies in the watchlist can have tags: `400` for a company outside the watchlist. Removing a
-        company from the watchlist removes its tags.
+        company from the watchlist removes its tags. `400` for more than 20 tags, an empty text after trimming, or two
+        tags that are the same tag (equal icons, texts equal ignoring case).
       x-milestone: beta
       requestBody:
         required: true
@@ -430,7 +431,10 @@ paths:
       tags: [Tags]
       operationId: getProfileTags
       summary: Get all user tags of the profile
-      description: All distinct tags used by the profile, sorted alphabetically. Used for the watchlist tag filter.
+      description: |
+        All distinct tags used by the profile (same icon and text ignoring case count once, the first found is
+        returned), sorted by text ignoring case, then by icon. Used for the watchlist tag filter and offered for reuse
+        when a tag is added.
       x-milestone: beta
       responses:
         '200':
@@ -832,7 +836,7 @@ components:
               type: array
               description: Profile tags of the company, stored with the watchlist entry; empty until tags are implemented.
               items:
-                type: string
+                $ref: '#/components/schemas/Tag'
 
     SearchItem:
       description: A search result.
@@ -1249,9 +1253,32 @@ components:
           nullable: true
         tags:
           type: array
+          description: |
+            Profile tags of the company, returned also when the profile data is unavailable (any status of `meta`).
+            Empty for a company outside the watchlist.
           items:
-            type: string
+            $ref: '#/components/schemas/Tag'
           x-milestone: beta
+
+    Tag:
+      type: object
+      description: |
+        A user tag: an icon from the app's predefined icon set and a text. Two tags are the same tag when their icons
+        are equal and their texts are equal ignoring case. The backend trims the text and doesn't validate the icon
+        against the icon set; the app shows a fallback icon for an icon it doesn't know.
+      required: [icon, text]
+      properties:
+        icon:
+          type: string
+          pattern: '^[a-z0-9-]{1,40}$'
+          description: ID of the icon in the app's predefined icon set.
+          example: chess-king
+        text:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Dividend king
+      x-milestone: beta
 
     TagList:
       type: object
@@ -1260,11 +1287,9 @@ components:
         tags:
           type: array
           uniqueItems: true
-          maxItems: 50
+          description: At most 20 tags per company in a request to set the company's tags.
           items:
-            type: string
-            minLength: 1
-            maxLength: 30
+            $ref: '#/components/schemas/Tag'
 
     IndicatorSettingValues:
       type: object

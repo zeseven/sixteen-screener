@@ -35,7 +35,7 @@ https://logoapi.sh/ticker/AAPL.svg
 ## Application screens
 There are 4 tabs on the main screen of the app:
 - Watchlist. Displays selected companies. The user can add a stock and remove any existing one.
-Contains filters (drop-down controls): Market (USA/EU/all), sector (finances/technology/etc), user tags.
+Contains filters (drop-down controls): Market (USA/EU/all), sector (finances/technology/etc), user tags (each shown with its icon and text, the text shortened to fit).
 - Search. Contains input box for search; searches the profile's default search source by company ticker or first letters from company name.
 Search is triggered when the user stops typing for 500 ms, or at once with the keyboard's search action.
 Companies found displayed as a list of rows without stock price and indicators (logo, ticker with exchange name, company name, flag); any company can be added to the watchlist. Search makes no source requests other than the search itself.
@@ -50,8 +50,8 @@ That screen contains several tabs:
 - Dividends,
 - Balance sheet (annual data only; a table with one column per year, scrolled horizontally when the years don't fit),
 - Company profile.
-Each tab displays data from the profile's default source for the company's market (US or international). Each tab contains a dropdown to select another source configured for that market (balance sheet contains additionally government source, the 'source of truth'). On company profile tab user can append its own tags (for filtering on the Watchlist screen). Tags belong to the watchlist: only companies in the watchlist can have tags (tag editing is disabled for other companies), and removing a company from the watchlist removes its tags.
-Right under the company row at the top of the detailed screen, a smaller row shows the security type (for example 'Common Stock' or 'ADR'). A type that is not a stock is highlighted. When the exchange is the company's home exchange (an exchange of the company's own country), a checkmark and 'home exchange' follow the type. Both are approximations to help the user pick the stock among several listings of the same company.
+Each tab displays data from the profile's default source for the company's market (US or international). Each tab contains a dropdown to select another source configured for that market (balance sheet contains additionally government source, the 'source of truth'). On company profile tab user can append its own tags (for filtering on the Watchlist screen). A tag is an icon chosen from a predefined set and a short text (up to 100 characters); both are required. The tags are the first section of the company profile tab and are available even when the profile data is not. The icons of the company's tags are also shown on the detailed screen header (see below). Company rows on the watchlist show no tags. Tags belong to the watchlist: only companies in the watchlist can have tags (tag editing is disabled for other companies), and removing a company from the watchlist removes its tags.
+Right under the company row at the top of the detailed screen, a smaller row shows the security type (for example 'Common Stock' or 'ADR'). A type that is not a stock is highlighted. When the exchange is the company's home exchange (an exchange of the company's own country), a checkmark and 'home exchange' follow the type. Both are approximations to help the user pick the stock among several listings of the same company. The same row shows the icons of the company's user tags (icons only, without texts), aligned to the right.
 There should be one more 'settings' screen, accessible by 'settings' button, with indicators and other app settings.
 
 ## Displaying company info

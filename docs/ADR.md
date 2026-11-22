@@ -894,3 +894,20 @@ The static exchange table (ADR-062) gets an ISO 3166-1 alpha-2 country and a mai
 **Decision:** Cached quotes (including the quote history), ratios, dividends and balance sheets expire 30 days after they were fetched (supersedes the 14 days of ADR-013). Company profiles keep their 90-day TTL (ADR-060). The expiry is written into each document's `expireAt` field, so no infrastructure change is needed.
 
 **Consequences:** Cached data stays available as a fallback for longer when a source is unavailable or its limit is reached. Entries cached before the change keep their 14-day `expireAt` until they are fetched again.
+
+## ADR-086: User tags made of an icon and a text
+
+**Date:** 2026-11-22
+**Status:** Accepted
+
+**Context:** A plain text tag is hard to recognise in a small space. The detailed screen header has room for small markers in the row of the security type, but not for texts.
+
+**Decision:**
+- A user tag is `{icon, text}`: the icon is the ID of an icon from a predefined set of 32 icons kept in the app, the text is 1 to 100 characters after trimming. Both are required. Two tags are the same tag when their icons are equal and their texts are equal ignoring case.
+- The icon set is taken from Bootstrap Icons, with chess king, chess queen, poker chip and factory taken from Tabler Icons, which Bootstrap Icons doesn't provide. Both are MIT-licensed; the icons are bundled into the app as vector drawables and the license notices are kept with them. The icon ID is the icon's name in its library (`chess-king`, `piggy-bank`).
+- The backend stores the icon ID without checking it against the set, so the set can change with an app release only; the app shows a fallback icon for an unknown ID.
+- A company has at most 20 tags (supersedes the limit of 50 text tags of up to 30 characters).
+- The company profile tab shows the tags as its first section, also when the profile data is unavailable. The detailed screen header shows the icons of the tags in the row of the security type and home exchange mark, aligned to the right. Company rows show no tags. The watchlist tag filter shows the icon and the text of each tag.
+- When a tag is added, the tags already used by the profile are offered for reuse, so one tag is not created with different spellings.
+
+**Consequences:** Tags stay in the watchlist entry (ADR-061). A new icon needs an app release; removing an icon from the set leaves existing tags with the fallback icon.
