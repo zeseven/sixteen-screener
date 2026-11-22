@@ -43,7 +43,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Rate limiting: no outgoing request when a source limit is reached; cached data is returned instead
 
 ### Caching and data freshness
-- [x] Company data cached per ticker and date, shared between users; expires via Firestore TTL after 14 days
+- [x] Company data cached per ticker and date, shared between users; expires via Firestore TTL after 30 days
 - [x] Data younger than 1 hour is considered fresh and not refreshed
 - [x] Company profiles cached for 90 days
 - [x] Exchange symbol lists kept for 7 days; a missing symbol triggers a new download of a list older than 1 day

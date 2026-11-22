@@ -64,8 +64,8 @@ Profile names are unique, compared after trimming surrounding whitespace and cas
 
 ## Caching
 Company data is being cahced (saved in Firestore) per company ticker (and date). That cached data is shared between users.
-Cached company data expires via Firestore TTL after 14 days; company profiles expire after 90 days. The expiry time is written into each document (`expireAt`), so the TTL period is a code setting.
-Quotes are additionally kept as a per-day history: one record per company, source and market day, holding the latest price of that day. Market days are determined in the exchange's time zone. The history follows the same 14-day TTL. The 'previous cached price' is the latest price of the most recent earlier market day.
+Cached company data expires via Firestore TTL after 30 days; company profiles expire after 90 days. The expiry time is written into each document (`expireAt`), so the TTL period is a code setting.
+Quotes are additionally kept as a per-day history: one record per company, source and market day, holding the latest price of that day. Market days are determined in the exchange's time zone. The history follows the same 30-day TTL. The 'previous cached price' is the latest price of the most recent earlier market day.
 Company profile data is fetched once and kept until it expires (90 days), then fetched again. It is requested only when a company is added to the watchlist and by the detailed screen; neither the watchlist nor the search requests it.
 Same for source-related counters (requests sent to the source this hour/day/month); counters expire after their interval.
 Requests are counted before they are sent: a batch of calls (e.g. a watchlist refresh) reserves its budget in one Firestore transaction and makes only the granted number of calls. When a source answers 429, the backend sets its current counters to their limits, so no instance calls the source again until the window resets.

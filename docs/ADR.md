@@ -885,3 +885,12 @@ The static exchange table (ADR-062) gets an ISO 3166-1 alpha-2 country and a mai
 - The EODHD client divides the quote price of the EODHD exchanges `LSE` and `JSE` by 100, so the quote is in the currency of the static exchange table (GBP, ZAR). Which EODHD exchanges quote in minor units is kept in the EODHD client, as a property of the source. Dividends are not converted.
 
 **Consequences:** London and Johannesburg prices from EODHD match the prices of the other sources. Companies of Berlin, Iceland, Hong Kong and Tel Aviv get no international prices or dividends. Dividend amounts of London and Johannesburg may still be in minor units if EODHD reports them that way; this is checked when a real dividends response is available.
+
+## ADR-085: Cached company data kept for 30 days
+
+**Date:** 2026-11-22
+**Status:** Accepted
+
+**Decision:** Cached quotes (including the quote history), ratios, dividends and balance sheets expire 30 days after they were fetched (supersedes the 14 days of ADR-013). Company profiles keep their 90-day TTL (ADR-060). The expiry is written into each document's `expireAt` field, so no infrastructure change is needed.
+
+**Consequences:** Cached data stays available as a fallback for longer when a source is unavailable or its limit is reached. Entries cached before the change keep their 14-day `expireAt` until they are fetched again.
