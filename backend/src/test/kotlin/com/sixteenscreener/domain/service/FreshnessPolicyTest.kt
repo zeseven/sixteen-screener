@@ -45,8 +45,8 @@ class FreshnessPolicyTest : FunSpec({
         policy.isWatchlistRatiosUpToDate(now - Duration.ofDays(3)) shouldBe false
     }
 
-    test("company profile older than 14 days but younger than 90 days is not expired") {
-        policy.isProfileExpired(now - Duration.ofDays(14)) shouldBe false
+    test("company profile older than 30 days but younger than 90 days is not expired") {
+        policy.isProfileExpired(now - Duration.ofDays(30)) shouldBe false
         policy.isProfileExpired(now - Duration.ofDays(90) + Duration.ofMillis(1)) shouldBe false
     }
 
@@ -58,9 +58,9 @@ class FreshnessPolicyTest : FunSpec({
         policy.cacheExpireAt(DataType.COMPANY_PROFILE, now) shouldBe now + Duration.ofDays(90)
     }
 
-    context("other cache entries expire 14 days after fetch") {
+    context("other cache entries expire 30 days after fetch") {
         withData(nameFn = { it.name }, DataType.QUOTE, DataType.RATIOS, DataType.DIVIDENDS, DataType.BALANCE_SHEET) { type ->
-            policy.cacheExpireAt(type, now) shouldBe now + Duration.ofDays(14)
+            policy.cacheExpireAt(type, now) shouldBe now + Duration.ofDays(30)
         }
     }
 

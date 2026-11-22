@@ -334,7 +334,7 @@ class CompanyDataServiceWatchlistTest : FunSpec({
 
     context("unexpired company profile") {
 
-        test("cached profile younger than 90 days is returned without a request, even when older than 14 days") {
+        test("cached profile younger than 90 days is returned without a request, even when older than 30 days") {
             val f = CompanyDataFixture()
             f.cached(profileKey("AAPL"), sampleProfile(), age = Duration.ofDays(90).minusSeconds(1))
             f.profileFromSource("AAPL", sampleProfile(sector = "New"))

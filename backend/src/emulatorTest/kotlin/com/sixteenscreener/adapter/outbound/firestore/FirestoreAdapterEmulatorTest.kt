@@ -261,9 +261,9 @@ class FirestoreCompanyCacheEmulatorTest : FunSpec({
     val finnhub = SourceId.of("finnhub")
     val apple = Symbol.of("AAPL")
     val fetchedAt = Instant.parse("2026-11-14T15:00:00Z")
-    val expireAt = fetchedAt.plus(Duration.ofDays(14)).toTimestamp()
+    val expireAt = fetchedAt.plus(Duration.ofDays(30)).toTimestamp()
 
-    test("cached documents expire 14 days after fetchedAt") {
+    test("cached documents expire 30 days after fetchedAt") {
         val firestore = emulator.reset()
         FirestoreCompanyCache(firestore).put(CacheKey(finnhub, apple, DataType.RATIOS), CacheEntry(sampleRatios, fetchedAt))
 

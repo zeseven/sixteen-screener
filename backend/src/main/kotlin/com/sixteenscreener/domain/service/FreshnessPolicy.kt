@@ -33,7 +33,7 @@ class FreshnessPolicy(private val clock: Clock) {
     companion object {
         val FRESHNESS_WINDOW: Duration = Duration.ofHours(1)
         val WATCHLIST_RATIOS_MAX_AGE: Duration = Duration.ofDays(1)
-        val CACHE_TTL: Duration = Duration.ofDays(14)
+        val CACHE_TTL: Duration = Duration.ofDays(30)
         val COMPANY_PROFILE_TTL: Duration = Duration.ofDays(90)
         val PROFILE_MAX_AGE: Duration = COMPANY_PROFILE_TTL
         val MANUAL_ONLY_REFRESH_AGE: Duration = FRESHNESS_WINDOW

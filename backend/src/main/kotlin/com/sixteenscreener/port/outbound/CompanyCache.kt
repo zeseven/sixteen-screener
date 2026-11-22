@@ -14,7 +14,7 @@ import java.time.ZoneId
  * Company data cached per source, symbol and data type (`sourceData` and `quoteHistory` collections), shared between users.
  *
  * Entries expire via Firestore TTL: company profiles 90 days after `fetchedAt` (ADR-060), all other data types and
- * the quote history 14 days after `fetchedAt` (ADR-013). Freshness is always computed from `fetchedAt`, never from
+ * the quote history 30 days after `fetchedAt` (ADR-085). Freshness is always computed from `fetchedAt`, never from
  * TTL deletion.
  */
 interface CompanyCache {
