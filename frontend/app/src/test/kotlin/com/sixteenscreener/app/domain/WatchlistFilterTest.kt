@@ -1,6 +1,7 @@
 package com.sixteenscreener.app.domain
 
 import com.sixteenscreener.app.domain.model.Market
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.testing.Companies.item
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -78,5 +79,53 @@ class WatchlistFilterTest {
         val filter = WatchlistFilter(market = MarketFilter.EU, sector = "Energy")
 
         assertEquals(WatchlistFilter(market = MarketFilter.EU), filter.reconciledWith(companies))
+    }
+
+    private val king = Tag("chess-king", "Dividend king")
+    private val growth = Tag("rocket-takeoff", "Growth")
+    private val tagged = listOf(
+        item("AAPL", market = Market.US, tags = listOf(growth)),
+        item("KO", market = Market.US, tags = listOf(king, Tag("coin", "Income"))),
+        item("NESN.SW", market = Market.EU, tags = listOf(Tag("chess-king", "DIVIDEND KING"))),
+        item("SAP.DE", market = Market.EU),
+    )
+
+    private fun taggedSymbols(filter: WatchlistFilter) = filter.apply(tagged).map { it.symbol.value }
+
+    @Test
+    fun `tag filter shows companies having the same tag, ignoring the case of its text`() {
+        assertEquals(listOf("KO", "NESN.SW"), taggedSymbols(WatchlistFilter(tag = king)))
+    }
+
+    @Test
+    fun `tag filter doesn't match the same text with another icon`() {
+        assertEquals(emptyList<String>(), taggedSymbols(WatchlistFilter(tag = Tag("star", "Dividend king"))))
+    }
+
+    @Test
+    fun `tag filter combines with the market filter`() {
+        assertEquals(listOf("NESN.SW"), taggedSymbols(WatchlistFilter(market = MarketFilter.EU, tag = king)))
+    }
+
+    @Test
+    fun `tagsOf lists each tag once, sorted by text ignoring case`() {
+        assertEquals(listOf(king, growth, Tag("coin", "Income")), WatchlistFilter.tagsOf(tagged))
+    }
+
+    @Test
+    fun `tagsOf companies without tags is empty`() {
+        assertEquals(emptyList<Tag>(), WatchlistFilter.tagsOf(companies))
+    }
+
+    @Test
+    fun `reconciling resets a tag no longer used by any company`() {
+        assertEquals(WatchlistFilter(), WatchlistFilter(tag = Tag("gem", "Quality")).reconciledWith(tagged))
+    }
+
+    @Test
+    fun `reconciling keeps a tag still used by a company`() {
+        val filter = WatchlistFilter(market = MarketFilter.US, tag = growth)
+
+        assertEquals(filter, filter.reconciledWith(tagged))
     }
 }

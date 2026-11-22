@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.sixteenscreener.app.domain.model.Market
 import com.sixteenscreener.app.domain.model.ProfileId
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.WatchlistItem
 import com.sixteenscreener.app.testing.Companies.item
 import kotlinx.coroutines.test.TestScope
@@ -26,7 +27,7 @@ class DataStoreWatchlistStoreTest {
     private val profileId = ProfileId("3f2b8c1e-6d4a-4f7e-9b1a-2c5d8e7f9a10")
     private val otherProfileId = ProfileId("other")
 
-    private val apple = item("AAPL", tags = listOf("core", "dividend"))
+    private val apple = item("AAPL", tags = listOf(Tag("chess-king", "Core"), Tag("coin", "Dividend")))
     private val sap = item("SAP.DE", name = "SAP SE", market = Market.EU, sector = null)
     private val toyota = item("7203.T", name = "Toyota", market = null, type = null)
     private val nestleAdr = item("NSRGY", name = "Nestle SA", market = Market.US, type = "ADR", stock = false)
@@ -68,7 +69,32 @@ class DataStoreWatchlistStoreTest {
                 "\"logoUrl\":\"/logos/SAP.DE\",\"sector\":\"Technology\",\"tags\":[\"core\"]}]",
         )
 
-        assertEquals(listOf(item("SAP.DE", name = "SAP SE", exchange = "XETRA", market = Market.EU, type = null, tags = listOf("core"))), store.read(profileId))
+        assertEquals(listOf(item("SAP.DE", name = "SAP SE", exchange = "XETRA", market = Market.EU, type = null)), store.read(profileId))
+    }
+
+    @Test
+    fun `text tags stored by the previous app version are dropped and the rest of the entry is kept`() = runTest {
+        val store = store()
+        storeRaw(
+            profileId,
+            "[{\"symbol\":\"AAPL\",\"ticker\":\"AAPL\",\"exchange\":\"NASDAQ\",\"name\":\"Apple Inc.\",\"market\":\"US\"," +
+                "\"type\":\"Common Stock\",\"logoUrl\":\"/logos/AAPL\",\"sector\":\"Technology\"," +
+                "\"tags\":[\"core\",{\"icon\":\"coin\",\"text\":\"Income\"},{\"icon\":\"gem\"},{\"icon\":1,\"text\":\"x\"}]}]",
+        )
+
+        assertEquals(listOf(item("AAPL", tags = listOf(Tag("coin", "Income")))), store.read(profileId))
+    }
+
+    @Test
+    fun `entry stored without tags is read with no tags`() = runTest {
+        val store = store()
+        storeRaw(
+            profileId,
+            "[{\"symbol\":\"AAPL\",\"ticker\":\"AAPL\",\"exchange\":\"NASDAQ\",\"name\":\"Apple Inc.\",\"market\":\"US\"," +
+                "\"type\":\"Common Stock\",\"logoUrl\":\"/logos/AAPL\",\"sector\":\"Technology\"}]",
+        )
+
+        assertEquals(listOf(item("AAPL")), store.read(profileId))
     }
 
     @Test

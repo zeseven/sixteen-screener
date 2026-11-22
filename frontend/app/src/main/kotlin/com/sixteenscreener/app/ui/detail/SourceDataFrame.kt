@@ -38,7 +38,8 @@ object SourceDataFrameTags {
 
 /**
  * Frame of a detailed screen tab: progress while loading, source name with data age, status notice and request error,
- * then [content] for the loaded data. Without data, a failed request is shown in place of the content.
+ * then [content] for the loaded data. Without data, a failed request is shown in place of the content, centered unless the frame is
+ * [inScrollableParent], where it is shown as an error line.
  */
 @Composable
 fun SourceDataFrame(
@@ -47,9 +48,10 @@ fun SourceDataFrame(
     isLoading: Boolean,
     error: ApiError?,
     modifier: Modifier = Modifier,
+    inScrollableParent: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(modifier = if (inScrollableParent) modifier.fillMaxWidth() else modifier.fillMaxSize()) {
         if (isLoading) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth().testTag(SourceDataFrameTags.PROGRESS))
         }
@@ -58,7 +60,7 @@ fun SourceDataFrame(
             statusNoticeText(meta.status)?.let { StatusNotice(it) }
         }
         when {
-            error != null && meta == null && !isLoading -> CenteredMessage(apiErrorMessage(error), Modifier.testTag(SourceDataFrameTags.ERROR))
+            error != null && meta == null && !isLoading && !inScrollableParent -> CenteredMessage(apiErrorMessage(error), Modifier.testTag(SourceDataFrameTags.ERROR))
             else -> {
                 error?.let { ErrorLine(apiErrorMessage(it)) }
                 if (meta != null) content()

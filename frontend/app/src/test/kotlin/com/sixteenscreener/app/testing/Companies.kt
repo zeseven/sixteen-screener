@@ -9,6 +9,7 @@ import com.sixteenscreener.app.domain.model.Quote
 import com.sixteenscreener.app.domain.model.SearchItem
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.Trend
 import com.sixteenscreener.app.domain.model.WatchlistItem
 import java.time.Instant
@@ -36,7 +37,7 @@ object Companies {
         type: String? = "Common Stock",
         stock: Boolean = true,
         sector: String? = "Technology",
-        tags: List<String> = emptyList(),
+        tags: List<Tag> = emptyList(),
     ) = WatchlistItem(
         symbol = Symbol(symbol),
         ticker = symbol.substringBefore('.'),

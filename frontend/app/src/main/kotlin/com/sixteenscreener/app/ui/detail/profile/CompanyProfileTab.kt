@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,10 +39,10 @@ object CompanyProfileTags {
     const val DESCRIPTION_TITLE = "company_profile_description_title"
 }
 
-/** "Company profile" tab: every field of the profile, `-` for missing values, the website as a link. */
+/** Fields of the "Company profile" tab: every field of the profile, `-` for missing values, the website as a link; scrolled by the tab. */
 @Composable
 fun CompanyProfileTab(profile: CompanyProfile?, modifier: Modifier = Modifier) {
-    Column(modifier = modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+    Column(modifier = modifier.fillMaxWidth()) {
         Field(R.string.profile_field_country, profile?.country)
         Field(R.string.profile_field_currency, profile?.currency)
         Field(R.string.profile_field_sector, profile?.sector)

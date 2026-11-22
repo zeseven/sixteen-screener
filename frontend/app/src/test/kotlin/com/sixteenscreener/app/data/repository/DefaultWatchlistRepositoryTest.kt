@@ -9,6 +9,7 @@ import com.sixteenscreener.app.domain.model.MarketDataLoad
 import com.sixteenscreener.app.domain.model.ProfileId
 import com.sixteenscreener.app.domain.model.RowMarketData
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.WatchlistItem
 import com.sixteenscreener.app.testing.Companies.item
 import com.sixteenscreener.app.testing.Companies.marketData
@@ -19,6 +20,7 @@ import com.sixteenscreener.app.testing.FakeWatchlistStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -950,5 +952,34 @@ class DefaultWatchlistRepositoryTest {
         assertEquals(listOf(apple), store.stored[profile.id])
         assertNull(repository.watchlist.value)
         assertEquals(emptySet<Symbol>(), repository.watchlistSymbols.value)
+    }
+
+    @Test
+    fun `updated tags are applied to the company and replayed on a pending add`() = runRepositoryTest {
+        stubWatchlist(apple)
+        val pendingAdd = CompletableDeferred<ApiResult<WatchlistItem>>()
+        apiClient.addToWatchlist = { _, _, _ -> pendingAdd.await() }
+        val repository = repository()
+        repository.refresh()
+        backgroundScope.launch { repository.add(sap) }
+        val king = Tag("chess-king", "Dividend king")
+
+        repository.updateTags(profile.id, apple.symbol, listOf(king))
+        repository.updateTags(profile.id, sap.symbol, listOf(king))
+
+        assertEquals(listOf(apple.copy(tags = listOf(king)), sap.copy(tags = listOf(king))), repository.watchlist.value)
+        assertEquals(listOf(apple.copy(tags = listOf(king))), store.stored[profile.id])
+    }
+
+    @Test
+    fun `updated tags of another profile or of an unknown company are ignored`() = runRepositoryTest {
+        stubWatchlist(apple)
+        val repository = repository()
+        repository.refresh()
+
+        repository.updateTags(ProfileId("p2"), apple.symbol, listOf(Tag("coin", "Income")))
+        repository.updateTags(profile.id, sap.symbol, listOf(Tag("coin", "Income")))
+
+        assertEquals(listOf(apple), repository.watchlist.value)
     }
 }

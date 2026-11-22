@@ -16,6 +16,7 @@ import com.sixteenscreener.app.domain.model.SearchResults
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.WatchlistItem
 
 class FakeApiClient : ApiClient {
@@ -37,6 +38,8 @@ class FakeApiClient : ApiClient {
         { _, _, _, _ -> notStubbed() }
     var getCompanyProfile: suspend (ProfileId, Symbol, SourceId?, RequestTrigger) -> ApiResult<CompanyProfileData> =
         { _, _, _, _ -> notStubbed() }
+    var setCompanyTags: suspend (ProfileId, Symbol, List<Tag>) -> ApiResult<List<Tag>> = { _, _, _ -> notStubbed() }
+    var getProfileTags: suspend (ProfileId) -> ApiResult<List<Tag>> = { notStubbed() }
     var getSources: suspend (ProfileId) -> ApiResult<List<Source>> = { notStubbed() }
     var getExchanges: suspend () -> ApiResult<List<Exchange>> = { notStubbed() }
     var getIndicatorSettings: suspend (ProfileId) -> ApiResult<List<IndicatorSetting>> = { notStubbed() }
@@ -83,6 +86,14 @@ class FakeApiClient : ApiClient {
         record("getCompanyProfile(${profileId.value}, ${symbol.value}, ${source?.value}, ${trigger.name})") {
             getCompanyProfile.invoke(profileId, symbol, source, trigger)
         }
+
+    override suspend fun setCompanyTags(profileId: ProfileId, symbol: Symbol, tags: List<Tag>) =
+        record("setCompanyTags(${profileId.value}, ${symbol.value}, ${tags.joinToString(",") { "${it.icon}:${it.text}" }})") {
+            setCompanyTags.invoke(profileId, symbol, tags)
+        }
+
+    override suspend fun getProfileTags(profileId: ProfileId) =
+        record("getProfileTags(${profileId.value})") { getProfileTags.invoke(profileId) }
 
     override suspend fun getSources(profileId: ProfileId) = record("getSources(${profileId.value})") { getSources.invoke(profileId) }
 

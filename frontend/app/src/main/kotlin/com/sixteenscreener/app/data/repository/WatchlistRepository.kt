@@ -10,6 +10,7 @@ import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.ProfileId
 import com.sixteenscreener.app.domain.model.RowMarketData
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.WatchlistItem
 import com.sixteenscreener.app.domain.model.failed
 import com.sixteenscreener.app.domain.model.loadedWith
@@ -67,6 +68,12 @@ interface WatchlistRepository {
 
     /** Removes the company with `DELETE`, hiding it until the call fails. */
     suspend fun remove(symbol: Symbol): ApiResult<Unit>
+
+    /**
+     * Replaces the tags of the company in the watchlist of [profileId] held in memory and stored on the device, after the backend
+     * stored them; ignored when [profileId] is no longer active or the company is not in the watchlist.
+     */
+    fun updateTags(profileId: ProfileId, symbol: Symbol, tags: List<Tag>)
 }
 
 @Singleton
@@ -215,6 +222,20 @@ class DefaultWatchlistRepository @Inject constructor(
                     is ApiResult.Failure -> drop(profileId, change)
                 }
             }
+    }
+
+    override fun updateTags(profileId: ProfileId, symbol: Symbol, tags: List<Tag>) {
+        fun WatchlistItem.withTags() = if (this.symbol == symbol) copy(tags = tags) else this
+        synchronized(stateLock) {
+            if (state.owner != profileId) return
+            update(
+                state.copy(
+                    base = state.base?.map { it.withTags() },
+                    changes = state.changes.map { change -> if (change is Change.Add) change.copy(item = change.item.withTags()) else change },
+                ),
+            )
+            saveConfirmed()
+        }
     }
 
     private suspend fun isActive(profileId: ProfileId) = profileRepository.activeProfileId() == profileId

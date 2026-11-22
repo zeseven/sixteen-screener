@@ -25,5 +25,5 @@
     "website": "https://www.apple.com/",
     "description": "Apple Inc. designs, manufactures and markets smartphones, personal computers, tablets, wearables and accessories."
   },
-  "tags": ["core"]
+  "tags": [{"icon": "chess-king", "text": "Core"}]
 }

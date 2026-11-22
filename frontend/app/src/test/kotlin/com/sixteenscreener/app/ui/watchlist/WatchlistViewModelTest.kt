@@ -1,5 +1,6 @@
 package com.sixteenscreener.app.ui.watchlist
 
+import com.sixteenscreener.app.data.repository.DefaultTagRepository
 import com.sixteenscreener.app.data.repository.DefaultWatchlistRepository
 import com.sixteenscreener.app.domain.MarketFilter
 import com.sixteenscreener.app.domain.VisibleRows
@@ -11,6 +12,7 @@ import com.sixteenscreener.app.domain.model.Market
 import com.sixteenscreener.app.domain.model.MarketData
 import com.sixteenscreener.app.domain.model.MarketDataLoad
 import com.sixteenscreener.app.domain.model.ProfileId
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.WatchlistItem
 import com.sixteenscreener.app.testing.Companies.item
 import com.sixteenscreener.app.testing.Companies.marketData
@@ -48,8 +50,12 @@ class WatchlistViewModelTest {
     private val shell = item("SHEL", name = "Shell", market = Market.EU, sector = "Energy")
     private val unknownMarket = item("7203.T", name = "Toyota", market = null, sector = null)
 
-    private fun TestScope.viewModel(): WatchlistViewModel =
-        WatchlistViewModel(DefaultWatchlistRepository(apiClient, profileRepository, store, backgroundScope), profileRepository)
+    private lateinit var watchlistRepository: DefaultWatchlistRepository
+
+    private fun TestScope.viewModel(): WatchlistViewModel {
+        watchlistRepository = DefaultWatchlistRepository(apiClient, profileRepository, store, backgroundScope)
+        return WatchlistViewModel(watchlistRepository, profileRepository)
+    }
 
     private var stubbedWatchlist = emptyList<WatchlistItem>()
 
@@ -685,5 +691,63 @@ class WatchlistViewModelTest {
         assertEquals(listOf(shell), viewModel.state.companies)
         assertEquals(listOf("Energy"), viewModel.state.sectors)
         assertFalse(viewModel.state.isRefreshing)
+    }
+
+    private val king = Tag("chess-king", "Dividend king")
+    private val growth = Tag("rocket-takeoff", "Growth")
+
+    @Test
+    fun `tag filter offers each tag of the watchlist once and shows the companies having it`() = runTest {
+        val tagged = listOf(apple.copy(tags = listOf(growth, king)), sap.copy(tags = listOf(Tag("chess-king", "DIVIDEND KING"))), shell)
+        stubWatchlist(*tagged.toTypedArray())
+        val viewModel = viewModel()
+        viewModel.refresh()
+
+        assertEquals(listOf(king, growth), viewModel.state.tags)
+
+        viewModel.onTagSelected(king)
+        assertEquals(tagged.take(2), viewModel.state.companies)
+
+        viewModel.onMarketSelected(MarketFilter.EU)
+        assertEquals(listOf(tagged[1]), viewModel.state.companies)
+
+        viewModel.onTagSelected(null)
+        assertEquals(listOf(tagged[1], shell), viewModel.state.companies)
+    }
+
+    @Test
+    fun `tags edited on the detailed screen are filtered at once without a reload`() = runTest {
+        stubWatchlist(apple, sap)
+        apiClient.setCompanyTags = { _, _, tags -> ApiResult.Success(tags) }
+        val viewModel = viewModel()
+        viewModel.refresh()
+        val tagRepository = DefaultTagRepository(apiClient, profileRepository, watchlistRepository)
+
+        tagRepository.setCompanyTags(sap.symbol, listOf(growth))
+        viewModel.onTagSelected(growth)
+
+        assertEquals(listOf(growth), viewModel.state.tags)
+        assertEquals(listOf(sap.copy(tags = listOf(growth))), viewModel.state.companies)
+        assertEquals(1, apiClient.calls.count { it.startsWith("getWatchlist(") })
+    }
+
+    @Test
+    fun `selected tag stays offered after it is removed from its last company and is reset by a reload`() = runTest {
+        stubWatchlist(apple.copy(tags = listOf(growth)), sap)
+        apiClient.setCompanyTags = { _, _, tags -> ApiResult.Success(tags) }
+        val viewModel = viewModel()
+        viewModel.refresh()
+        viewModel.onTagSelected(growth)
+
+        DefaultTagRepository(apiClient, profileRepository, watchlistRepository).setCompanyTags(apple.symbol, emptyList())
+
+        assertEquals(listOf(growth), viewModel.state.tags)
+        assertEquals(emptyList<WatchlistItem>(), viewModel.state.companies)
+
+        stubWatchlist(apple, sap)
+        viewModel.refresh()
+
+        assertNull(viewModel.state.filter.tag)
+        assertEquals(emptyList<Tag>(), viewModel.state.tags)
     }
 }

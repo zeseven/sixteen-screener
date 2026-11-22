@@ -3,7 +3,9 @@ package com.sixteenscreener.app.ui.watchlist
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.TouchInjectionScope
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTextEquals
@@ -19,13 +21,16 @@ import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sixteenscreener.app.domain.MarketFilter
+import com.sixteenscreener.app.domain.WatchlistFilter
 import com.sixteenscreener.app.domain.VisibleRows
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.MarketDataLoad
 import com.sixteenscreener.app.domain.model.RowMarketData
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.WatchlistItem
 import com.sixteenscreener.app.testing.Companies.item
 import com.sixteenscreener.app.testing.Companies.quote
@@ -36,6 +41,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(AndroidJUnit4::class)
 class WatchlistContentTest {
@@ -51,6 +57,7 @@ class WatchlistContentTest {
     private val shown = mutableListOf<WatchlistMessage>()
     private val markets = mutableListOf<MarketFilter>()
     private val sectors = mutableListOf<String?>()
+    private val tags = mutableListOf<Tag?>()
     private val visibleRows = mutableListOf<VisibleRows>()
     private var addClicks = 0
 
@@ -61,6 +68,7 @@ class WatchlistContentTest {
                 onRefresh = {},
                 onMarketSelected = { markets += it },
                 onSectorSelected = { sectors += it },
+                onTagSelected = { tags += it },
                 onRemove = { removed += it },
                 onUndo = { undone += it },
                 onMessageShown = { shown += it },
@@ -303,5 +311,48 @@ class WatchlistContentTest {
     private fun swipeRow(gesture: TouchInjectionScope.() -> Unit) {
         rowNode().performTouchInput(gesture)
         composeRule.waitForIdle()
+    }
+
+    private val king = Tag("chess-king", "Dividend king")
+    private val longTag = Tag("rocket-takeoff", "Growth ".repeat(14).trim())
+
+    @Test
+    fun `tag dropdown offers all and each tag with its icon and selects a tag`() {
+        setContent(loaded(apple).copy(tags = listOf(king, longTag)))
+
+        composeRule.onNodeWithText("Tag: All").performClick()
+        composeRule.onNodeWithText("Dividend king").performClick()
+
+        assertEquals(listOf<Tag?>(king), tags)
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun `long tag text is cut with an ellipsis in the dropdown`() {
+        setContent(loaded(apple).copy(tags = listOf(longTag)))
+
+        composeRule.onNodeWithText("Tag: All").performClick()
+
+        assertTrue(composeRule.onNodeWithText(longTag.text).textLayout().isLineEllipsized(0))
+    }
+
+    @Test
+    fun `selected tag is shown on the chip`() {
+        setContent(loaded(apple).copy(tags = listOf(king), filter = WatchlistFilter(tag = king)))
+
+        composeRule.onNodeWithText("Tag: Dividend king").assertExists()
+    }
+
+    @Test
+    fun `company rows show no tags`() {
+        setContent(loaded(apple.copy(tags = listOf(king))))
+
+        composeRule.onNodeWithText("Dividend king").assertDoesNotExist()
+    }
+
+    private fun SemanticsNodeInteraction.textLayout(): TextLayoutResult {
+        val results = mutableListOf<TextLayoutResult>()
+        fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+        return results.single()
     }
 }

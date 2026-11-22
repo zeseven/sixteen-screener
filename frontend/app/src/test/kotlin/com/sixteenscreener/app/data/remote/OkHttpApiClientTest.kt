@@ -36,6 +36,7 @@ import com.sixteenscreener.app.domain.model.SourceDataMeta
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.SourceRole
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.Trend
 import com.sixteenscreener.app.domain.model.WatchlistItem
 import com.sixteenscreener.app.testing.Fixtures
@@ -294,7 +295,7 @@ class OkHttpApiClientTest {
         assertEquals("/profiles/${profileId.value}/watchlist", request.pathAndQuery())
         assertEquals(
             listOf(
-                WatchlistItem(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc", Market.US, "Common Stock", true, "/logos/AAPL", "Technology", listOf("core", "dividend")),
+                WatchlistItem(Symbol("AAPL"), "AAPL", "NASDAQ", "Apple Inc", Market.US, "Common Stock", true, "/logos/AAPL", "Technology", listOf(Tag("chess-king", "Core"), Tag("coin", "Dividend"))),
                 WatchlistItem(Symbol("SAP.DE"), "SAP", "XETRA", "SAP SE", Market.EU, null, true, "/logos/SAP.DE", "Technology", emptyList()),
                 WatchlistItem(Symbol("7203.T"), "7203", "TSE", "Toyota Motor Corp", null, null, true, "/logos/7203.T", null, emptyList()),
                 WatchlistItem(Symbol("NESN.SW"), "NESN", "SIX", "Nestle SA", Market.EU, "ADR", false, "/logos/NESN.SW", null, emptyList()),
@@ -727,6 +728,7 @@ class OkHttpApiClientTest {
         assertEquals(164000L, profile.employees)
         assertEquals("https://www.apple.com/", profile.website)
         assertTrue(profile.description!!.startsWith("Apple Inc."))
+        assertEquals(listOf(Tag("chess-king", "Core")), data.tags)
     }
 
     @Test
@@ -737,6 +739,64 @@ class OkHttpApiClientTest {
 
         assertEquals(SourceDataMeta(SourceId.FINNHUB, DataStatus.NO_DATA, null), data.meta)
         assertNull(data.profile)
+        assertTrue(data.tags.isEmpty())
+    }
+
+    @Test
+    fun `getCompanyProfile parses tags of a company whose profile is unavailable`() = runTest {
+        enqueue(
+            body = """{"meta":{"source":"eodhd","status":"NOT_SUPPORTED"},"profile":null,""" +
+                """"tags":[{"icon":"piggy-bank","text":"Savings"},{"icon":"no-such-icon","text":"Old"}]}""",
+        )
+
+        val data = client.getCompanyProfile(profileId, Symbol("SAP.DE")).value()
+
+        assertNull(data.profile)
+        assertEquals(listOf(Tag("piggy-bank", "Savings"), Tag("no-such-icon", "Old")), data.tags)
+    }
+
+    @Test
+    fun `setCompanyTags puts the whole tag list and parses the stored tags`() = runTest {
+        enqueue(body = """{"tags":[{"icon":"chess-king","text":"Dividend king"}]}""")
+
+        val stored = client.setCompanyTags(profileId, Symbol("BRK.B"), listOf(Tag("chess-king", " Dividend king "))).value()
+
+        val request = server.takeRequest()
+        assertEquals("PUT", request.method)
+        assertEquals("/profiles/${profileId.value}/companies/BRK.B/tags", request.pathAndQuery())
+        assertEquals("""{"tags":[{"icon":"chess-king","text":" Dividend king "}]}""", request.body!!.utf8())
+        assertEquals(listOf(Tag("chess-king", "Dividend king")), stored)
+    }
+
+    @Test
+    fun `setCompanyTags sends an empty list to remove all tags`() = runTest {
+        enqueue(body = """{"tags":[]}""")
+
+        val stored = client.setCompanyTags(profileId, Symbol("AAPL"), emptyList()).value()
+
+        assertEquals("""{"tags":[]}""", server.takeRequest().body!!.utf8())
+        assertTrue(stored.isEmpty())
+    }
+
+    @Test
+    fun `setCompanyTags maps a rejected list to an HTTP error with the problem`() = runTest {
+        enqueueProblem("problem_400.json", 400)
+
+        val error = client.setCompanyTags(profileId, Symbol("AAPL"), listOf(Tag("coin", "Income"))).error()
+
+        assertTrue(error is ApiError.Http && error.status == 400)
+    }
+
+    @Test
+    fun `getProfileTags parses the tags in backend order`() = runTest {
+        enqueue(body = """{"tags":[{"icon":"coin","text":"Income"},{"icon":"rocket-takeoff","text":"growth"}]}""")
+
+        val tags = client.getProfileTags(profileId).value()
+
+        val request = server.takeRequest()
+        assertEquals("GET", request.method)
+        assertEquals("/profiles/${profileId.value}/tags", request.pathAndQuery())
+        assertEquals(listOf(Tag("coin", "Income"), Tag("rocket-takeoff", "growth")), tags)
     }
 
     @Test

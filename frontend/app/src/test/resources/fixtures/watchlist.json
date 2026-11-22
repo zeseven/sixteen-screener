@@ -11,7 +11,7 @@
       "logoUrl": "/logos/AAPL",
       "sector": "Technology",
       "sectorGroup": "Information Technology",
-      "tags": ["core", "dividend"]
+      "tags": [{"icon": "chess-king", "text": "Core"}, {"icon": "coin", "text": "Dividend"}]
     },
     {
       "symbol": "SAP.DE",

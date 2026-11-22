@@ -12,11 +12,13 @@ import com.sixteenscreener.app.data.remote.dto.ProfileCreateDto
 import com.sixteenscreener.app.data.remote.dto.ProfileDto
 import com.sixteenscreener.app.data.remote.dto.SearchResultsDto
 import com.sixteenscreener.app.data.remote.dto.SourcesDto
+import com.sixteenscreener.app.data.remote.dto.TagListDto
 import com.sixteenscreener.app.data.remote.dto.WatchlistAddDto
 import com.sixteenscreener.app.data.remote.dto.WatchlistDto
 import com.sixteenscreener.app.data.remote.dto.WatchlistItemDto
 import com.sixteenscreener.app.data.remote.dto.WatchlistMarketDataDto
 import com.sixteenscreener.app.data.remote.dto.toDomain
+import com.sixteenscreener.app.data.remote.dto.toTagListDto
 import com.sixteenscreener.app.data.remote.dto.toUpdateDto
 import com.sixteenscreener.app.di.AuthenticatedHttpClient
 import com.sixteenscreener.app.di.BackendUrl
@@ -38,6 +40,7 @@ import com.sixteenscreener.app.domain.model.SearchResults
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.WatchlistItem
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -142,6 +145,16 @@ class OkHttpApiClient @Inject constructor(
         get(companyDataUrl(profileId, symbol, "profile", source, trigger)) {
             json.decodeFromString<CompanyProfileResponseDto>(it).toDomain()
         }
+
+    override suspend fun setCompanyTags(profileId: ProfileId, symbol: Symbol, tags: List<Tag>): ApiResult<List<Tag>> {
+        val body = json.encodeToString(tags.toTagListDto()).toRequestBody(JSON_MEDIA_TYPE)
+        return send(Request.Builder().url(profileUrl(profileId, "companies", symbol.value, "tags")).put(body).build()) {
+            json.decodeFromString<TagListDto>(it).toDomain()
+        }
+    }
+
+    override suspend fun getProfileTags(profileId: ProfileId): ApiResult<List<Tag>> =
+        get(profileUrl(profileId, "tags")) { json.decodeFromString<TagListDto>(it).toDomain() }
 
     override suspend fun getSources(profileId: ProfileId): ApiResult<List<Source>> =
         get(profileUrl(profileId, "sources")) { json.decodeFromString<SourcesDto>(it).toDomain() }

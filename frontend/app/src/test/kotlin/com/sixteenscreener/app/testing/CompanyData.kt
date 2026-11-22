@@ -17,6 +17,7 @@ import com.sixteenscreener.app.domain.model.Ratio
 import com.sixteenscreener.app.domain.model.RatioUnit
 import com.sixteenscreener.app.domain.model.SourceDataMeta
 import com.sixteenscreener.app.domain.model.SourceId
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.Symbol
 import java.time.Instant
 import java.time.LocalDate
@@ -107,5 +108,6 @@ object CompanyData {
     fun companyProfileData(
         profile: CompanyProfile? = companyProfile(),
         status: DataStatus = DataStatus.CACHED,
-    ) = CompanyProfileData(meta = meta(status = status, fetchedAt = FETCHED_AT.takeIf { profile != null }), profile = profile)
+        tags: List<Tag> = emptyList(),
+    ) = CompanyProfileData(meta = meta(status = status, fetchedAt = FETCHED_AT.takeIf { profile != null }), profile = profile, tags = tags)
 }

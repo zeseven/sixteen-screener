@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.selected
@@ -21,6 +22,7 @@ import com.sixteenscreener.app.R
 
 /**
  * Chip showing "[label]: selected option" that opens a dropdown menu of [options]; highlighted when [isActive].
+ * Options with an [optionIcon] show it before their label; labels that don't fit are cut with an ellipsis.
  */
 @Composable
 fun <T> FilterDropdown(
@@ -31,6 +33,7 @@ fun <T> FilterDropdown(
     onSelect: (T) -> Unit,
     isActive: Boolean,
     modifier: Modifier = Modifier,
+    optionIcon: @Composable (T) -> Painter? = { null },
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Box(modifier = modifier) {
@@ -44,13 +47,16 @@ fun <T> FilterDropdown(
                     overflow = TextOverflow.Ellipsis,
                 )
             },
+            leadingIcon = optionIcon(selected)?.let { icon -> { Icon(icon, contentDescription = null) } },
             trailingIcon = { Icon(painterResource(R.drawable.ic_arrow_drop_down), contentDescription = null) },
         )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option ->
                 val isSelected = option == selected
+                val icon = optionIcon(option)
                 DropdownMenuItem(
-                    text = { Text(optionLabel(option)) },
+                    text = { Text(optionLabel(option), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    leadingIcon = icon?.let { { Icon(it, contentDescription = null) } },
                     onClick = {
                         expanded = false
                         onSelect(option)

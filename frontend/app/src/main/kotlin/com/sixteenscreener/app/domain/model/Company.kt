@@ -90,7 +90,7 @@ data class WatchlistItem(
     /** Sector as provided by the profile's default source, `null` when unknown. */
     val sector: String?,
     /** Profile tags of the company. */
-    val tags: List<String>,
+    val tags: List<Tag>,
 ) : Company {
     companion object {
         /** Watchlist row of [company] before the backend returned the stored item. */

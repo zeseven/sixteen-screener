@@ -1,7 +1,11 @@
 package com.sixteenscreener.app.ui.detail
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -16,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -28,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sixteenscreener.app.R
 import com.sixteenscreener.app.domain.model.Company
 import com.sixteenscreener.app.domain.model.SourceId
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.Symbol
 import com.sixteenscreener.app.ui.component.AddToWatchlistButton
 import com.sixteenscreener.app.ui.component.BackTopAppBar
@@ -39,15 +45,27 @@ import com.sixteenscreener.app.ui.detail.balancesheet.BalanceSheetGrid
 import com.sixteenscreener.app.ui.detail.balancesheet.BalanceSheetSourceDropdown
 import com.sixteenscreener.app.ui.detail.dividends.DividendsTab
 import com.sixteenscreener.app.ui.detail.priceratios.PriceAndRatiosTab
+import com.sixteenscreener.app.ui.detail.profile.AddTagDialog
 import com.sixteenscreener.app.ui.detail.profile.CompanyProfileTab
+import com.sixteenscreener.app.ui.detail.profile.CompanyTagsSection
 import com.sixteenscreener.app.ui.navigation.DetailRoute
+import com.sixteenscreener.app.ui.tag.TagIconRow
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 
 object DetailScreenTags {
     const val REFRESH = "detail_refresh"
     const val HEADER_SYMBOL = "detail_header_symbol"
     const val HEADER_TYPE = "detail_header_type"
+    const val COMPANY_PROFILE_CONTENT = "detail_company_profile_content"
 }
+
+/** Events of the user tags on the company profile tab. */
+data class TagActions(
+    val onAddRequested: () -> Unit = {},
+    val onAddDismissed: () -> Unit = {},
+    val onAdd: (icon: String, text: String) -> Unit = { _, _ -> },
+    val onRemove: (Tag) -> Unit = {},
+)
 
 /** Detailed screen of a company with the price and ratio, dividends, balance sheet and company profile tabs. */
 @Composable
@@ -66,6 +84,12 @@ fun DetailScreen(
         onSourceSelected = viewModel::onSourceSelected,
         onToggleWatchlist = viewModel::onToggleWatchlist,
         onMessageShown = viewModel::onMessageShown,
+        tagActions = TagActions(
+            onAddRequested = viewModel::onAddTagRequested,
+            onAddDismissed = viewModel::onAddTagDismissed,
+            onAdd = viewModel::onAddTag,
+            onRemove = viewModel::onRemoveTag,
+        ),
         modifier = modifier,
     )
 }
@@ -80,6 +104,7 @@ fun DetailContent(
     onToggleWatchlist: () -> Unit,
     onMessageShown: (DetailMessage) -> Unit,
     modifier: Modifier = Modifier,
+    tagActions: TagActions = TagActions(),
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     DetailMessageSnackbar(uiState.message, snackbarHostState, onMessageShown)
@@ -102,7 +127,7 @@ fun DetailContent(
                 DetailTab.PRICE_AND_RATIOS -> PriceAndRatiosContent(uiState)
                 DetailTab.DIVIDENDS -> DividendsContent(uiState)
                 DetailTab.BALANCE_SHEET -> BalanceSheetContent(uiState, onSourceSelected)
-                DetailTab.COMPANY_PROFILE -> CompanyProfileContent(uiState)
+                DetailTab.COMPANY_PROFILE -> CompanyProfileContent(uiState, tagActions)
             }
         }
     }
@@ -128,7 +153,13 @@ private fun Header(uiState: DetailUiState, onToggleWatchlist: () -> Unit) {
                 AddToWatchlistButton(companyName = header.name, inWatchlist = false, onClick = onToggleWatchlist)
             }
         }
-        SecurityType(company = header, homeExchange = uiState.homeExchange)
+        Row(
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SecurityType(company = header, homeExchange = uiState.homeExchange)
+            TagIconRow(tags = uiState.tags.tags, modifier = Modifier.weight(1f).padding(start = 8.dp))
+        }
     }
 }
 
@@ -140,9 +171,7 @@ private fun SecurityType(company: Company, homeExchange: Boolean) {
         text = if (homeExchange) stringResource(R.string.detail_type_home_exchange, type) else type,
         style = MaterialTheme.typography.labelSmall,
         color = if (company.stock) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
-        modifier = Modifier
-            .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
-            .testTag(DetailScreenTags.HEADER_TYPE),
+        modifier = Modifier.testTag(DetailScreenTags.HEADER_TYPE),
     )
 }
 
@@ -205,12 +234,38 @@ private fun BalanceSheetContent(uiState: DetailUiState, onSourceSelected: (Sourc
     }
 }
 
+/** Company profile tab: the user tags first, available whatever the state of the profile data, then the profile data. */
 @Composable
-private fun CompanyProfileContent(uiState: DetailUiState) {
+private fun CompanyProfileContent(uiState: DetailUiState, tagActions: TagActions) {
     val data = uiState.companyProfile
     val meta = data.value?.meta
-    SourceDataFrame(meta = meta, sourceName = meta?.let { uiState.sourceName(it.source) }, isLoading = data.isLoading, error = data.error) {
-        CompanyProfileTab(data.value?.profile)
+    val tags = uiState.tags
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .testTag(DetailScreenTags.COMPANY_PROFILE_CONTENT),
+    ) {
+        CompanyTagsSection(state = tags, onAddTag = tagActions.onAddRequested, onRemoveTag = tagActions.onRemove)
+        SourceDataFrame(
+            meta = meta,
+            sourceName = meta?.let { uiState.sourceName(it.source) },
+            isLoading = data.isLoading,
+            error = data.error,
+            inScrollableParent = true,
+        ) {
+            CompanyProfileTab(data.value?.profile)
+        }
+    }
+    if (tags.isAddDialogOpen) {
+        AddTagDialog(
+            tags = tags.tags,
+            suggestions = tags.suggestions,
+            isSaving = tags.isSaving,
+            error = tags.dialogError,
+            onAdd = tagActions.onAdd,
+            onDismiss = tagActions.onAddDismissed,
+        )
     }
 }
 
@@ -224,6 +279,7 @@ private fun DetailMessageSnackbar(
     val text = when (message) {
         is DetailMessage.AddFailed -> stringResource(R.string.detail_add_failed, apiErrorMessage(message.error))
         is DetailMessage.RemoveFailed -> stringResource(R.string.detail_remove_failed, apiErrorMessage(message.error))
+        is DetailMessage.TagsSaveFailed -> stringResource(R.string.tags_save_failed, apiErrorMessage(message.error))
     }
     LaunchedEffect(message) {
         snackbarHostState.showSnackbar(text)

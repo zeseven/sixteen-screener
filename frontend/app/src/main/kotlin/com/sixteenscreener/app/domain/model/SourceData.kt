@@ -185,4 +185,6 @@ data class CompanyProfileData(
     val meta: SourceDataMeta,
     /** Profile, `null` when no data is returned. */
     val profile: CompanyProfile?,
+    /** Profile tags of the company, returned whatever the status of [meta]; empty for a company outside the watchlist. */
+    val tags: List<Tag> = emptyList(),
 )

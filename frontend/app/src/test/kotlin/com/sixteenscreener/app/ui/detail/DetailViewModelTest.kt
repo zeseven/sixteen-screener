@@ -2,6 +2,7 @@ package com.sixteenscreener.app.ui.detail
 
 import com.sixteenscreener.app.data.repository.DefaultCompanyRepository
 import com.sixteenscreener.app.data.repository.DefaultSourceRepository
+import com.sixteenscreener.app.data.repository.DefaultTagRepository
 import com.sixteenscreener.app.data.repository.DefaultWatchlistRepository
 import com.sixteenscreener.app.domain.model.ActiveProfile
 import com.sixteenscreener.app.domain.model.ApiError
@@ -15,6 +16,7 @@ import com.sixteenscreener.app.domain.model.ProfileId
 import com.sixteenscreener.app.domain.model.RequestTrigger
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.WatchlistItem
 import com.sixteenscreener.app.testing.Companies
 import com.sixteenscreener.app.testing.CompanyData
@@ -70,6 +72,7 @@ class DetailViewModelTest {
             companyRepository = DefaultCompanyRepository(apiClient, profileRepository),
             sourceRepository = DefaultSourceRepository(apiClient, profileRepository, backgroundScope),
             watchlistRepository = watchlistRepository,
+            tagRepository = DefaultTagRepository(apiClient, profileRepository, watchlistRepository),
         )
     }
 
@@ -601,5 +604,218 @@ class DetailViewModelTest {
         viewModel.onToggleWatchlist()
 
         assertTrue(callsOf("addToWatchlist").isEmpty())
+    }
+
+    private val king = Tag("chess-king", "Dividend king")
+    private val income = Tag("coin", "Income")
+
+    private suspend fun TestScope.inWatchlist(vararg tags: Tag, profileHasTags: Boolean = true): DetailViewModel {
+        if (profileHasTags) {
+            apiClient.getCompanyProfile = { _, _, _, _ -> ApiResult.Success(CompanyData.companyProfileData(tags = tags.toList())) }
+        }
+        apiClient.getWatchlist = { ApiResult.Success(listOf(Companies.item("AAPL", tags = tags.toList()))) }
+        val viewModel = viewModel(DetailRoute(apple.symbol, apple, initiallyInWatchlist = true))
+        watchlistRepository.refresh()
+        return viewModel
+    }
+
+    private fun stubSavedTags() {
+        apiClient.setCompanyTags = { _, _, tags -> ApiResult.Success(tags) }
+    }
+
+    @Test
+    fun `tags come with the company profile whatever its status`() = runTest {
+        apiClient.getCompanyProfile = { _, _, _, _ ->
+            ApiResult.Success(CompanyData.companyProfileData(profile = null, status = DataStatus.LIMIT_REACHED, tags = listOf(king)))
+        }
+        val viewModel = inWatchlist(profileHasTags = false)
+
+        assertEquals(listOf(king), viewModel.state.tags.tags)
+        assertTrue(viewModel.state.tags.isEditable)
+    }
+
+    @Test
+    fun `tags of the watchlist are shown until the company profile arrives`() = runTest {
+        val response = CompletableDeferred<ApiResult<CompanyProfileData>>()
+        apiClient.getCompanyProfile = { _, _, _, _ -> response.await() }
+        val viewModel = inWatchlist(income, profileHasTags = false)
+
+        assertEquals(listOf(income), viewModel.state.tags.tags)
+
+        response.complete(ApiResult.Success(CompanyData.companyProfileData(tags = listOf(king))))
+
+        assertEquals(listOf(king), viewModel.state.tags.tags)
+    }
+
+    @Test
+    fun `tags of the watchlist are kept when the company profile fails`() = runTest {
+        apiClient.getCompanyProfile = { _, _, _, _ -> ApiResult.Failure(ApiError.Network(isTimeout = false)) }
+
+        val viewModel = inWatchlist(income, profileHasTags = false)
+
+        assertEquals(listOf(income), viewModel.state.tags.tags)
+        assertTrue(viewModel.state.tags.canAdd)
+    }
+
+    @Test
+    fun `company outside the watchlist has no tags and cannot be tagged`() = runTest {
+        apiClient.getWatchlist = { ApiResult.Success(emptyList()) }
+        val viewModel = viewModel()
+        watchlistRepository.refresh()
+
+        viewModel.onAddTagRequested()
+        viewModel.onAddTag("coin", "Income")
+
+        assertEquals(TagsUiState(), viewModel.state.tags)
+        assertTrue(callsOf("setCompanyTags").isEmpty() && callsOf("getProfileTags").isEmpty())
+    }
+
+    @Test
+    fun `adding a tag opens the dialog with the profile tags the company doesn't have`() = runTest {
+        apiClient.getProfileTags = { ApiResult.Success(listOf(king, income)) }
+        val viewModel = inWatchlist(Tag("coin", "INCOME"))
+
+        viewModel.onAddTagRequested()
+
+        assertTrue(viewModel.state.tags.isAddDialogOpen)
+        assertEquals(listOf(king), viewModel.state.tags.suggestions)
+    }
+
+    @Test
+    fun `failed profile tags leave the dialog without suggestions`() = runTest {
+        apiClient.getProfileTags = { ApiResult.Failure(ApiError.Network(isTimeout = true)) }
+        val viewModel = inWatchlist()
+
+        viewModel.onAddTagRequested()
+
+        assertTrue(viewModel.state.tags.isAddDialogOpen)
+        assertEquals(emptyList<Tag>(), viewModel.state.tags.suggestions)
+    }
+
+    @Test
+    fun `added tag is saved with the existing ones, closes the dialog and reaches the watchlist`() = runTest {
+        apiClient.getProfileTags = { ApiResult.Success(emptyList()) }
+        stubSavedTags()
+        val viewModel = inWatchlist(income)
+        viewModel.onAddTagRequested()
+
+        viewModel.onAddTag("chess-king", "  Dividend king ")
+
+        assertEquals(listOf("setCompanyTags(p1, AAPL, coin:Income,chess-king:Dividend king)"), callsOf("setCompanyTags"))
+        assertEquals(listOf(income, king), viewModel.state.tags.tags)
+        assertFalse(viewModel.state.tags.isAddDialogOpen)
+        assertFalse(viewModel.state.tags.isSaving)
+        assertEquals(listOf(listOf(income, king)), watchlistRepository.watchlist.value?.map { it.tags })
+    }
+
+    @Test
+    fun `duplicate, blank or 21st tag is not saved`() = runTest {
+        stubSavedTags()
+        val viewModel = inWatchlist(king)
+
+        viewModel.onAddTag("chess-king", "DIVIDEND KING")
+        viewModel.onAddTag("coin", "   ")
+        assertTrue(callsOf("setCompanyTags").isEmpty())
+
+        val full = (1..20).map { Tag("star", "Tag $it") }
+        val fullViewModel = inWatchlist(*full.toTypedArray())
+        fullViewModel.onAddTag("coin", "Income")
+
+        assertTrue(callsOf("setCompanyTags").isEmpty())
+        assertTrue(fullViewModel.state.tags.isLimitReached)
+        assertFalse(fullViewModel.state.tags.canAdd)
+    }
+
+    @Test
+    fun `failed add keeps the dialog open with the error and the tags unchanged`() = runTest {
+        apiClient.getProfileTags = { ApiResult.Success(emptyList()) }
+        apiClient.setCompanyTags = { _, _, _ -> ApiResult.Failure(ApiError.Network(isTimeout = true)) }
+        val viewModel = inWatchlist(income)
+        viewModel.onAddTagRequested()
+
+        viewModel.onAddTag("chess-king", "Dividend king")
+
+        assertEquals(listOf(income), viewModel.state.tags.tags)
+        assertTrue(viewModel.state.tags.isAddDialogOpen)
+        assertEquals(ApiError.Network(isTimeout = true), viewModel.state.tags.dialogError)
+        assertNull(viewModel.state.message)
+    }
+
+    @Test
+    fun `removing a tag saves the others`() = runTest {
+        stubSavedTags()
+        val viewModel = inWatchlist(king, income)
+
+        viewModel.onRemoveTag(Tag("chess-king", "dividend KING"))
+
+        assertEquals(listOf("setCompanyTags(p1, AAPL, coin:Income)"), callsOf("setCompanyTags"))
+        assertEquals(listOf(income), viewModel.state.tags.tags)
+    }
+
+    @Test
+    fun `removing a tag the company doesn't have sends nothing`() = runTest {
+        val viewModel = inWatchlist(king)
+
+        viewModel.onRemoveTag(income)
+
+        assertTrue(callsOf("setCompanyTags").isEmpty())
+    }
+
+    @Test
+    fun `failed removal keeps the tag and shows a message`() = runTest {
+        apiClient.setCompanyTags = { _, _, _ -> ApiResult.Failure(ApiError.Network(isTimeout = false)) }
+        val viewModel = inWatchlist(king)
+
+        viewModel.onRemoveTag(king)
+
+        assertEquals(listOf(king), viewModel.state.tags.tags)
+        assertEquals(DetailMessage.TagsSaveFailed(ApiError.Network(isTimeout = false)), viewModel.state.message)
+    }
+
+    @Test
+    fun `no other change is accepted while tags are being saved`() = runTest {
+        val response = CompletableDeferred<ApiResult<List<Tag>>>()
+        apiClient.setCompanyTags = { _, _, _ -> response.await() }
+        val viewModel = inWatchlist(king, income)
+
+        viewModel.onRemoveTag(king)
+        viewModel.onRemoveTag(income)
+        viewModel.onAddTag("gem", "Quality")
+
+        assertTrue(viewModel.state.tags.isSaving)
+        assertEquals(1, callsOf("setCompanyTags").size)
+        response.complete(ApiResult.Success(listOf(income)))
+        assertFalse(viewModel.state.tags.isSaving)
+    }
+
+    @Test
+    fun `company profile requested before a tag change doesn't bring back the old tags`() = runTest {
+        stubSavedTags()
+        val viewModel = inWatchlist(king)
+        val response = CompletableDeferred<ApiResult<CompanyProfileData>>()
+        apiClient.getCompanyProfile = { _, _, _, _ -> response.await() }
+        viewModel.refresh()
+
+        viewModel.onRemoveTag(king)
+        response.complete(ApiResult.Success(CompanyData.companyProfileData(tags = listOf(king))))
+
+        assertEquals(emptyList<Tag>(), viewModel.state.tags.tags)
+    }
+
+    @Test
+    fun `removing the company from the watchlist drops its tags and re-adding shows the stored ones`() = runTest {
+        apiClient.getCompanyProfile = { _, _, _, _ -> ApiResult.Success(CompanyData.companyProfileData(tags = listOf(king))) }
+        apiClient.removeFromWatchlist = { _, _ -> ApiResult.Success(Unit) }
+        apiClient.addToWatchlist = { _, _, _ -> ApiResult.Success(Companies.item("AAPL")) }
+        val viewModel = inWatchlist(king, profileHasTags = false)
+
+        viewModel.onToggleWatchlist()
+
+        assertEquals(TagsUiState(), viewModel.state.tags)
+
+        viewModel.onToggleWatchlist()
+
+        assertEquals(emptyList<Tag>(), viewModel.state.tags.tags)
+        assertTrue(viewModel.state.tags.isEditable)
     }
 }

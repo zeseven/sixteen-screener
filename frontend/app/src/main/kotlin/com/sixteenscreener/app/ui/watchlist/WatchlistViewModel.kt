@@ -6,6 +6,7 @@ import com.sixteenscreener.app.data.repository.ProfileRepository
 import com.sixteenscreener.app.data.repository.WatchlistRepository
 import com.sixteenscreener.app.data.repository.onActiveProfileChange
 import com.sixteenscreener.app.domain.MarketFilter
+import com.sixteenscreener.app.domain.TagRules
 import com.sixteenscreener.app.domain.VisibleRows
 import com.sixteenscreener.app.domain.WatchlistFilter
 import com.sixteenscreener.app.domain.WatchlistRowRefresh
@@ -13,6 +14,7 @@ import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.RowMarketData
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.WatchlistItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
@@ -54,6 +56,8 @@ data class WatchlistUiState(
     val filter: WatchlistFilter = WatchlistFilter(),
     /** Sectors offered by the sector filter. */
     val sectors: List<String> = emptyList(),
+    /** Tags offered by the tag filter. */
+    val tags: List<Tag> = emptyList(),
     val isRefreshing: Boolean = false,
     /** Failure of the last load, `null` after a successful one. */
     val loadError: ApiError? = null,
@@ -107,6 +111,7 @@ class WatchlistViewModel @Inject constructor(
         ) { watchlist, marketData, filter, screen ->
             val companies = watchlist.orEmpty()
             val sectors = WatchlistFilter.sectorsOf(companies)
+            val tags = WatchlistFilter.tagsOf(companies)
             WatchlistUiState(
                 companies = filter.apply(companies),
                 marketData = marketData,
@@ -114,6 +119,7 @@ class WatchlistViewModel @Inject constructor(
                 hasCompanies = companies.isNotEmpty(),
                 filter = filter,
                 sectors = filter.sector?.takeUnless { it in sectors }?.let { sectors + it } ?: sectors,
+                tags = filter.tag?.takeUnless { TagRules.contains(tags, it) }?.let { tags + it } ?: tags,
                 isRefreshing = screen.isRefreshing,
                 loadError = screen.loadError,
                 message = screen.message,
@@ -168,6 +174,9 @@ class WatchlistViewModel @Inject constructor(
 
     /** Selects [sector], `null` for all sectors. */
     fun onSectorSelected(sector: String?) = filter.update { it.copy(sector = sector) }
+
+    /** Selects [tag], `null` for all companies. */
+    fun onTagSelected(tag: Tag?) = filter.update { it.copy(tag = tag) }
 
     fun onRemove(company: WatchlistItem) {
         val index = watchlistRepository.watchlist.value?.indexOfFirst { it.symbol == company.symbol } ?: -1

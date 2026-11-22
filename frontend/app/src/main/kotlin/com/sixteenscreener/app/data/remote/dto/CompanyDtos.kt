@@ -42,7 +42,7 @@ data class WatchlistItemDto(
     val stock: Boolean = true,
     val logoUrl: String,
     val sector: String? = null,
-    val tags: List<String> = emptyList(),
+    val tags: List<TagDto> = emptyList(),
 )
 
 @Serializable
@@ -114,7 +114,7 @@ fun WatchlistItemDto.toDomain() = WatchlistItem(
     stock = stock,
     logoUrl = logoUrl,
     sector = sector,
-    tags = tags,
+    tags = tags.map { it.toDomain() },
 )
 
 fun SearchItemDto.toDomain() = SearchItem(

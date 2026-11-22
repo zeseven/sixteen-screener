@@ -3,6 +3,7 @@ package com.sixteenscreener.app.ui.navigation
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.testing.Companies.identity
 import com.sixteenscreener.app.testing.Companies.item
 import com.sixteenscreener.app.testing.Companies.searchItem
@@ -24,7 +25,7 @@ class AppNavigatorTest {
     fun `detail opened from a watchlist row carries the company identity`() {
         val navigator = navigator(MainRoute)
 
-        navigator.openDetail(item("AAPL", sector = "Technology", tags = listOf("core")), inWatchlist = true)
+        navigator.openDetail(item("AAPL", sector = "Technology", tags = listOf(Tag("chess-king", "Core"))), inWatchlist = true)
 
         assertEquals(listOf(MainRoute, DetailRoute(Symbol("AAPL"), identity("AAPL"), initiallyInWatchlist = true)), navigator.backStack.toList())
     }

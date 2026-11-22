@@ -10,12 +10,19 @@ import com.sixteenscreener.app.data.remote.dto.toMarket
 import com.sixteenscreener.app.di.WatchlistCache
 import com.sixteenscreener.app.domain.model.ProfileId
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.WatchlistItem
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonTransformingSerializer
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -83,8 +90,24 @@ internal data class CachedWatchlistItem(
     val stock: Boolean = true,
     val logoUrl: String,
     val sector: String?,
-    val tags: List<String>,
+    @Serializable(with = StoredTagsSerializer::class)
+    val tags: List<CachedTag> = emptyList(),
 )
+
+@Serializable
+internal data class CachedTag(
+    val icon: String,
+    val text: String,
+)
+
+/** Reads only tags made of an icon and a text, so plain text tags stored by an older app version are dropped. */
+internal object StoredTagsSerializer : JsonTransformingSerializer<List<CachedTag>>(ListSerializer(CachedTag.serializer())) {
+    override fun transformDeserialize(element: JsonElement): JsonElement =
+        JsonArray((element as? JsonArray).orEmpty().filter { it.isStoredTag() })
+
+    private fun JsonElement.isStoredTag(): Boolean =
+        this is JsonObject && listOf("icon", "text").all { (get(it) as? JsonPrimitive)?.isString == true }
+}
 
 internal fun WatchlistItem.toCached() = CachedWatchlistItem(
     symbol = symbol.value,
@@ -96,7 +119,7 @@ internal fun WatchlistItem.toCached() = CachedWatchlistItem(
     stock = stock,
     logoUrl = logoUrl,
     sector = sector,
-    tags = tags,
+    tags = tags.map { CachedTag(it.icon, it.text) },
 )
 
 internal fun CachedWatchlistItem.toDomain() = WatchlistItem(
@@ -109,5 +132,5 @@ internal fun CachedWatchlistItem.toDomain() = WatchlistItem(
     stock = stock,
     logoUrl = logoUrl,
     sector = sector,
-    tags = tags,
+    tags = tags.map { Tag(it.icon, it.text) },
 )

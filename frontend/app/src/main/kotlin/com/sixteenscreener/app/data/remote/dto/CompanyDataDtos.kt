@@ -108,6 +108,7 @@ data class CompanyProfileDto(
 data class CompanyProfileResponseDto(
     val meta: SourceDataMetaDto,
     val profile: CompanyProfileDto? = null,
+    val tags: List<TagDto> = emptyList(),
 )
 
 fun SourceDataMetaDto.toDomain() = SourceDataMeta(
@@ -173,4 +174,8 @@ fun CompanyProfileDto.toDomain() = CompanyProfile(
     description = description,
 )
 
-fun CompanyProfileResponseDto.toDomain() = CompanyProfileData(meta = meta.toDomain(), profile = profile?.toDomain())
+fun CompanyProfileResponseDto.toDomain() = CompanyProfileData(
+    meta = meta.toDomain(),
+    profile = profile?.toDomain(),
+    tags = tags.map { it.toDomain() },
+)

@@ -55,12 +55,14 @@ import com.sixteenscreener.app.domain.WatchlistFilter
 import com.sixteenscreener.app.domain.model.Market
 import com.sixteenscreener.app.domain.model.RowMarketData
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.WatchlistItem
 import com.sixteenscreener.app.ui.component.CenteredMessage
 import com.sixteenscreener.app.ui.component.CompanyRow
 import com.sixteenscreener.app.ui.component.FilterDropdown
 import com.sixteenscreener.app.ui.component.WatchlistMarketData
 import com.sixteenscreener.app.ui.component.apiErrorMessage
+import com.sixteenscreener.app.ui.tag.TagIcons
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
@@ -69,6 +71,7 @@ object WatchlistScreenTags {
     const val LIST = "watchlist_list"
     const val ADD_BUTTON = "watchlist_add_button"
     const val SWIPE_BACKGROUND = "watchlist_swipe_background"
+    const val TAG_FILTER = "watchlist_tag_filter"
 }
 
 /** Watchlist tab; loads the watchlist when shown and when the app returns to the foreground. */
@@ -86,6 +89,7 @@ fun WatchlistScreen(
         onRefresh = viewModel::refresh,
         onMarketSelected = viewModel::onMarketSelected,
         onSectorSelected = viewModel::onSectorSelected,
+        onTagSelected = viewModel::onTagSelected,
         onVisibleRowsChanged = viewModel::onVisibleRowsChanged,
         onRemove = viewModel::onRemove,
         onUndo = viewModel::onUndo,
@@ -109,6 +113,7 @@ fun WatchlistContent(
     onOpenDetail: (WatchlistItem) -> Unit,
     onAddCompany: () -> Unit,
     modifier: Modifier = Modifier,
+    onTagSelected: (Tag?) -> Unit = {},
     onVisibleRowsChanged: (VisibleRows) -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -127,8 +132,10 @@ fun WatchlistContent(
             WatchlistFilters(
                 filter = uiState.filter,
                 sectors = uiState.sectors,
+                tags = uiState.tags,
                 onMarketSelected = onMarketSelected,
                 onSectorSelected = onSectorSelected,
+                onTagSelected = onTagSelected,
             )
             PullToRefreshBox(
                 isRefreshing = uiState.isRefreshing,
@@ -189,8 +196,10 @@ private fun watchlistMessageText(message: WatchlistMessage): String = when (mess
 private fun WatchlistFilters(
     filter: WatchlistFilter,
     sectors: List<String>,
+    tags: List<Tag>,
     onMarketSelected: (MarketFilter) -> Unit,
     onSectorSelected: (String?) -> Unit,
+    onTagSelected: (Tag?) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -214,6 +223,16 @@ private fun WatchlistFilters(
             onSelect = onSectorSelected,
             isActive = filter.sector != null,
             modifier = Modifier.weight(1f, fill = false),
+        )
+        FilterDropdown(
+            label = stringResource(R.string.filter_tag),
+            selected = filter.tag,
+            options = listOf<Tag?>(null) + tags,
+            optionLabel = { it?.text ?: stringResource(R.string.filter_all) },
+            onSelect = onTagSelected,
+            isActive = filter.tag != null,
+            optionIcon = { tag -> tag?.let { painterResource(TagIcons.of(it.icon).drawable) } },
+            modifier = Modifier.weight(1f, fill = false).testTag(WatchlistScreenTags.TAG_FILTER),
         )
     }
 }

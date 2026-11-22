@@ -15,6 +15,7 @@ import com.sixteenscreener.app.domain.model.SearchResults
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.WatchlistItem
 
 /**
@@ -92,6 +93,15 @@ interface ApiClient {
         source: SourceId? = null,
         trigger: RequestTrigger = RequestTrigger.AUTO,
     ): ApiResult<CompanyProfileData>
+
+    /**
+     * `PUT /profiles/{profileId}/companies/{symbol}/tags`: replaces all tags of a watchlist company with [tags]; returns the stored
+     * tags.
+     */
+    suspend fun setCompanyTags(profileId: ProfileId, symbol: Symbol, tags: List<Tag>): ApiResult<List<Tag>>
+
+    /** `GET /profiles/{profileId}/tags`: distinct tags used by the profile, sorted by text ignoring case, then by icon. */
+    suspend fun getProfileTags(profileId: ProfileId): ApiResult<List<Tag>>
 
     /** `GET /profiles/{profileId}/sources`. */
     suspend fun getSources(profileId: ProfileId): ApiResult<List<Source>>

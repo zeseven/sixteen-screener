@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sixteenscreener.app.data.repository.CompanyRepository
 import com.sixteenscreener.app.data.repository.SourceRepository
+import com.sixteenscreener.app.data.repository.TagRepository
 import com.sixteenscreener.app.data.repository.WatchlistRepository
 import com.sixteenscreener.app.domain.BalanceSheetTable
+import com.sixteenscreener.app.domain.TagRules
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
@@ -21,6 +23,7 @@ import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceDataMeta
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Symbol
+import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.WatchlistItem
 import com.sixteenscreener.app.ui.navigation.DetailRoute
 import dagger.assisted.Assisted
@@ -70,6 +73,28 @@ sealed interface DetailMessage {
     data class AddFailed(val error: ApiError) : DetailMessage
 
     data class RemoveFailed(val error: ApiError) : DetailMessage
+
+    data class TagsSaveFailed(val error: ApiError) : DetailMessage
+}
+
+/** User tags of the company on the company profile tab and in the header. */
+data class TagsUiState(
+    val tags: List<Tag> = emptyList(),
+    /** Whether the company is in the watchlist; only watchlist companies can have tags (ADR-061). */
+    val isEditable: Boolean = false,
+    /** Whether the changed tags are being saved; no other change is accepted meanwhile. */
+    val isSaving: Boolean = false,
+    val isAddDialogOpen: Boolean = false,
+    /** Tags of the profile the company doesn't have, offered for reuse in the add dialog. */
+    val suggestions: List<Tag> = emptyList(),
+    /** Failure of the last save while the add dialog is open. */
+    val dialogError: ApiError? = null,
+) {
+    val isLimitReached: Boolean get() = tags.size >= TagRules.MAX_TAGS
+
+    val canAdd: Boolean get() = isEditable && !isSaving && !isLimitReached
+
+    val canRemove: Boolean get() = isEditable && !isSaving
 }
 
 data class DetailUiState(
@@ -86,6 +111,7 @@ data class DetailUiState(
     val dividends: TabData<Dividends> = TabData(),
     val balanceSheet: BalanceSheetTabState = BalanceSheetTabState(),
     val companyProfile: TabData<CompanyProfileData> = TabData(),
+    val tags: TagsUiState = TagsUiState(),
     /** Display names of the known sources. */
     val sourceNames: Map<SourceId, String> = emptyMap(),
     val message: DetailMessage? = null,
@@ -95,7 +121,9 @@ data class DetailUiState(
 
 /**
  * Detailed screen: each tab loads its data once when first shown, the refresh button reloads every tab from the sources (ADR-052).
- * The company profile loads when the screen opens, as the header shows its identity and home exchange.
+ * The company profile loads when the screen opens, as the header shows its identity, home exchange and the company's tags.
+ * Tags come with the company profile, from the watchlist until it arrives, and are saved as a whole list after each change; they are
+ * shown and edited only while the company is in the watchlist (ADR-061, ADR-086).
  * The balance sheet keeps the result of each selected source while the screen is open (ADR-007, ADR-047).
  */
 @HiltViewModel(assistedFactory = DetailViewModel.Factory::class)
@@ -104,6 +132,7 @@ class DetailViewModel @AssistedInject constructor(
     private val companyRepository: CompanyRepository,
     private val sourceRepository: SourceRepository,
     private val watchlistRepository: WatchlistRepository,
+    private val tagRepository: TagRepository,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -119,6 +148,14 @@ class DetailViewModel @AssistedInject constructor(
         val selectedSource: SourceId? = null,
         val balanceSheets: Map<SourceId?, TabData<BalanceSheetView>> = emptyMap(),
         val companyProfile: TabData<CompanyProfileData> = TabData(),
+        /** Tags from the company profile or the last change, `null` until known. */
+        val tags: List<Tag>? = null,
+        /** Number of tag changes, so a company profile requested before a change doesn't bring back the old tags. */
+        val tagChanges: Int = 0,
+        val isSavingTags: Boolean = false,
+        val isAddTagDialogOpen: Boolean = false,
+        val profileTags: List<Tag> = emptyList(),
+        val tagDialogError: ApiError? = null,
         val message: DetailMessage? = null,
     )
 
@@ -143,8 +180,8 @@ class DetailViewModel @AssistedInject constructor(
         watchlistRepository.marketData,
         sourceRepository.sources,
     ) { screen, watchlist, watchlistSymbols, marketData, sources ->
-        toUiState(screen, watchlist != null, watchlistSymbols, marketData[symbol], sources)
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, toUiState(ScreenState(), false, emptySet(), null, null))
+        toUiState(screen, watchlist, watchlistSymbols, marketData[symbol], sources)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, toUiState(ScreenState(), null, emptySet(), null, null))
 
     init {
         loadOnce(DetailTab.PRICE_AND_RATIOS)
@@ -185,15 +222,64 @@ class DetailViewModel @AssistedInject constructor(
         val sector = state.companyProfile.value?.profile?.sector
         viewModelScope.launch {
             val result = if (state.inWatchlist) watchlistRepository.remove(symbol) else watchlistRepository.add(WatchlistItem.of(company, sector))
-            if (result is ApiResult.Failure) {
-                val message = if (state.inWatchlist) DetailMessage.RemoveFailed(result.error) else DetailMessage.AddFailed(result.error)
-                screenState.update { it.copy(message = message) }
+            when (result) {
+                is ApiResult.Success -> {
+                    val tags = (result.value as? WatchlistItem)?.tags.orEmpty()
+                    screenState.update { it.copy(tags = tags, tagChanges = it.tagChanges + 1) }
+                }
+                is ApiResult.Failure -> {
+                    val message = if (state.inWatchlist) DetailMessage.RemoveFailed(result.error) else DetailMessage.AddFailed(result.error)
+                    screenState.update { it.copy(message = message) }
+                }
             }
         }
     }
 
+    /** Opens the dialog adding a tag and loads the profile's tags offered for reuse. */
+    fun onAddTagRequested() {
+        if (!uiState.value.tags.canAdd) return
+        screenState.update { it.copy(isAddTagDialogOpen = true, tagDialogError = null) }
+        viewModelScope.launch {
+            val result = tagRepository.getProfileTags()
+            if (result is ApiResult.Success) screenState.update { it.copy(profileTags = result.value) }
+        }
+    }
+
+    fun onAddTagDismissed() = screenState.update { it.copy(isAddTagDialogOpen = false, tagDialogError = null) }
+
+    /** Adds the tag with [icon] and the trimmed [text], unless it breaks the tag rules; the dialog closes once the tags are saved. */
+    fun onAddTag(icon: String, text: String) {
+        val tags = uiState.value.tags
+        if (!tags.canAdd || TagRules.problemOfAdding(tags.tags, icon, text) != null) return
+        saveTags(tags.tags + Tag(icon, text.trim()))
+    }
+
+    fun onRemoveTag(tag: Tag) {
+        val tags = uiState.value.tags
+        if (!tags.canRemove || !TagRules.contains(tags.tags, tag)) return
+        saveTags(tags.tags.filterNot { it.isSameAs(tag) })
+    }
+
     /** Clears [shown] unless a newer message replaced it. */
     fun onMessageShown(shown: DetailMessage) = screenState.update { if (it.message == shown) it.copy(message = null) else it }
+
+    private fun saveTags(tags: List<Tag>) {
+        screenState.update { it.copy(isSavingTags = true, tagDialogError = null) }
+        viewModelScope.launch {
+            when (val result = tagRepository.setCompanyTags(symbol, tags)) {
+                is ApiResult.Success -> screenState.update {
+                    it.copy(tags = result.value, tagChanges = it.tagChanges + 1, isSavingTags = false, isAddTagDialogOpen = false)
+                }
+                is ApiResult.Failure -> screenState.update {
+                    if (it.isAddTagDialogOpen) {
+                        it.copy(isSavingTags = false, tagDialogError = result.error)
+                    } else {
+                        it.copy(isSavingTags = false, message = DetailMessage.TagsSaveFailed(result.error))
+                    }
+                }
+            }
+        }
+    }
 
     private fun loadOnce(tab: DetailTab) {
         if (!requestedTabs.add(tab)) return
@@ -217,11 +303,15 @@ class DetailViewModel @AssistedInject constructor(
         request = { companyRepository.getDividends(symbol, trigger = trigger) },
     )
 
-    private fun loadCompanyProfile(trigger: RequestTrigger) = launchLoad(
-        key = LoadKey.Tab(DetailTab.COMPANY_PROFILE),
-        update = { state, transform -> state.copy(companyProfile = transform(state.companyProfile)) },
-        request = { companyRepository.getCompanyProfile(symbol, trigger = trigger) },
-    )
+    private fun loadCompanyProfile(trigger: RequestTrigger) {
+        val tagChangesAtRequest = screenState.value.tagChanges
+        launchLoad(
+            key = LoadKey.Tab(DetailTab.COMPANY_PROFILE),
+            update = { state, transform -> state.copy(companyProfile = transform(state.companyProfile)) },
+            request = { companyRepository.getCompanyProfile(symbol, trigger = trigger) },
+            onLoaded = { state, data -> if (state.tagChanges == tagChangesAtRequest) state.copy(tags = data.tags) else state },
+        )
+    }
 
     private fun loadBalanceSheet(source: SourceId?, trigger: RequestTrigger) = launchLoad(
         key = LoadKey.BalanceSheetOf(source),
@@ -240,12 +330,15 @@ class DetailViewModel @AssistedInject constructor(
         key: LoadKey,
         update: (ScreenState, (TabData<T>) -> TabData<T>) -> ScreenState,
         request: suspend () -> ApiResult<T>,
+        onLoaded: (ScreenState, T) -> ScreenState = { state, _ -> state },
     ) {
         loadJobs.remove(key)?.cancel()
         screenState.update { state -> update(state) { it.copy(isLoading = true, error = null) } }
         loadJobs[key] = viewModelScope.launch {
             val result = request()
-            screenState.update { state -> update(state) { it.loadedWith(result) } }
+            screenState.update { state ->
+                update(state) { it.loadedWith(result) }.let { updated -> if (result is ApiResult.Success) onLoaded(updated, result.value) else updated }
+            }
         }
     }
 
@@ -261,12 +354,13 @@ class DetailViewModel @AssistedInject constructor(
 
     private fun toUiState(
         screen: ScreenState,
-        isWatchlistLoaded: Boolean,
+        watchlist: List<WatchlistItem>?,
         watchlistSymbols: Set<Symbol>,
         rowMarketData: RowMarketData?,
         sources: List<Source>?,
     ): DetailUiState {
-        val inWatchlist = symbol in watchlistSymbols || (!isWatchlistLoaded && route.initiallyInWatchlist)
+        val inWatchlist = symbol in watchlistSymbols || (watchlist == null && route.initiallyInWatchlist)
+        val tags = if (inWatchlist) screen.tags ?: watchlist?.firstOrNull { it.symbol == symbol }?.tags.orEmpty() else emptyList()
         return DetailUiState(
             symbol = symbol,
             header = screen.companyProfile.value?.profile?.toIdentity() ?: route.initialCompany,
@@ -283,6 +377,14 @@ class DetailViewModel @AssistedInject constructor(
                 data = screen.balanceSheets[screen.selectedSource] ?: TabData(),
             ),
             companyProfile = screen.companyProfile,
+            tags = TagsUiState(
+                tags = tags,
+                isEditable = inWatchlist,
+                isSaving = screen.isSavingTags,
+                isAddDialogOpen = screen.isAddTagDialogOpen,
+                suggestions = screen.profileTags.filterNot { TagRules.contains(tags, it) },
+                dialogError = screen.tagDialogError,
+            ),
             sourceNames = (SourceRepository.FALLBACK_BALANCE_SHEET_SOURCES + screen.balanceSheetSources + sources.orEmpty())
                 .associate { it.id to it.name },
             message = screen.message,
