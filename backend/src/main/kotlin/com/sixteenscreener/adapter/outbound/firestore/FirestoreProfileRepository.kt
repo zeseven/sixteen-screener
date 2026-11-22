@@ -7,9 +7,11 @@ import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ProfileName
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.Tag
 import com.sixteenscreener.domain.model.WatchlistEntry
 import com.sixteenscreener.port.outbound.ProfileCreation
 import com.sixteenscreener.port.outbound.ProfileRepository
+import com.sixteenscreener.port.outbound.TagsUpdate
 import com.sixteenscreener.port.outbound.WatchlistUpdate
 import java.security.MessageDigest
 import java.time.Instant
@@ -62,6 +64,17 @@ class FirestoreProfileRepository(private val firestore: Firestore) : ProfileRepo
             WatchlistUpdate.Updated(profile.copy(watchlist = watchlist, updatedAt = at))
         }
 
+    override suspend fun setWatchlistTags(id: ProfileId, symbol: Symbol, tags: List<Tag>, at: Instant): TagsUpdate =
+        firestore.transaction { tx ->
+            val ref = profiles.document(id.toString())
+            val profile = tx.get(ref).get().toProfileOrNull() ?: return@transaction TagsUpdate.ProfileNotFound
+            val entry = profile.watchlistEntry(symbol) ?: return@transaction TagsUpdate.NotInWatchlist
+            if (entry.tags == tags) return@transaction TagsUpdate.Updated(profile)
+            val watchlist = profile.watchlist.map { if (it.symbol == symbol) it.copy(tags = tags) else it }
+            tx.update(ref, mapOf(WATCHLIST to watchlist.map { it.toMap() }, UPDATED_AT to at.toTimestamp()))
+            TagsUpdate.Updated(profile.copy(watchlist = watchlist, updatedAt = at))
+        }
+
     override suspend fun removeFromWatchlist(id: ProfileId, symbol: Symbol, at: Instant): WatchlistUpdate =
         changeWatchlist(id, at) { watchlist -> watchlist.filterNot { it.symbol == symbol } }
 
@@ -102,7 +115,7 @@ class FirestoreProfileRepository(private val firestore: Firestore) : ProfileRepo
         SYMBOL to symbol.value,
         NAME to name,
         SECTOR to sector,
-        TAGS to tags,
+        TAGS to tags.map { mapOf(ICON to it.icon, TEXT to it.text) },
     )
 
     private fun DocumentSnapshot.toProfileOrNull(): Profile? {
@@ -125,8 +138,15 @@ class FirestoreProfileRepository(private val firestore: Firestore) : ProfileRepo
             symbol = symbol,
             name = map[NAME] as? String ?: symbol.ticker,
             sector = map[SECTOR] as? String,
-            tags = (map[TAGS] as? List<*>).orEmpty().filterIsInstance<String>(),
+            tags = (map[TAGS] as? List<*>).orEmpty().mapNotNull(::tagOrNull),
         )
+    }
+
+    private fun tagOrNull(stored: Any?): Tag? {
+        val map = stored as? Map<*, *> ?: return null
+        val icon = map[ICON] as? String ?: return null
+        val text = map[TEXT] as? String ?: return null
+        return Tag.parseOrNull(icon, text)
     }
 
     companion object {
@@ -136,6 +156,8 @@ class FirestoreProfileRepository(private val firestore: Firestore) : ProfileRepo
         private const val SYMBOL = "symbol"
         private const val SECTOR = "sector"
         private const val TAGS = "tags"
+        private const val ICON = "icon"
+        private const val TEXT = "text"
         private const val CREATED_AT = "createdAt"
         private const val UPDATED_AT = "updatedAt"
         private const val INDICATOR_SETTINGS = "indicatorSettings"

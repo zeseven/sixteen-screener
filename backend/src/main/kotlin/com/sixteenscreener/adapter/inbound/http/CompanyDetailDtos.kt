@@ -90,6 +90,7 @@ data class CompanyProfileDto(
 data class CompanyProfileResponseDto(
     val meta: SourceDataMetaDto,
     val profile: CompanyProfileDto?,
+    val tags: List<TagDto>,
 )
 
 private fun metaOf(source: SourceId, status: DataStatus, fetchedAt: Instant?) =
@@ -146,6 +147,7 @@ fun CompanyProfileData.toDto() = CompanyProfileResponseDto(
             description = data.description,
         )
     },
+    tags = tags.map { it.toDto() },
 )
 
 @Serializable

@@ -43,7 +43,7 @@ data class WatchlistItemDto(
     val stock: Boolean,
     val logoUrl: String,
     val sector: String?,
-    val tags: List<String>,
+    val tags: List<TagDto>,
 )
 
 @Serializable
@@ -112,7 +112,7 @@ fun WatchlistItem.toDto() = WatchlistItemDto(
     stock = identity.stock,
     logoUrl = logoUrlOf(identity.symbol),
     sector = sector,
-    tags = tags,
+    tags = tags.map { it.toDto() },
 )
 
 fun WatchlistMarketData.toDto() = MarketDataDto(

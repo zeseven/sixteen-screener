@@ -21,6 +21,7 @@ import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.Tag
 import com.sixteenscreener.domain.service.IndicatorDefaults
 import com.sixteenscreener.testConfig
 import com.sixteenscreener.watchlistEntry
@@ -456,7 +457,7 @@ class WatchlistRoutesTest : FunSpec({
     test("watchlist item carries every alpha field of WatchlistItem") {
         routeTest { ports ->
             val profile = ports.savedProfile().copy(
-                watchlist = listOf(watchlistEntry("SAP.DE", sector = "Software", tags = listOf("eu"), name = "SAP SE")),
+                watchlist = listOf(watchlistEntry("SAP.DE", sector = "Software", tags = listOf(Tag("star", "eu")), name = "SAP SE")),
             ).also(ports.profiles::save)
             ports.listed("SAP.DE", mic = "XETR", currency = "EUR", name = "SAP SE")
 
@@ -473,7 +474,7 @@ class WatchlistRoutesTest : FunSpec({
                     "stock" to JsonPrimitive(true),
                     "logoUrl" to JsonPrimitive("/logos/SAP.DE"),
                     "sector" to JsonPrimitive("Software"),
-                    "tags" to JsonArray(listOf(JsonPrimitive("eu"))),
+                    "tags" to JsonArray(listOf(JsonObject(mapOf("icon" to JsonPrimitive("star"), "text" to JsonPrimitive("eu"))))),
                 ),
             )
         }

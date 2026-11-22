@@ -50,6 +50,7 @@ import com.sixteenscreener.domain.service.SourceCallGuard
 import com.sixteenscreener.domain.service.SourceCallOutcomes
 import com.sixteenscreener.domain.service.SourceCatalog
 import com.sixteenscreener.domain.service.SourceService
+import com.sixteenscreener.domain.service.TagService
 import com.sixteenscreener.domain.service.WatchlistCompanySync
 import com.sixteenscreener.domain.service.WatchlistService
 import com.sixteenscreener.port.inbound.CompanyDataUseCase
@@ -59,6 +60,7 @@ import com.sixteenscreener.port.inbound.LogoUseCase
 import com.sixteenscreener.port.inbound.ProfileUseCase
 import com.sixteenscreener.port.inbound.SearchUseCase
 import com.sixteenscreener.port.inbound.SourcesUseCase
+import com.sixteenscreener.port.inbound.TagsUseCase
 import com.sixteenscreener.port.inbound.WatchlistUseCase
 import com.sixteenscreener.port.outbound.BalanceSheetSource
 import com.sixteenscreener.port.outbound.Clock
@@ -132,6 +134,8 @@ class AppServices(
 
     val watchlistUseCase: WatchlistUseCase =
         WatchlistService(profiles, sourceCatalog, symbolDirectory, companyData, identities, indicatorSettings)
+
+    val tagsUseCase: TagsUseCase = TagService(profiles, clock)
 
     val companyDataUseCase: CompanyDataUseCase get() = companyData
 

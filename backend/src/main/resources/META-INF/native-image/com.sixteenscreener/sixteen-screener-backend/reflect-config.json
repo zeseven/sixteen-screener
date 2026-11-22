@@ -607,6 +607,40 @@
     ]
   },
   {
+    "name": "com.sixteenscreener.adapter.inbound.http.TagDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.TagDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.TagListDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.TagListDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sixteenscreener.adapter.inbound.http.WatchlistAddDto",
     "fields": [
       {

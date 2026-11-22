@@ -36,7 +36,7 @@ data class CompanyIdentity(
 data class WatchlistItem(
     val identity: CompanyIdentity,
     val sector: String?,
-    val tags: List<String>,
+    val tags: List<Tag>,
 )
 
 /**
@@ -121,9 +121,11 @@ data class PriceAndRatios(
  * @property profile profile data from the source with its status
  * @property homeExchange true when the company is a stock and its exchange is a main venue in the country of the
  * company profile; false without a profile country or on an exchange missing from the static exchange table
+ * @property tags profile tags of the company stored with the watchlist entry; empty outside the watchlist (ADR-061)
  */
 data class CompanyProfileData(
     val identity: CompanyIdentity,
     val profile: SourceData<CompanyProfile>,
     val homeExchange: Boolean,
+    val tags: List<Tag>,
 )

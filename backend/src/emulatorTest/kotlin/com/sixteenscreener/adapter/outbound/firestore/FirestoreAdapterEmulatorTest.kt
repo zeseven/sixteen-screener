@@ -28,6 +28,7 @@ import com.sixteenscreener.domain.model.RequestLimit
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.Tag
 import com.sixteenscreener.domain.service.IndicatorDefaults
 import com.sixteenscreener.watchlistEntry
 import io.kotest.core.spec.style.FunSpec
@@ -69,13 +70,18 @@ class FirestoreProfileRepositoryEmulatorTest : FunSpec({
 
         repository.addToWatchlist(
             profile.id,
-            watchlistEntry("SAP.DE", sector = "Software", tags = listOf("eu"), name = "SAP SE"),
+            watchlistEntry("SAP.DE", sector = "Software", tags = listOf(Tag("globe", "eu")), name = "SAP SE"),
             Instant.now(),
         )
         repository.addToWatchlist(profile.id, watchlistEntry("AAPL"), Instant.now())
 
         firestore.document(FirestoreCollections.PROFILES, profile.id.toString())["watchlist"] shouldBe listOf(
-            mapOf("symbol" to "SAP.DE", "name" to "SAP SE", "sector" to "Software", "tags" to listOf("eu")),
+            mapOf(
+                "symbol" to "SAP.DE",
+                "name" to "SAP SE",
+                "sector" to "Software",
+                "tags" to listOf(mapOf("icon" to "globe", "text" to "eu")),
+            ),
             mapOf("symbol" to "AAPL", "name" to "AAPL", "sector" to null, "tags" to emptyList<String>()),
         )
     }
@@ -108,13 +114,25 @@ class FirestoreProfileRepositoryEmulatorTest : FunSpec({
                 "AAPL",
                 mapOf("symbol" to "not a symbol"),
                 mapOf("sector" to "Technology"),
-                mapOf("symbol" to "MSFT", "sector" to 42L, "tags" to listOf("ok", 1L)),
+                mapOf(
+                    "symbol" to "MSFT",
+                    "sector" to 42L,
+                    "tags" to listOf(
+                        mapOf("icon" to "star", "text" to " ok "),
+                        "legacy text tag",
+                        1L,
+                        mapOf("icon" to "Bad Icon", "text" to "bad icon"),
+                        mapOf("icon" to "star", "text" to "  "),
+                        mapOf("icon" to "star"),
+                        mapOf("text" to "no icon"),
+                    ),
+                ),
                 mapOf("symbol" to "IBM", "tags" to "not a list"),
             ),
         ).await()
 
         repository.findById(profile.id)?.watchlist shouldBe listOf(
-            watchlistEntry("MSFT", tags = listOf("ok")),
+            watchlistEntry("MSFT", tags = listOf(Tag("star", "ok"))),
             watchlistEntry("IBM"),
         )
     }

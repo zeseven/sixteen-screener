@@ -11,6 +11,7 @@ import com.sixteenscreener.domain.model.ResourceNotFoundException
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.Tag
 import com.sixteenscreener.domain.model.WatchlistItem
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.profileKey
 import com.sixteenscreener.watchlistEntries
@@ -237,7 +238,7 @@ class ProfileServiceTest : FunSpec({
 
         test("add of a symbol already in the watchlist returns it unchanged without source requests") {
             val f = ProfileFixture()
-            val entry = watchlistEntry("AAPL", sector = "Stored", tags = listOf("core"), name = "Apple Stored")
+            val entry = watchlistEntry("AAPL", sector = "Stored", tags = listOf(Tag("star", "core")), name = "Apple Stored")
             f.data.profiles.save(f.data.profile.copy(watchlist = listOf(entry)))
             f.data.profileFromSource("AAPL", sampleProfile(sector = "Fetched"))
 
@@ -246,7 +247,7 @@ class ProfileServiceTest : FunSpec({
             item shouldBe WatchlistItem(
                 CompanyIdentity(Symbol.of("AAPL"), "NASDAQ", "Apple Stored", Market.US, "Common Stock"),
                 "Stored",
-                listOf("core"),
+                listOf(Tag("star", "core")),
             )
             f.watchlistOf(f.data.profile.id) shouldContainExactly listOf(entry)
             f.data.source.calls.shouldBeEmpty()
@@ -385,7 +386,7 @@ class ProfileServiceTest : FunSpec({
 
         test("remove deletes the entry with its tags and keeps the order of the others") {
             val f = ProfileFixture()
-            val entries = listOf(watchlistEntry("A"), watchlistEntry("AAPL", "Technology", listOf("core")), watchlistEntry("B"))
+            val entries = listOf(watchlistEntry("A"), watchlistEntry("AAPL", "Technology", listOf(Tag("star", "core"))), watchlistEntry("B"))
             f.data.profiles.save(f.data.profile.copy(watchlist = entries))
 
             f.service.removeFromWatchlist(f.data.profile.id, Symbol.of("AAPL"))

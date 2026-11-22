@@ -4,9 +4,11 @@ import com.sixteenscreener.domain.model.IndicatorSetting
 import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.Tag
 import com.sixteenscreener.domain.model.WatchlistEntry
 import com.sixteenscreener.port.outbound.ProfileCreation
 import com.sixteenscreener.port.outbound.ProfileRepository
+import com.sixteenscreener.port.outbound.TagsUpdate
 import com.sixteenscreener.port.outbound.WatchlistUpdate
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -63,6 +65,15 @@ class InMemoryProfileRepository : ProfileRepository {
             }
         }
     }
+
+    override suspend fun setWatchlistTags(id: ProfileId, symbol: Symbol, tags: List<Tag>, at: Instant): TagsUpdate =
+        mutex.withLock {
+            val profile = profiles[id] ?: return@withLock TagsUpdate.ProfileNotFound
+            val entry = profile.watchlistEntry(symbol) ?: return@withLock TagsUpdate.NotInWatchlist
+            if (entry.tags == tags) return@withLock TagsUpdate.Updated(profile)
+            val watchlist = profile.watchlist.map { if (it.symbol == symbol) it.copy(tags = tags) else it }
+            profile.copy(watchlist = watchlist, updatedAt = at).also { profiles[id] = it }.let(TagsUpdate::Updated)
+        }
 
     override suspend fun removeFromWatchlist(id: ProfileId, symbol: Symbol, at: Instant): WatchlistUpdate =
         update(id) { profile -> profile.copy(watchlist = profile.watchlist.filterNot { it.symbol == symbol }, updatedAt = at) }

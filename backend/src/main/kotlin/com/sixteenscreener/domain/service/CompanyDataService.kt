@@ -134,7 +134,12 @@ class CompanyDataService(
         val identity = identities.identify(symbol, target.lookup.listing, target.profile.watchlistEntry(symbol)?.name)
         val exchange = identities.exchangeOf(symbol, target.lookup.listing)
         val homeExchange = identity.stock && exchange?.isHomeOf(profile.data?.country) == true
-        return CompanyProfileData(profile.data?.name?.let { identity.copy(name = it) } ?: identity, profile, homeExchange)
+        return CompanyProfileData(
+            identity = profile.data?.name?.let { identity.copy(name = it) } ?: identity,
+            profile = profile,
+            homeExchange = homeExchange,
+            tags = target.profile.watchlistEntry(symbol)?.tags.orEmpty(),
+        )
     }
 
     suspend fun unexpiredCompanyProfile(source: SourceId, symbol: Symbol): SourceData<CompanyProfile> {

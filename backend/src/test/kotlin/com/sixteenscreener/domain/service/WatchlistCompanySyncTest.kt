@@ -5,6 +5,7 @@ import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.Tag
 import com.sixteenscreener.domain.model.WatchlistEntry
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.profileKey
 import com.sixteenscreener.watchlistEntry
@@ -16,7 +17,7 @@ import java.time.Duration
 
 private val AAPL = Symbol.of("AAPL")
 
-private fun apple(sector: String? = null, tags: List<String> = emptyList(), name: String = "Apple Inc") =
+private fun apple(sector: String? = null, tags: List<Tag> = emptyList(), name: String = "Apple Inc") =
     watchlistEntry("AAPL", sector, tags, name)
 
 private class CompanyFixture(vararg entries: WatchlistEntry) {
@@ -34,13 +35,13 @@ private class CompanyFixture(vararg entries: WatchlistEntry) {
 class WatchlistCompanySyncTest : FunSpec({
 
     test("profile fetched from the default source updates the sector of the watchlist entry") {
-        val f = CompanyFixture(apple(sector = "Old", tags = listOf("core")), watchlistEntry("MSFT", "Software"))
+        val f = CompanyFixture(apple(sector = "Old", tags = listOf(Tag("star", "core"))), watchlistEntry("MSFT", "Software"))
         f.data.profileFromSource("AAPL", sampleProfile(sector = "Technology"))
 
         f.companyProfile()
 
         f.watchlist() shouldContainExactly listOf(
-            apple(sector = "Technology", tags = listOf("core")),
+            apple(sector = "Technology", tags = listOf(Tag("star", "core"))),
             watchlistEntry("MSFT", "Software"),
         )
         f.data.profiles.findById(f.data.profile.id)!!.updatedAt shouldBe f.data.now

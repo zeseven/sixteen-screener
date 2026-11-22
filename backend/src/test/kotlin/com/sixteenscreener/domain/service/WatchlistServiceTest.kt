@@ -15,6 +15,7 @@ import com.sixteenscreener.domain.model.Ratios
 import com.sixteenscreener.domain.model.ResourceNotFoundException
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.Tag
 import com.sixteenscreener.domain.model.WatchlistItem
 import com.sixteenscreener.domain.model.WatchlistMarketData
 import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.profileKey
@@ -67,7 +68,7 @@ class WatchlistServiceTest : FunSpec({
         f.data.profiles.save(
             f.data.profile.copy(
                 watchlist = listOf(
-                    watchlistEntry("SAP.DE", "Software", listOf("eu", "core"), name = "SAP SE"),
+                    watchlistEntry("SAP.DE", "Software", listOf(Tag("star", "eu"), Tag("star", "core")), name = "SAP SE"),
                     watchlistEntry("AAPL", name = "Apple Inc"),
                 ),
             ),
@@ -78,7 +79,7 @@ class WatchlistServiceTest : FunSpec({
             WatchlistItem(
                 CompanyIdentity(Symbol.of("SAP.DE"), "XETRA", "SAP SE", Market.EU, "Common Stock"),
                 "Software",
-                listOf("eu", "core"),
+                listOf(Tag("star", "eu"), Tag("star", "core")),
             ),
             WatchlistItem(CompanyIdentity(Symbol.of("AAPL"), "NASDAQ", "Apple Inc", Market.US, "Common Stock"), null, emptyList()),
         )

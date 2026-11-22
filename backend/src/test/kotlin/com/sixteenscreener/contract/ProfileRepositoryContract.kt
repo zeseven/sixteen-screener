@@ -7,8 +7,10 @@ import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ProfileName
 import com.sixteenscreener.domain.model.RatioCode
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.Tag
 import com.sixteenscreener.domain.service.IndicatorDefaults
 import com.sixteenscreener.port.outbound.ProfileRepository
+import com.sixteenscreener.port.outbound.TagsUpdate
 import com.sixteenscreener.port.outbound.WatchlistUpdate
 import com.sixteenscreener.watchlistEntry
 import io.kotest.core.spec.style.funSpec
@@ -124,7 +126,7 @@ fun profileRepositoryContract(newRepository: suspend () -> ProfileRepository) = 
         val repository = newRepository()
         val profile = profileCandidate("Grace").copy(
             watchlist = listOf(
-                watchlistEntry("AAPL", sector = "Technology", tags = listOf("dividend", "core"), name = "APPLE INC"),
+                watchlistEntry("AAPL", sector = "Technology", tags = listOf(Tag("star", "dividend"), Tag("star", "core")), name = "APPLE INC"),
                 watchlistEntry("AD.AS", name = "Koninklijke Ahold Delhaize NV"),
             ),
         )
@@ -160,8 +162,8 @@ fun profileRepositoryContract(newRepository: suspend () -> ProfileRepository) = 
         val repository = newRepository()
         val profile = profileCandidate("Eve").copy(
             watchlist = listOf(
-                watchlistEntry("AAPL", tags = listOf("a")),
-                watchlistEntry("MSFT", sector = "Technology", tags = listOf("m")),
+                watchlistEntry("AAPL", tags = listOf(Tag("star", "a"))),
+                watchlistEntry("MSFT", sector = "Technology", tags = listOf(Tag("star", "m"))),
                 watchlistEntry("SAP.DE"),
                 watchlistEntry("IBM"),
             ),
@@ -173,7 +175,7 @@ fun profileRepositoryContract(newRepository: suspend () -> ProfileRepository) = 
         val update = repository.removeFromWatchlist(id, Symbol.of("AAPL"), CREATED_AT)
 
         update.shouldBeInstanceOf<WatchlistUpdate.Updated>().profile.watchlist shouldBe
-            listOf(watchlistEntry("MSFT", sector = "Technology", tags = listOf("m")), watchlistEntry("IBM"))
+            listOf(watchlistEntry("MSFT", sector = "Technology", tags = listOf(Tag("star", "m"))), watchlistEntry("IBM"))
         repository.addToWatchlist(id, watchlistEntry("AAPL"), CREATED_AT)
         repository.findById(id)?.watchlistEntry(Symbol.of("AAPL")) shouldBe watchlistEntry("AAPL")
     }
@@ -182,7 +184,7 @@ fun profileRepositoryContract(newRepository: suspend () -> ProfileRepository) = 
         val repository = newRepository()
         val profile = profileCandidate("Heidi").copy(
             watchlist = listOf(
-                watchlistEntry("AAPL", sector = "Old", tags = listOf("t"), name = "AAPL"),
+                watchlistEntry("AAPL", sector = "Old", tags = listOf(Tag("star", "t")), name = "AAPL"),
                 watchlistEntry("MSFT", "Software", name = "Microsoft Corp"),
             ),
         )
@@ -193,7 +195,7 @@ fun profileRepositoryContract(newRepository: suspend () -> ProfileRepository) = 
 
         val updated = update.shouldBeInstanceOf<WatchlistUpdate.Updated>().profile
         updated.watchlist shouldContainExactly listOf(
-            watchlistEntry("AAPL", sector = "Technology", tags = listOf("t"), name = "Apple Inc"),
+            watchlistEntry("AAPL", sector = "Technology", tags = listOf(Tag("star", "t")), name = "Apple Inc"),
             watchlistEntry("MSFT", "Software", name = "Microsoft Corp"),
         )
         updated.updatedAt shouldBe at
@@ -235,6 +237,78 @@ fun profileRepositoryContract(newRepository: suspend () -> ProfileRepository) = 
         repository.updateWatchlistCompany(id, Symbol.of("AAPL"), "Apple Inc", "Technology", later)
             .shouldBeInstanceOf<WatchlistUpdate.Updated>().profile shouldBe profile
         repository.findById(id) shouldBe profile
+    }
+
+    test("tags update replaces only the tags of the given entry and sets updatedAt") {
+        val repository = newRepository()
+        val profile = profileCandidate("Kate").copy(
+            watchlist = listOf(
+                watchlistEntry("AAPL", sector = "Technology", tags = listOf(Tag("star", "old")), name = "Apple Inc"),
+                watchlistEntry("MSFT", tags = listOf(Tag("gem", "m"))),
+            ),
+        )
+        val id = repository.getOrCreate(profile).profile.id
+        val at = CREATED_AT.plusSeconds(30)
+        val tags = listOf(Tag("chess-king", "Dividend king"), Tag("star", "core"))
+
+        val update = repository.setWatchlistTags(id, Symbol.of("AAPL"), tags, at)
+
+        val updated = update.shouldBeInstanceOf<TagsUpdate.Updated>().profile
+        updated.watchlist shouldContainExactly listOf(
+            watchlistEntry("AAPL", sector = "Technology", tags = tags, name = "Apple Inc"),
+            watchlistEntry("MSFT", tags = listOf(Tag("gem", "m"))),
+        )
+        updated.updatedAt shouldBe at
+        repository.findById(id) shouldBe updated
+    }
+
+    test("tags update with an empty list removes the tags") {
+        val repository = newRepository()
+        val profile = profileCandidate("Liam").copy(watchlist = listOf(watchlistEntry("AAPL", tags = listOf(Tag("star", "a")))))
+        val id = repository.getOrCreate(profile).profile.id
+
+        repository.setWatchlistTags(id, Symbol.of("AAPL"), emptyList(), CREATED_AT)
+
+        repository.findById(id)?.watchlist shouldContainExactly listOf(watchlistEntry("AAPL"))
+    }
+
+    test("tags update with equal tags leaves the profile unchanged") {
+        val repository = newRepository()
+        val profile = profileCandidate("Mia").copy(watchlist = listOf(watchlistEntry("AAPL", tags = listOf(Tag("star", "a")))))
+        val id = repository.getOrCreate(profile).profile.id
+
+        repository.setWatchlistTags(id, Symbol.of("AAPL"), listOf(Tag("star", "a")), CREATED_AT.plusSeconds(60))
+            .shouldBeInstanceOf<TagsUpdate.Updated>().profile shouldBe profile
+        repository.findById(id) shouldBe profile
+    }
+
+    test("tags update of a symbol outside the watchlist reports NotInWatchlist and leaves the profile unchanged") {
+        val repository = newRepository()
+        val profile = profileCandidate("Noah").copy(watchlist = listOf(watchlistEntry("AAPL")))
+        val id = repository.getOrCreate(profile).profile.id
+
+        repository.setWatchlistTags(id, Symbol.of("MSFT"), listOf(Tag("star", "a")), CREATED_AT) shouldBe TagsUpdate.NotInWatchlist
+        repository.findById(id) shouldBe profile
+    }
+
+    test("tags update of an unknown profile reports ProfileNotFound") {
+        newRepository().setWatchlistTags(ProfileId.random(), Symbol.of("AAPL"), emptyList(), CREATED_AT) shouldBe
+            TagsUpdate.ProfileNotFound
+    }
+
+    test("concurrent tags updates of different companies keep all of them") {
+        val repository = newRepository()
+        val tickers = (1..8).map { "S$it" }
+        val profile = profileCandidate("Olga").copy(watchlist = tickers.map { watchlistEntry(it) })
+        val id = repository.getOrCreate(profile).profile.id
+
+        coroutineScope {
+            tickers.map { ticker ->
+                async { repository.setWatchlistTags(id, Symbol.of(ticker), listOf(Tag("star", ticker)), CREATED_AT) }
+            }.awaitAll()
+        }
+
+        repository.findById(id)?.watchlist shouldContainExactly tickers.map { watchlistEntry(it, tags = listOf(Tag("star", it))) }
     }
 
     test("watchlist changes of an unknown profile report ProfileNotFound") {

@@ -5,6 +5,7 @@ import com.sixteenscreener.domain.model.Profile
 import com.sixteenscreener.domain.model.ProfileId
 import com.sixteenscreener.domain.model.ProfileName
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.Tag
 import com.sixteenscreener.domain.model.WatchlistEntry
 import java.time.Instant
 
@@ -38,6 +39,24 @@ sealed interface WatchlistUpdate {
 }
 
 /**
+ * Result of [ProfileRepository.setWatchlistTags].
+ */
+sealed interface TagsUpdate {
+    /**
+     * The tags were stored, or the entry already had them.
+     *
+     * @property profile profile after the change
+     */
+    data class Updated(val profile: Profile) : TagsUpdate
+
+    /** No profile with the given ID exists. */
+    data object ProfileNotFound : TagsUpdate
+
+    /** The company is not in the profile's watchlist, so it can't have tags (ADR-061). */
+    data object NotInWatchlist : TagsUpdate
+}
+
+/**
  * Storage of user profiles (`profiles` and `profileNames` collections, ADR-025).
  */
 interface ProfileRepository {
@@ -64,6 +83,13 @@ interface ProfileRepository {
      * already equal [name] and [sector].
      */
     suspend fun updateWatchlistCompany(id: ProfileId, symbol: Symbol, name: String, sector: String?, at: Instant): WatchlistUpdate
+
+    /**
+     * Replaces the tags of the watchlist entry of [symbol] in profile [id] with [tags] in one transaction, setting
+     * `updatedAt` to [at]. Leaves the profile unchanged when the entry already has [tags]. Returns
+     * [TagsUpdate.NotInWatchlist] when [symbol] is not in the watchlist.
+     */
+    suspend fun setWatchlistTags(id: ProfileId, symbol: Symbol, tags: List<Tag>, at: Instant): TagsUpdate
 
     /**
      * Removes the watchlist entry of [symbol], with its tags, from profile [id] if present (idempotent),

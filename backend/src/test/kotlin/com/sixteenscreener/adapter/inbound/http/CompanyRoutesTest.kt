@@ -26,9 +26,11 @@ import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.domain.model.Symbol
+import com.sixteenscreener.domain.model.Tag
 import com.sixteenscreener.domain.service.IndicatorDefaults
 import com.sixteenscreener.fakes.FakeBalanceSheetSource
 import com.sixteenscreener.testConfig
+import com.sixteenscreener.watchlistEntry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -126,6 +128,17 @@ private val balanceSheet = BalanceSheet(
         ),
     ),
 )
+
+private val appleTags = listOf(Tag("chess-king", "Dividend king"), Tag("star", "core"))
+
+private val appleTagsJson = JsonArray(
+    appleTags.map { JsonObject(mapOf("icon" to JsonPrimitive(it.icon), "text" to JsonPrimitive(it.text))) },
+)
+
+private fun TestPorts.savedProfileWithAppleTags() =
+    savedProfile().copy(watchlist = listOf(watchlistEntry("AAPL", tags = appleTags))).also(profiles::save)
+
+private class UnavailableProfile(val status: String, val config: AppConfig, val arrange: TestPorts.() -> Unit)
 
 private fun TestPorts.listedApple() =
     symbolDirectory.add(ListedSymbol(aapl, "APPLE INC", "XNAS", "USD", "Common Stock"))
@@ -413,7 +426,8 @@ class CompanyRoutesTest : FunSpec({
 
                 val body = client.get("/profiles/${saved.id}/companies/AAPL/profile").json()
 
-                body.keys shouldBe setOf("meta", "profile")
+                body.keys shouldBe setOf("meta", "profile", "tags")
+                body["tags"] shouldBe JsonArray(emptyList())
                 body.meta() shouldBe meta("FRESH", "2026-11-14T12:00:00Z")
                 body["profile"] shouldBe JsonObject(
                     mapOf(
@@ -493,7 +507,44 @@ class CompanyRoutesTest : FunSpec({
 
                 val body = client.get("/profiles/${saved.id}/companies/AAPL/profile?source=finnhub").json()
 
-                body shouldBe JsonObject(mapOf("meta" to meta("NO_DATA", null), "profile" to JsonNull))
+                body shouldBe JsonObject(mapOf("meta" to meta("NO_DATA", null), "profile" to JsonNull, "tags" to JsonArray(emptyList())))
+            }
+        }
+
+        test("tags of the watchlist company are returned with the profile data without changing them") {
+            routeTest(config = fullConfig()) { ports ->
+                val saved = ports.savedProfileWithAppleTags()
+                ports.listedApple()
+                ports.sourceAnswersEverything()
+
+                val body = client.get("/profiles/${saved.id}/companies/AAPL/profile").json()
+
+                body.status() shouldBe JsonPrimitive("FRESH")
+                body["tags"] shouldBe appleTagsJson
+                ports.profiles.findById(saved.id)!!.watchlistEntry(aapl)!!.tags shouldBe appleTags
+            }
+        }
+
+        withData(
+            nameFn = { "tags of the watchlist company are returned with ${it.status}" },
+            UnavailableProfile("SOURCE_ERROR", fullConfig()) { sourceFailsEverything() },
+            UnavailableProfile("LIMIT_REACHED", fullConfig()) {
+                sourceAnswersEverything()
+                exhaustBudget()
+            },
+            UnavailableProfile("NOT_REQUESTED", fullConfig().manualOnlyFinnhub()) { sourceAnswersEverything() },
+            UnavailableProfile("NOT_SUPPORTED", testConfig()) { sourceAnswersEverything() },
+        ) { case ->
+            routeTest(config = case.config) { ports ->
+                val saved = ports.savedProfileWithAppleTags()
+                ports.listedApple()
+                case.arrange(ports)
+
+                val body = client.get("/profiles/${saved.id}/companies/AAPL/profile").json()
+
+                body.status() shouldBe JsonPrimitive(case.status)
+                body["profile"] shouldBe JsonNull
+                body["tags"] shouldBe appleTagsJson
             }
         }
     }
