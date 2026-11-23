@@ -118,10 +118,12 @@ The quote price is the `close` field in the currency of the static exchange tabl
 Being downloaded, logos are stored in a GCS bucket.
 Backend looks for a logo in this order, the first hit wins:
 1. SVG logo stored in the bucket (`logos/{symbol}.svg`);
-2. PNG logo stored in the bucket (`finnhub-logos/{symbol}.png`);
-3. SVG logo downloaded from logoapi.sh (curated logos only, ADR-068) and stored;
-4. backup: PNG logo downloaded from static2.finnhub.io and stored. The URL is the `logo` field of the cached Finnhub company profile, otherwise built from the ticker (US) or symbol; the Finnhub API is not called. "Finnhub logos" is a separate source without request limits, with a never-resetting total call counter;
-5. the default SVG logo.
+2. PNG logo stored in the bucket (`eodhd-logos/{symbol}.png`);
+3. PNG logo stored in the bucket (`finnhub-logos/{symbol}.png`);
+4. SVG logo downloaded from logoapi.sh (curated logos only, ADR-068) and stored;
+5. first backup: PNG logo downloaded from `eodhd.com/img/logos/{EODHD exchange code}/{EODHD ticker}.png` and stored (ADR-087). The EODHD API is not called and no API token is sent; a symbol whose exchange has no EODHD code is a miss without a request. "EODHD logos" is a separate source without request limits, with a never-resetting total call counter;
+6. second backup: PNG logo downloaded from static2.finnhub.io and stored. The URL is the `logo` field of the cached Finnhub company profile, otherwise built from the ticker (US) or symbol; the Finnhub API is not called. "Finnhub logos" is a separate source without request limits, with a never-resetting total call counter;
+7. the default SVG logo.
 A source that has no logo records a miss per source and symbol; the source isn't asked again for that symbol for 14 days.
 Logos are stored and served in the format provided by the source (SVG or PNG); the backend does no image conversion.
 Cache-Control: 30 days for a real logo, 1 day for the default logo when the sources have no logo, 1 hour for the default logo after a source failure, timeout or reached limit.

@@ -911,3 +911,14 @@ The static exchange table (ADR-062) gets an ISO 3166-1 alpha-2 country and a mai
 - When a tag is added, the tags already used by the profile are offered for reuse, so one tag is not created with different spellings.
 
 **Consequences:** Tags stay in the watchlist entry (ADR-061). A new icon needs an app release; removing an icon from the set leaves existing tags with the fallback icon.
+
+## ADR-087: EODHD static PNG logos as the first backup logo source
+
+**Date:** 2026-11-23
+**Status:** Accepted
+
+**Context:** logoapi.sh has curated logos for almost no European companies, and Finnhub logos miss many of them too. EODHD publishes company logos as PNG files at `eodhd.com/img/logos/{EODHD exchange code}/{ticker}.png` (`XETRA/SAP`, `US/FISI`), covering European and small US companies. Downloading these files is not an EODHD API call and needs no API token; the host answers `404` when it has no logo and doesn't answer `HEAD` requests. Financial Modeling Prep publishes similar files, but returns tiny placeholder images with `200` for some companies, so it is not used.
+
+**Decision:** "EODHD logos" (`eodhd-logos`) is a separate logo source, tried after logoapi.sh and before Finnhub logos (ADR-069). The path uses the EODHD exchange code of the static exchange table and the ticker with dots replaced by dashes, as for EODHD symbols; a symbol whose exchange has no EODHD code is a miss without a request. Downloads use `GET`, are limited to 1 MB and must be PNG files, like Finnhub logos. Logos are stored in the bucket under `eodhd-logos/`; all stored logos are looked up before any download. The source has no request limits and a never-resetting total call counter.
+
+**Consequences:** European companies get a real logo more often. Logos stored under `finnhub-logos/` keep being served; EODHD is asked only for companies with no stored logo. The path is undocumented and may change, in which case misses are recorded and Finnhub logos is tried next.

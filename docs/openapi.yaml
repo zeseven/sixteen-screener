@@ -569,12 +569,16 @@ paths:
       description: |
         Returns the company logo as SVG or PNG. The first of these steps that finds a logo wins:
         1. SVG logo stored in the bucket (`logos/{symbol}.svg`);
-        2. PNG logo stored in the bucket (`finnhub-logos/{symbol}.png`);
-        3. SVG logo downloaded from logoapi.sh and stored, unless a logoapi.sh miss was recorded in the last 14 days;
-        4. PNG logo downloaded from static2.finnhub.io and stored, unless a Finnhub logos miss was recorded in the last
+        2. PNG logo stored in the bucket (`eodhd-logos/{symbol}.png`);
+        3. PNG logo stored in the bucket (`finnhub-logos/{symbol}.png`);
+        4. SVG logo downloaded from logoapi.sh and stored, unless a logoapi.sh miss was recorded in the last 14 days;
+        5. PNG logo downloaded from eodhd.com/img/logos and stored, unless an EODHD logos miss was recorded in the last
+           14 days. The path is built from the EODHD exchange code and the ticker; a symbol whose exchange has no EODHD
+           code is a miss. The EODHD API is never called;
+        6. PNG logo downloaded from static2.finnhub.io and stored, unless a Finnhub logos miss was recorded in the last
            14 days. The URL is the `logo` field of the cached Finnhub company profile; when no profile is cached or it has
            no logo, the URL is built from the ticker (US) or symbol (other exchanges). The Finnhub API is never called;
-        5. the default SVG logo.
+        7. the default SVG logo.
         A source with no logo for the company records a miss. A source that fails, times out or reached its limit is
         skipped without recording a miss.
         `Cache-Control`: 30 days for a stored or downloaded logo; 1 day for the default logo when the sources have no
@@ -679,7 +683,7 @@ components:
       type: string
       description: |
         Configured source identifier. Known values: `finnhub`, `sec-edgar`, `logoapi` (alpha); `finnhub-logos`,
-        `eodhd` (beta); `fmp`, `tiingo`, `alpha-vantage` (rc).
+        `eodhd-logos`, `eodhd` (beta); `fmp`, `tiingo`, `alpha-vantage` (rc).
       pattern: '^[a-z0-9\-]{1,30}$'
       example: finnhub
 
@@ -1446,7 +1450,7 @@ components:
           nullable: true
           description: |
             Number of calls to the source since the counter was introduced; never resets. Counted only for sources configured
-            with a total counter (`finnhub-logos`); null for other sources.
+            with a total counter (`eodhd-logos`, `finnhub-logos`); null for other sources.
           x-milestone: beta
 
     SourceCallOutcome:
