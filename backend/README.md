@@ -1,6 +1,6 @@
 # Sixteen Screener backend
 
-Kotlin service built with Ktor. It collects stock data from external sources (Finnhub, EODHD, SEC EDGAR, logoapi.sh, Finnhub logos),
+Kotlin service built with Ktor. It collects stock data from external sources (Finnhub, EODHD, SEC EDGAR, logoapi.sh, EODHD logos, Finnhub logos),
 caches it in Firestore and Cloud Storage, and serves the REST API described in `docs/openapi.yaml`.
 The service is compiled into a GraalVM native image and runs on Cloud Run.
 
