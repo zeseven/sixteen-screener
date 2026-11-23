@@ -127,6 +127,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Sources screen: default search source marked 'default', roles each source is the default for, 'manual only' mark, counters for all configured intervals
 - [x] Backup logo source when logoapi.sh has no SVG logo: PNG logo from static2.finnhub.io (URL from the cached Finnhub company profile, otherwise built from the ticker; no Finnhub API calls), stored in the bucket under `finnhub-logos/`; the app renders SVG and PNG logos
 - [x] Sources screen: never-resetting total call counter for sources without request limits (Finnhub logos)
+- [ ] Second backup logo source when logoapi.sh and Finnhub logos have no logo: PNG logo from `https://eodhd.com/img/logos/{EODHD exchange code}/{ticker}.png` (`US/FISI`, `XETRA/SAP`; ticker built like an EODHD symbol, `US` for US exchanges; no EODHD API calls and no API token), stored in the bucket under `eodhd-logos/`; separate source without request limits, with a never-resetting total call counter; symbols whose exchange has no EODHD code are skipped
 
 ### Detailed screen
 - [x] Dividends tab (EODHD for international stocks; no dividends for US stocks until a US dividends source is added)
