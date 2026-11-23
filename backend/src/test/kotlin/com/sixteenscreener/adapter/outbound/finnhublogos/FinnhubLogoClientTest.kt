@@ -2,6 +2,7 @@ package com.sixteenscreener.adapter.outbound.finnhublogos
 
 import com.sixteenscreener.adapter.outbound.http.SourceHttpCall
 import com.sixteenscreener.adapter.outbound.http.SourceHttpClient
+import com.sixteenscreener.adapter.outbound.logo.PngLogoDownload
 import com.sixteenscreener.domain.model.CacheEntry
 import com.sixteenscreener.domain.model.CacheKey
 import com.sixteenscreener.domain.model.CompanyProfile
@@ -45,7 +46,7 @@ private class MockFinnhubLogos(
     private val status: HttpStatusCode = HttpStatusCode.OK,
     private val headers: Headers = pngHeaders,
     private val delay: Duration? = null,
-    maxSizeBytes: Long = FinnhubLogoClient.DEFAULT_MAX_SIZE_BYTES,
+    maxSizeBytes: Long = PngLogoDownload.DEFAULT_MAX_SIZE_BYTES,
     cache: CompanyCache? = null,
 ) {
     val clock = MutableClock()
@@ -198,10 +199,6 @@ class FinnhubLogoClientTest : FunSpec({
         api.logo("AAPL").shouldBeInstanceOf<SourceResult.Success<ByteArray>>()
     }
 
-    test("the default size cap is 1 MB") {
-        FinnhubLogoClient.DEFAULT_MAX_SIZE_BYTES shouldBe 1_048_576L
-    }
-
     test("5xx is a source error, not a miss") {
         val api = MockFinnhubLogos(status = HttpStatusCode.BadGateway)
 
@@ -224,17 +221,5 @@ class FinnhubLogoClientTest : FunSpec({
         val api = MockFinnhubLogos(delay = 1000.milliseconds)
 
         api.logo("AAPL").shouldBeInstanceOf<SourceResult.SourceError>().outcome.result shouldBe SourceCallResult.TIMEOUT
-    }
-
-    context("PNG content check") {
-        withData(
-            nameFn = { it.first },
-            "PNG" to (applePng to true),
-            "signature only" to (pngSignature to false),
-            "wrong first byte" to ((byteArrayOf(0x88.toByte()) + applePng.copyOfRange(1, applePng.size)) to false),
-            "empty" to (ByteArray(0) to false),
-        ) { (_, case) ->
-            PngContent.isPng(case.first) shouldBe case.second
-        }
     }
 })
