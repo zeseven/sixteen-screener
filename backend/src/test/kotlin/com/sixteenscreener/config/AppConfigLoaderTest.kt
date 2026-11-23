@@ -78,7 +78,7 @@ class AppConfigLoaderTest : FunSpec({
             us = SourceId.of("finnhub"),
             international = SourceId.of("eodhd"),
         )
-        config.sources.map { it.id.value } shouldContainExactly listOf("finnhub", "eodhd", "sec-edgar", "logoapi", "finnhub-logos")
+        config.sources.map { it.id.value } shouldContainExactly listOf("finnhub", "eodhd", "sec-edgar", "logoapi", "eodhd-logos", "finnhub-logos")
         config.secrets.finnhubApiKey shouldBe "finnhub-key"
         config.secrets.secEdgarUserAgent shouldBe "Sixteen Screener test@example.com"
         config.secrets.eodhdApiKey shouldBe "eodhd-key"
@@ -97,6 +97,16 @@ class AppConfigLoaderTest : FunSpec({
 
         config.source(SourceId.of("logoapi"))!!.limits shouldContainExactly listOf(RequestLimit(LimitInterval.DAY, 1000))
 
+        val eodhdLogos = config.source(SourceId.of("eodhd-logos"))!!
+        eodhdLogos.name shouldBe "EODHD logos"
+        eodhdLogos.enabled shouldBe true
+        eodhdLogos.baseUrl shouldBe "https://eodhd.com/img/logos"
+        eodhdLogos.capabilities shouldBe setOf(Capability.LOGO)
+        eodhdLogos.roles shouldBe emptySet()
+        eodhdLogos.limits shouldBe emptyList()
+        eodhdLogos.countTotalCalls shouldBe true
+        eodhdLogos.timeout shouldBe 5.seconds
+
         val finnhubLogos = config.source(SourceId.of("finnhub-logos"))!!
         finnhubLogos.name shouldBe "Finnhub logos"
         finnhubLogos.enabled shouldBe true
@@ -106,7 +116,7 @@ class AppConfigLoaderTest : FunSpec({
         finnhubLogos.limits shouldBe emptyList()
         finnhubLogos.countTotalCalls shouldBe true
         finnhubLogos.timeout shouldBe 5.seconds
-        config.totalCountedSources shouldBe setOf(SourceId.of("finnhub-logos"))
+        config.totalCountedSources shouldBe setOf(SourceId.of("eodhd-logos"), SourceId.of("finnhub-logos"))
 
         finnhub.automaticRequests shouldBe true
 

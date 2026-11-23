@@ -6,6 +6,7 @@ import com.sixteenscreener.adapter.inbound.http.configureSerialization
 import com.sixteenscreener.adapter.inbound.http.configureStatusPages
 import com.sixteenscreener.adapter.outbound.eodhd.EodhdClient
 import com.sixteenscreener.adapter.outbound.finnhub.FinnhubClient
+import com.sixteenscreener.adapter.outbound.eodhdlogos.EodhdLogoClient
 import com.sixteenscreener.adapter.outbound.finnhublogos.FinnhubLogoClient
 import com.sixteenscreener.adapter.outbound.firestore.FirestoreClientFactory
 import com.sixteenscreener.adapter.outbound.firestore.FirestoreCompanyCache
@@ -240,6 +241,10 @@ fun wireServices(config: AppConfig): AppServices {
                 provider = logoApiClient(config, httpClient, clock),
             ),
             LogoTier(
+                storage = GcsLogoStorage(storage, config.logoBucket, GcsPaths.EODHD_LOGOS, ImageFormat.PNG),
+                provider = eodhdLogoClient(config, httpClient, clock),
+            ),
+            LogoTier(
                 storage = GcsLogoStorage(storage, config.logoBucket, GcsPaths.FINNHUB_LOGOS, ImageFormat.PNG),
                 provider = finnhubLogoClient(config, httpClient, companyCache, clock),
             ),
@@ -300,6 +305,11 @@ private fun logoApiClient(config: AppConfig, httpClient: HttpClient, clock: Cloc
         LogoApiClient(id = source.id, baseUrl = source.baseUrl, call = SourceHttpCall(httpClient, source.timeout, clock))
     }
 
+private fun eodhdLogoClient(config: AppConfig, httpClient: HttpClient, clock: Clock): EodhdLogoClient? =
+    config.enabledSources.firstOrNull { it.id == EODHD_LOGOS }?.let { source ->
+        EodhdLogoClient(id = source.id, baseUrl = source.baseUrl, call = SourceHttpCall(httpClient, source.timeout, clock))
+    }
+
 private fun finnhubLogoClient(
     config: AppConfig,
     httpClient: HttpClient,
@@ -325,6 +335,7 @@ private val FINNHUB = SourceId.of("finnhub")
 private val SEC_EDGAR = SourceId.of("sec-edgar")
 private val EODHD = SourceId.of("eodhd")
 private val LOGOAPI = SourceId.of("logoapi")
+private val EODHD_LOGOS = SourceId.of("eodhd-logos")
 private val FINNHUB_LOGOS = SourceId.of("finnhub-logos")
 
 fun Application.module(services: AppServices) {

@@ -30,10 +30,16 @@ private val logoapi = SourceId.of("logoapi")
 private val aapl = Symbol.of("AAPL")
 private const val APPLE_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0\"/></svg>"
 
+private val eodhdLogos = SourceId.of("eodhd-logos")
 private val finnhubLogos = SourceId.of("finnhub-logos")
 private val APPLE_PNG = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x7F)
+private val EODHD_APPLE_PNG = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x3E)
 
-private fun logoConfig(limit: Int = 1000, withFinnhubLogos: Boolean = false): AppConfig = testConfig().let { config ->
+private fun logoConfig(
+    limit: Int = 1000,
+    withEodhdLogos: Boolean = false,
+    withFinnhubLogos: Boolean = false,
+): AppConfig = testConfig().let { config ->
     val logoApiSource = SourceConfig(
         id = logoapi,
         name = "logoapi.sh",
@@ -50,7 +56,14 @@ private fun logoConfig(limit: Int = 1000, withFinnhubLogos: Boolean = false): Ap
         limits = emptyList(),
         countTotalCalls = true,
     )
-    config.copy(sources = config.sources + listOfNotNull(logoApiSource, finnhubLogosSource.takeIf { withFinnhubLogos }))
+    val eodhdLogosSource = finnhubLogosSource.copy(id = eodhdLogos, name = "EODHD logos", baseUrl = "https://eodhd.test/img/logos")
+    config.copy(
+        sources = config.sources + listOfNotNull(
+            logoApiSource,
+            eodhdLogosSource.takeIf { withEodhdLogos },
+            finnhubLogosSource.takeIf { withFinnhubLogos },
+        ),
+    )
 }
 
 private suspend fun HttpResponse.shouldBePng(body: ByteArray, cacheControl: String) {
@@ -107,7 +120,7 @@ class LogoRoutesTest : FunSpec({
     test("logo missing in both sources: default logo cached for one day, a miss recorded per source") {
         routeTest(config = logoConfig(withFinnhubLogos = true)) { ports ->
             ports.logoProvider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, ports.clock.now()))
-            ports.pngLogoProvider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, ports.clock.now()))
+            ports.finnhubLogoProvider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, ports.clock.now()))
 
             client.get("/logos/AAPL").shouldBeSvg(defaultLogo, "public, max-age=86400")
 
@@ -118,23 +131,23 @@ class LogoRoutesTest : FunSpec({
 
     test("stored PNG logo with the PNG content type and a long-lived Cache-Control") {
         routeTest(config = logoConfig(withFinnhubLogos = true)) { ports ->
-            ports.pngLogoStorage.save(aapl, APPLE_PNG)
+            ports.finnhubLogoStorage.save(aapl, APPLE_PNG)
 
             client.get("/logos/AAPL").shouldBePng(APPLE_PNG, "public, max-age=2592000")
 
             ports.logoProvider.calls.shouldBeEmpty()
-            ports.pngLogoProvider.calls.shouldBeEmpty()
+            ports.finnhubLogoProvider.calls.shouldBeEmpty()
         }
     }
 
     test("PNG logo downloaded from Finnhub when logoapi.sh has none") {
         routeTest(config = logoConfig(withFinnhubLogos = true)) { ports ->
             ports.logoProvider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, ports.clock.now()))
-            ports.pngLogoProvider.logos[aapl] = SourceResult.Success(APPLE_PNG, SourceCallOutcome.success(ports.clock.now()))
+            ports.finnhubLogoProvider.logos[aapl] = SourceResult.Success(APPLE_PNG, SourceCallOutcome.success(ports.clock.now()))
 
             client.get("/logos/AAPL").shouldBePng(APPLE_PNG, "public, max-age=2592000")
 
-            ports.pngLogoStorage.contains(aapl) shouldBe true
+            ports.finnhubLogoStorage.contains(aapl) shouldBe true
             ports.requestCounters.totals(listOf(finnhubLogos)) shouldBe mapOf(finnhubLogos to 1L)
         }
     }
@@ -142,9 +155,86 @@ class LogoRoutesTest : FunSpec({
     test("logoapi.sh missing and Finnhub failing: default logo with a short Cache-Control") {
         routeTest(config = logoConfig(withFinnhubLogos = true)) { ports ->
             ports.logoProvider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, ports.clock.now()))
-            ports.pngLogoProvider.logos[aapl] = SourceResult.SourceError(SourceCallOutcome.httpError(500, ports.clock.now()))
+            ports.finnhubLogoProvider.logos[aapl] = SourceResult.SourceError(SourceCallOutcome.httpError(500, ports.clock.now()))
 
             client.get("/logos/AAPL").shouldBeSvg(defaultLogo, "public, max-age=3600")
+        }
+    }
+
+    context("EODHD logos between logoapi.sh and Finnhub logos") {
+        val allLogoSources = logoConfig(withEodhdLogos = true, withFinnhubLogos = true)
+
+        test("a stored EODHD PNG is returned before any download from logoapi.sh") {
+            routeTest(config = allLogoSources) { ports ->
+                ports.eodhdLogoStorage.save(aapl, EODHD_APPLE_PNG)
+                ports.logoProvider.logos[aapl] = SourceResult.Success(APPLE_SVG.toByteArray(), SourceCallOutcome.success(ports.clock.now()))
+
+                client.get("/logos/AAPL").shouldBePng(EODHD_APPLE_PNG, "public, max-age=2592000")
+
+                ports.logoProvider.calls.shouldBeEmpty()
+                ports.eodhdLogoProvider.calls.shouldBeEmpty()
+            }
+        }
+
+        test("a stored EODHD PNG is returned before a stored Finnhub PNG") {
+            routeTest(config = allLogoSources) { ports ->
+                ports.eodhdLogoStorage.save(aapl, EODHD_APPLE_PNG)
+                ports.finnhubLogoStorage.save(aapl, APPLE_PNG)
+
+                client.get("/logos/AAPL").shouldBePng(EODHD_APPLE_PNG, "public, max-age=2592000")
+            }
+        }
+
+        test("a logoapi.sh download is returned without asking EODHD") {
+            routeTest(config = allLogoSources) { ports ->
+                ports.logoProvider.logos[aapl] = SourceResult.Success(APPLE_SVG.toByteArray(), SourceCallOutcome.success(ports.clock.now()))
+                ports.eodhdLogoProvider.logos[aapl] = SourceResult.Success(EODHD_APPLE_PNG, SourceCallOutcome.success(ports.clock.now()))
+
+                client.get("/logos/AAPL").shouldBeSvg(APPLE_SVG, "public, max-age=2592000")
+
+                ports.eodhdLogoProvider.calls.shouldBeEmpty()
+                ports.finnhubLogoProvider.calls.shouldBeEmpty()
+            }
+        }
+
+        test("an EODHD download is stored and returned without asking Finnhub") {
+            routeTest(config = allLogoSources) { ports ->
+                ports.logoProvider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, ports.clock.now()))
+                ports.eodhdLogoProvider.logos[aapl] = SourceResult.Success(EODHD_APPLE_PNG, SourceCallOutcome.success(ports.clock.now()))
+                ports.finnhubLogoProvider.logos[aapl] = SourceResult.Success(APPLE_PNG, SourceCallOutcome.success(ports.clock.now()))
+
+                client.get("/logos/AAPL").shouldBePng(EODHD_APPLE_PNG, "public, max-age=2592000")
+
+                ports.eodhdLogoStorage.contains(aapl) shouldBe true
+                ports.finnhubLogoStorage.contains(aapl) shouldBe false
+                ports.finnhubLogoProvider.calls.shouldBeEmpty()
+                ports.requestCounters.totals(listOf(eodhdLogos)) shouldBe mapOf(eodhdLogos to 1L)
+            }
+        }
+
+        test("an EODHD miss is recorded and Finnhub is asked") {
+            routeTest(config = allLogoSources) { ports ->
+                ports.logoProvider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, ports.clock.now()))
+                ports.eodhdLogoProvider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, ports.clock.now()))
+                ports.finnhubLogoProvider.logos[aapl] = SourceResult.Success(APPLE_PNG, SourceCallOutcome.success(ports.clock.now()))
+
+                client.get("/logos/AAPL").shouldBePng(APPLE_PNG, "public, max-age=2592000")
+
+                ports.logoMisses.lastMiss(eodhdLogos, aapl) shouldBe ports.clock.now()
+                ports.finnhubLogoStorage.contains(aapl) shouldBe true
+                ports.eodhdLogoStorage.contains(aapl) shouldBe false
+            }
+        }
+
+        test("EODHD logos disabled: Finnhub is asked after logoapi.sh") {
+            routeTest(config = logoConfig(withFinnhubLogos = true)) { ports ->
+                ports.logoProvider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, ports.clock.now()))
+                ports.finnhubLogoProvider.logos[aapl] = SourceResult.Success(APPLE_PNG, SourceCallOutcome.success(ports.clock.now()))
+
+                client.get("/logos/AAPL").shouldBePng(APPLE_PNG, "public, max-age=2592000")
+
+                ports.eodhdLogoProvider.calls.shouldBeEmpty()
+            }
         }
     }
 

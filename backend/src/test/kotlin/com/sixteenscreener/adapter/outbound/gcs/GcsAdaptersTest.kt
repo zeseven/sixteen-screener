@@ -66,6 +66,28 @@ class GcsLogoStorageTest : FunSpec({
         blob.getContent() shouldBe png
     }
 
+    test("EODHD PNG logo is stored under eodhd-logos/{symbol}.png") {
+        val storage = LocalStorageHelper.getOptions().service
+        val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00)
+
+        GcsLogoStorage(storage, BUCKET, GcsPaths.EODHD_LOGOS, ImageFormat.PNG).save(Symbol.of("SAP.DE"), png)
+
+        val blob = storage.get(BlobId.of(BUCKET, "eodhd-logos/SAP.DE.png"))
+        blob.contentType shouldBe "image/png"
+        blob.getContent() shouldBe png
+    }
+
+    test("EODHD and Finnhub PNG storages in the same bucket don't see each other's logos") {
+        val storage = LocalStorageHelper.getOptions().service
+        val eodhdLogos = GcsLogoStorage(storage, BUCKET, GcsPaths.EODHD_LOGOS, ImageFormat.PNG)
+        val finnhubLogos = GcsLogoStorage(storage, BUCKET, GcsPaths.FINNHUB_LOGOS, ImageFormat.PNG)
+
+        eodhdLogos.save(Symbol.of("RY.TO"), byteArrayOf(1, 2, 3))
+
+        finnhubLogos.find(Symbol.of("RY.TO")) shouldBe null
+        eodhdLogos.find(Symbol.of("RY.TO")) shouldBe byteArrayOf(1, 2, 3)
+    }
+
     test("SVG and PNG storages in the same bucket don't see each other's logos") {
         val storage = LocalStorageHelper.getOptions().service
         val svgLogos = GcsLogoStorage(storage, BUCKET, GcsPaths.LOGOS, ImageFormat.SVG)

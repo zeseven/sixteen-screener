@@ -5,7 +5,7 @@ import com.sixteenscreener.domain.model.Symbol
 
 /**
  * Storage of cached company logos of one image format in the GCS bucket
- * (`logos/{symbol}.svg` for SVG, `finnhub-logos/{symbol}.png` for PNG).
+ * (`logos/{symbol}.svg` for SVG, `eodhd-logos/{symbol}.png` and `finnhub-logos/{symbol}.png` for PNG).
  */
 interface LogoStorage {
     /** Image format of the stored logos. */

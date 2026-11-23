@@ -32,6 +32,7 @@ private val tiingo = SourceId.of("tiingo")
 private val eodhd = SourceId.of("eodhd")
 private val secEdgar = SourceId.of("sec-edgar")
 private val logoapi = SourceId.of("logoapi")
+private val eodhdLogos = SourceId.of("eodhd-logos")
 private val finnhubLogos = SourceId.of("finnhub-logos")
 
 private fun sourcesConfig(): AppConfig = testConfig().let { config ->
@@ -69,6 +70,14 @@ private fun sourcesConfig(): AppConfig = testConfig().let { config ->
                 capabilities = setOf(Capability.LOGO),
                 roles = emptySet(),
                 limits = emptyList(),
+            ),
+            finnhubSource.copy(
+                id = eodhdLogos,
+                name = "EODHD logos",
+                capabilities = setOf(Capability.LOGO),
+                roles = emptySet(),
+                limits = emptyList(),
+                countTotalCalls = true,
             ),
             finnhubSource.copy(
                 id = finnhubLogos,
@@ -109,7 +118,7 @@ class SourceRoutesTest : FunSpec({
 
             body.keys shouldBe setOf("items")
             body.items().map { it.getValue("id").jsonPrimitive.content } shouldContainExactly
-                listOf("finnhub", "eodhd", "sec-edgar", "tiingo", "logoapi", "finnhub-logos")
+                listOf("finnhub", "eodhd", "sec-edgar", "tiingo", "logoapi", "eodhd-logos", "finnhub-logos")
             body.item(finnhub) shouldBe JsonObject(
                 mapOf(
                     "id" to JsonPrimitive("finnhub"),
@@ -268,11 +277,13 @@ class SourceRoutesTest : FunSpec({
     test("total calls are reported for sources with a total counter only") {
         routeTest(config = sourcesConfig()) { ports ->
             val saved = ports.savedProfile()
+            ports.requestCounters.incrementTotal(eodhdLogos, 5)
             ports.requestCounters.incrementTotal(finnhubLogos, 7)
             ports.requestCounters.incrementTotal(finnhub, 3)
 
             val body = client.get("/profiles/${saved.id}/sources").json()
 
+            body.item(eodhdLogos)["totalCalls"] shouldBe JsonPrimitive(5)
             body.item(finnhubLogos)["totalCalls"] shouldBe JsonPrimitive(7)
             body.item(finnhub)["totalCalls"] shouldBe JsonNull
             body.item(logoapi)["totalCalls"] shouldBe JsonNull

@@ -78,8 +78,10 @@ class TestPorts(
     val symbolDirectory: InMemorySymbolDirectory = InMemorySymbolDirectory(),
     val logoStorage: InMemoryLogoStorage = InMemoryLogoStorage(),
     val logoProvider: FakeLogoProvider = FakeLogoProvider(),
-    val pngLogoStorage: InMemoryLogoStorage = InMemoryLogoStorage(ImageFormat.PNG),
-    val pngLogoProvider: FakeLogoProvider = FakeLogoProvider(SourceId.of("finnhub-logos"), ImageFormat.PNG),
+    val eodhdLogoStorage: InMemoryLogoStorage = InMemoryLogoStorage(ImageFormat.PNG),
+    val eodhdLogoProvider: FakeLogoProvider = FakeLogoProvider(SourceId.of("eodhd-logos"), ImageFormat.PNG),
+    val finnhubLogoStorage: InMemoryLogoStorage = InMemoryLogoStorage(ImageFormat.PNG),
+    val finnhubLogoProvider: FakeLogoProvider = FakeLogoProvider(SourceId.of("finnhub-logos"), ImageFormat.PNG),
 )
 
 fun testServices(ports: TestPorts = TestPorts(), config: AppConfig = testConfig()): AppServices {
@@ -104,7 +106,8 @@ fun testServices(ports: TestPorts = TestPorts(), config: AppConfig = testConfig(
         symbolDirectory = ports.symbolDirectory,
         logoTiers = listOf(
             LogoTier(ports.logoStorage, ports.logoProvider.enabledIn(config)),
-            LogoTier(ports.pngLogoStorage, ports.pngLogoProvider.enabledIn(config)),
+            LogoTier(ports.eodhdLogoStorage, ports.eodhdLogoProvider.enabledIn(config)),
+            LogoTier(ports.finnhubLogoStorage, ports.finnhubLogoProvider.enabledIn(config)),
         ),
     )
 }

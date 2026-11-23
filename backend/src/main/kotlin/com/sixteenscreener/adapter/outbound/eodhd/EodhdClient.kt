@@ -97,7 +97,10 @@ class EodhdClient(
         /** EODHD symbol of [symbol]: dots of the ticker become dashes (`BRK.B` is `BRK-B.US`); null without an EODHD code. */
         fun eodhdSymbolOf(symbol: Symbol): String? =
             KnownExchangeCodes.eodhdCodeOf(symbol.exchangeCode)
-                ?.let { code -> "${symbol.ticker.replace('.', '-')}.$code".encodeURLPathPart() }
+                ?.let { code -> "${eodhdTickerOf(symbol)}.$code".encodeURLPathPart() }
+
+        /** EODHD ticker of [symbol]: the ticker with dots replaced by dashes (`BRK.B` is `BRK-B`). */
+        fun eodhdTickerOf(symbol: Symbol): String = symbol.ticker.replace('.', '-')
 
         private fun priceDivisorOf(symbol: Symbol): Double =
             if (KnownExchangeCodes.eodhdCodeOf(symbol.exchangeCode) in exchangesQuotedInMinorUnits) {

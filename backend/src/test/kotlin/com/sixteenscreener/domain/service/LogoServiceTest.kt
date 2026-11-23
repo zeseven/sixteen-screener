@@ -25,35 +25,41 @@ import io.kotest.matchers.shouldBe
 import java.time.Duration
 
 private val logoapi = SourceId.of("logoapi")
+private val eodhdLogos = SourceId.of("eodhd-logos")
 private val finnhubLogos = SourceId.of("finnhub-logos")
 private val aapl = Symbol.of("AAPL")
 private val defaultSvg = "<svg>default</svg>".toByteArray()
 private val appleSvg = "<svg>apple</svg>".toByteArray()
 private val applePng = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x01)
+private val eodhdApplePng = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x02)
 
 private class LogoFixture(
     limit: Int = 1000,
     withProvider: Boolean = true,
     withPngProvider: Boolean = true,
+    withEodhdProvider: Boolean = false,
 ) {
     val clock = MutableClock()
     val storage = InMemoryLogoStorage(ImageFormat.SVG)
+    val eodhdStorage = InMemoryLogoStorage(ImageFormat.PNG)
     val pngStorage = InMemoryLogoStorage(ImageFormat.PNG)
     val misses = InMemoryLogoMissRepository()
     val provider = FakeLogoProvider(logoapi, ImageFormat.SVG)
+    val eodhdProvider = FakeLogoProvider(eodhdLogos, ImageFormat.PNG)
     val pngProvider = FakeLogoProvider(finnhubLogos, ImageFormat.PNG)
     val counters = InMemoryRequestCounterRepository()
     val sourceCalls = InMemorySourceCallOutcomeRepository()
     private val limits = listOf(RequestLimit(LimitInterval.DAY, limit))
     private val limiter = RateLimiter(
-        limitsBySource = mapOf(logoapi to limits, finnhubLogos to emptyList()),
+        limitsBySource = mapOf(logoapi to limits, eodhdLogos to emptyList(), finnhubLogos to emptyList()),
         counters = counters,
         clock = clock,
-        totalCountedSources = setOf(finnhubLogos),
+        totalCountedSources = setOf(eodhdLogos, finnhubLogos),
     )
     val service = LogoService(
         tiers = listOf(
             LogoTier(storage, provider.takeIf { withProvider }),
+            LogoTier(eodhdStorage, eodhdProvider.takeIf { withEodhdProvider }),
             LogoTier(pngStorage, pngProvider.takeIf { withPngProvider }),
         ),
         misses = misses,
@@ -68,6 +74,8 @@ private class LogoFixture(
     suspend fun used(): Int = counters.usage(logoapi, limits, clock.now()).single().used
 
     suspend fun totalPngCalls(): Long = counters.totals(listOf(finnhubLogos)).getValue(finnhubLogos)
+
+    suspend fun totalEodhdCalls(): Long = counters.totals(listOf(eodhdLogos)).getValue(eodhdLogos)
 
     suspend fun lastCall(source: SourceId = logoapi): SourceCallOutcome? = sourceCalls.findAll(listOf(source))[source]
 
@@ -327,6 +335,123 @@ class LogoServiceTest : FunSpec({
             fixture.pngProvider.logos[aapl] = SourceResult.Success(applePng, fixture.success)
 
             fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.DOWNLOADED)
+        }
+    }
+
+    context("EODHD PNG between logoapi.sh and Finnhub") {
+        test("a stored EODHD PNG is returned before any download") {
+            val fixture = LogoFixture(withEodhdProvider = true)
+            fixture.eodhdStorage.save(aapl, eodhdApplePng)
+            fixture.provider.logos[aapl] = SourceResult.Success(appleSvg, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo png(eodhdApplePng, LogoOrigin.STORED)
+
+            fixture.provider.calls.shouldBeEmpty()
+            fixture.eodhdProvider.calls.shouldBeEmpty()
+            fixture.pngProvider.calls.shouldBeEmpty()
+        }
+
+        test("a stored EODHD PNG is returned before a stored Finnhub PNG") {
+            val fixture = LogoFixture(withEodhdProvider = true)
+            fixture.eodhdStorage.save(aapl, eodhdApplePng)
+            fixture.pngStorage.save(aapl, applePng)
+
+            fixture.service.logo(aapl) shouldBeLogo png(eodhdApplePng, LogoOrigin.STORED)
+        }
+
+        test("a stored Finnhub PNG is returned before an EODHD download") {
+            val fixture = LogoFixture(withEodhdProvider = true)
+            fixture.pngStorage.save(aapl, applePng)
+            fixture.eodhdProvider.logos[aapl] = SourceResult.Success(eodhdApplePng, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.STORED)
+
+            fixture.eodhdProvider.calls.shouldBeEmpty()
+        }
+
+        test("a logoapi.sh download is returned without asking EODHD") {
+            val fixture = LogoFixture(withEodhdProvider = true)
+            fixture.provider.logos[aapl] = SourceResult.Success(appleSvg, fixture.success)
+            fixture.eodhdProvider.logos[aapl] = SourceResult.Success(eodhdApplePng, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo svg(appleSvg, LogoOrigin.DOWNLOADED)
+
+            fixture.eodhdProvider.calls.shouldBeEmpty()
+            fixture.totalEodhdCalls() shouldBe 0L
+        }
+
+        test("an EODHD download is stored in its own folder, counted and returned without asking Finnhub") {
+            val fixture = LogoFixture(withEodhdProvider = true)
+            fixture.provider.logos[aapl] = SourceResult.NoData(fixture.success)
+            fixture.eodhdProvider.logos[aapl] = SourceResult.Success(eodhdApplePng, fixture.success)
+            fixture.pngProvider.logos[aapl] = SourceResult.Success(applePng, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo png(eodhdApplePng, LogoOrigin.DOWNLOADED)
+
+            fixture.eodhdStorage.find(aapl)!!.toList() shouldBe eodhdApplePng.toList()
+            fixture.pngStorage.contains(aapl) shouldBe false
+            fixture.pngProvider.calls.shouldBeEmpty()
+            fixture.lastCall(eodhdLogos) shouldBe fixture.success
+            fixture.totalEodhdCalls() shouldBe 1L
+        }
+
+        test("an EODHD miss is recorded and falls through to Finnhub") {
+            val fixture = LogoFixture(withEodhdProvider = true)
+            fixture.provider.logos[aapl] = SourceResult.NoData(fixture.success)
+            fixture.eodhdProvider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, fixture.clock.now()))
+            fixture.pngProvider.logos[aapl] = SourceResult.Success(applePng, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.DOWNLOADED)
+
+            fixture.misses.lastMiss(eodhdLogos, aapl) shouldBe fixture.clock.now()
+            fixture.eodhdStorage.contains(aapl) shouldBe false
+        }
+
+        test("an EODHD miss without a request (no EODHD exchange) is recorded and falls through to Finnhub") {
+            val fixture = LogoFixture(withEodhdProvider = true)
+            fixture.provider.logos[aapl] = SourceResult.NoData(fixture.success)
+            fixture.eodhdProvider.logos[aapl] = SourceResult.NoData(outcome = null)
+            fixture.pngProvider.logos[aapl] = SourceResult.Success(applePng, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.DOWNLOADED)
+
+            fixture.misses.lastMiss(eodhdLogos, aapl) shouldBe fixture.clock.now()
+            fixture.lastCall(eodhdLogos).shouldBeNull()
+        }
+
+        test("a recent EODHD miss skips EODHD without a call") {
+            val fixture = LogoFixture(withEodhdProvider = true)
+            fixture.provider.logos[aapl] = SourceResult.NoData(fixture.success)
+            fixture.misses.recordMiss(eodhdLogos, aapl, fixture.clock.now())
+            fixture.pngProvider.logos[aapl] = SourceResult.Success(applePng, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.DOWNLOADED)
+
+            fixture.eodhdProvider.calls.shouldBeEmpty()
+            fixture.totalEodhdCalls() shouldBe 0L
+        }
+
+        test("a failing EODHD call falls through to Finnhub without a miss") {
+            val fixture = LogoFixture(withEodhdProvider = true)
+            fixture.provider.logos[aapl] = SourceResult.NoData(fixture.success)
+            fixture.eodhdProvider.logos[aapl] = SourceResult.SourceError(SourceCallOutcome.timeout(fixture.clock.now()))
+            fixture.pngProvider.logos[aapl] = SourceResult.Success(applePng, fixture.success)
+
+            fixture.service.logo(aapl) shouldBeLogo png(applePng, LogoOrigin.DOWNLOADED)
+
+            fixture.misses.lastMiss(eodhdLogos, aapl).shouldBeNull()
+        }
+
+        test("misses from all three sources: default logo as missing") {
+            val fixture = LogoFixture(withEodhdProvider = true)
+            fixture.noLogoAnywhere()
+            fixture.eodhdProvider.logos[aapl] = SourceResult.NoData(SourceCallOutcome.httpError(404, fixture.clock.now()))
+
+            fixture.service.logo(aapl) shouldBeLogo svg(defaultSvg, LogoOrigin.DEFAULT_MISSING)
+
+            fixture.provider.calls shouldContainExactly listOf(aapl)
+            fixture.eodhdProvider.calls shouldContainExactly listOf(aapl)
+            fixture.pngProvider.calls shouldContainExactly listOf(aapl)
         }
     }
 

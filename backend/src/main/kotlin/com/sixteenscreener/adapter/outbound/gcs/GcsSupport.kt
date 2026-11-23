@@ -15,6 +15,7 @@ object GcsClientFactory {
 
 object GcsPaths {
     const val LOGOS = "logos"
+    const val EODHD_LOGOS = "eodhd-logos"
     const val FINNHUB_LOGOS = "finnhub-logos"
     const val DIRECTORY = "directory"
 }

@@ -106,6 +106,17 @@ class EodhdClientTest : FunSpec({
             EodhdClient.eodhdSymbolOf(Symbol.of(symbol)) shouldBe expected
         }
 
+        withData(
+            nameFn = { (symbol, expected) -> "EODHD ticker of $symbol is $expected" },
+            "AAPL" to "AAPL",
+            "BRK.B" to "BRK-B",
+            "NOVO-B.CO" to "NOVO-B",
+            "SAP.DE" to "SAP",
+            "7203.T" to "7203",
+        ) { (symbol, expected) ->
+            EodhdClient.eodhdTickerOf(Symbol.of(symbol)) shouldBe expected
+        }
+
         test("a symbol of an exchange without an EODHD code has no EODHD symbol") {
             EodhdClient.eodhdSymbolOf(toyota) shouldBe null
             EodhdClient.eodhdSymbolOf(Symbol.of("SHEL.IL")) shouldBe null
