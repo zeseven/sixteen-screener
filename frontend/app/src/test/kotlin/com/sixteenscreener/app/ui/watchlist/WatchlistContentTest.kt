@@ -129,6 +129,35 @@ class WatchlistContentTest {
     }
 
     @Test
+    fun `short fast swipe to the start snaps the row back`() {
+        setContent(loaded(apple))
+
+        swipeRow { swipeLeft(startX = right, endX = right - width * 0.25f, durationMillis = 50) }
+
+        assertTrue(removed.isEmpty())
+        rowNode().assertLeftPositionInRootIsEqualTo(0.dp)
+    }
+
+    @Test
+    fun `slow swipe to the start short of half the row width snaps the row back`() {
+        setContent(loaded(apple))
+
+        swipeRow { swipeLeft(startX = right, endX = right - width * 0.45f, durationMillis = 1000) }
+
+        assertTrue(removed.isEmpty())
+        rowNode().assertLeftPositionInRootIsEqualTo(0.dp)
+    }
+
+    @Test
+    fun `slow swipe to the start past half the row width removes the company`() {
+        setContent(loaded(apple))
+
+        swipeRow { swipeLeft(startX = right, endX = right - width * 0.6f, durationMillis = 1000) }
+
+        assertEquals(listOf(apple), removed)
+    }
+
+    @Test
     fun `swiping a row to the end does not remove the company`() {
         setContent(loaded(apple))
 
@@ -169,6 +198,23 @@ class WatchlistContentTest {
         assertEquals(listOf(WatchlistMessage.Removed(apple, 0)), undone)
         assertEquals(listOf(apple), uiState.value.companies)
         rowNode().assertLeftPositionInRootIsEqualTo(0.dp)
+    }
+
+    @Test
+    fun `row added back by undo while other rows stay shown is not removed again`() {
+        val sap = item("SAP.DE", name = "SAP SE")
+        val uiState = setStatefulContent(
+            loaded(apple, sap),
+            onRemove = { state, company -> state.value = loaded(sap).copy(message = WatchlistMessage.Removed(company, 0)) },
+        )
+
+        swipeRow(rowNode(0)) { swipeLeft() }
+        uiState.value = loaded(apple, sap)
+        composeRule.waitForIdle()
+
+        assertEquals(listOf(apple), removed)
+        composeRule.onNodeWithText("Apple Inc.").assertExists()
+        rowNode(0).assertLeftPositionInRootIsEqualTo(0.dp)
     }
 
     @Test
@@ -308,8 +354,10 @@ class WatchlistContentTest {
 
     private fun rowNode() = composeRule.onNodeWithTag(CompanyRowTags.ROW)
 
-    private fun swipeRow(gesture: TouchInjectionScope.() -> Unit) {
-        rowNode().performTouchInput(gesture)
+    private fun rowNode(index: Int) = composeRule.onAllNodesWithTag(CompanyRowTags.ROW)[index]
+
+    private fun swipeRow(row: SemanticsNodeInteraction = rowNode(), gesture: TouchInjectionScope.() -> Unit) {
+        row.performTouchInput(gesture)
         composeRule.waitForIdle()
     }
 

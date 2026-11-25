@@ -23,18 +23,22 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -276,7 +280,7 @@ private fun CompanyList(
 }
 
 /**
- * Watchlist row removed by swiping it to the start; screen readers get the removal as a custom action instead.
+ * Watchlist row removed by swiping it to the start past half of its width; screen readers get the removal as a custom action instead.
  * The row slides back when [removalFailed] reports that its removal failed.
  */
 @Composable
@@ -287,13 +291,15 @@ private fun SwipeToRemoveCompanyRow(
     onOpenDetail: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    val dismissState = rememberSwipeToDismissBoxState()
+    var rowWidth by remember { mutableIntStateOf(0) }
+    val dismissState = rememberSwipeToRemoveState(rowWidth = { rowWidth.toFloat() })
     LaunchedEffect(removalFailed) {
         if (removalFailed != null) dismissState.reset()
     }
     val removeLabel = stringResource(R.string.watchlist_remove_description, company.name)
     SwipeToDismissBox(
         state = dismissState,
+        modifier = Modifier.onSizeChanged { rowWidth = it.width },
         backgroundContent = {
             if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) SwipeToRemoveBackground()
         },
@@ -310,6 +316,30 @@ private fun SwipeToRemoveCompanyRow(
                 },
             marketData = { WatchlistMarketData(marketData) },
         )
+    }
+}
+
+/**
+ * Swipe state that removes a row only when it is released past [SwipeToRemoveThreshold], so fast short flicks snap back.
+ * Kept with plain `remember` rather than `rememberSaveable`: a company added back by undo reuses its list key and must start settled,
+ * otherwise the restored dismissed state would remove it again.
+ * The constructor taking `confirmValueChange` is deprecated, but it is the only one able to veto a dismissal caused by fling velocity alone.
+ */
+@Suppress("DEPRECATION")
+@Composable
+private fun rememberSwipeToRemoveState(rowWidth: () -> Float): SwipeToDismissBoxState {
+    val density = LocalDensity.current
+    val currentRowWidth by rememberUpdatedState(rowWidth)
+    return remember(density) {
+        lateinit var state: SwipeToDismissBoxState
+        SwipeToDismissBoxState(
+            initialValue = SwipeToDismissBoxValue.Settled,
+            density = density,
+            confirmValueChange = { value ->
+                value == SwipeToDismissBoxValue.Settled || SwipeToRemoveThreshold.isReached(state.requireOffset(), currentRowWidth())
+            },
+            positionalThreshold = SwipeToRemoveThreshold::distance,
+        ).also { state = it }
     }
 }
 
