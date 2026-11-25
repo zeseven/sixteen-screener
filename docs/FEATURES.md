@@ -62,6 +62,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 ### Watchlist screen
 - [x] List of companies in the profile's watchlist
 - [x] Add stock (via search) and remove stock
+- [x] Remove by swiping a row to the start past half of its width (a short or fast swipe slides back), with undo in the snackbar that restores the row at its position
 - [x] Open detailed screen for a company
 - [x] Refresh of stale data when the screen is opened
 - [x] Only displayed rows (plus a 5-row buffer) refreshed: on screen open, on scrolling new rows into view, on filter change
