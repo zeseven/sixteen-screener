@@ -9,4 +9,7 @@ fun Route.sourceRoutes(sources: SourcesUseCase) {
     get("/profiles/{profileId}/sources") {
         call.respond(sources.sources(call.profileIdParameter()).toDto())
     }
+    get("/profiles/{profileId}/companies/{symbol}/sources") {
+        call.respond(sources.companySources(call.profileIdParameter(), call.symbolParameter()).toDto())
+    }
 }

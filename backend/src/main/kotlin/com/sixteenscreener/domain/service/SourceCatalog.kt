@@ -42,5 +42,8 @@ class SourceCatalog(
     companion object {
         /** Additional balance sheet source of US companies, accepted without the `US` role (ADR-083). */
         val US_BALANCE_SHEET_SOURCE: SourceId = SourceId.of("sec-edgar")
+
+        /** Source listed after all others in the source dropdown: the last option for data others don't provide (ADR-089). */
+        val LAST_OPTION_SOURCE: SourceId = SourceId.of("yahoo")
     }
 }

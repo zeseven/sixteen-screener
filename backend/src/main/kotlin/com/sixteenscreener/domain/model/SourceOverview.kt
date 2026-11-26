@@ -36,3 +36,29 @@ data class SourceOverview(
     /** Whether it is the profile's default [SourceRole.SEARCH] source. */
     val isDefault: Boolean get() = SourceRole.SEARCH in defaultFor
 }
+
+/**
+ * Source offered by the source dropdown of a detailed screen tab (ADR-089).
+ *
+ * @property source configured source
+ * @property isDefault whether it is the profile's default source of the company's role
+ */
+data class SourceOption(
+    val source: SourceDescription,
+    val isDefault: Boolean,
+)
+
+/**
+ * Source dropdown options of every detailed screen tab of one company, each list in display order (ADR-089).
+ *
+ * @property priceRatios sources of quotes or ratios
+ * @property dividends sources of dividends
+ * @property balanceSheet sources of balance sheets
+ * @property profile sources of company profiles
+ */
+data class CompanySources(
+    val priceRatios: List<SourceOption>,
+    val dividends: List<SourceOption>,
+    val balanceSheet: List<SourceOption>,
+    val profile: List<SourceOption>,
+)

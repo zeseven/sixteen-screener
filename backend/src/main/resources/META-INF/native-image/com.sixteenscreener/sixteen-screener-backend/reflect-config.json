@@ -191,6 +191,23 @@
     ]
   },
   {
+    "name": "com.sixteenscreener.adapter.inbound.http.CompanySourcesDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.CompanySourcesDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "com.sixteenscreener.adapter.inbound.http.DefaultSourcesDto",
     "fields": [
       {
@@ -574,6 +591,23 @@
   },
   {
     "name": "com.sixteenscreener.adapter.inbound.http.SourceDto$Companion",
+    "methods": [
+      {
+        "name": "serializer",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.SourceOptionDto",
+    "fields": [
+      {
+        "name": "Companion"
+      }
+    ]
+  },
+  {
+    "name": "com.sixteenscreener.adapter.inbound.http.SourceOptionDto$Companion",
     "methods": [
       {
         "name": "serializer",
