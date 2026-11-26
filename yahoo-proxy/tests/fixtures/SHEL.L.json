@@ -1,0 +1,965 @@
+{
+  "balanceSheet": {
+    "2021-12-31": {
+      "Accounts Payable": null,
+      "Accounts Receivable": null,
+      "Accumulated Depreciation": null,
+      "Additional Paid In Capital": null,
+      "Allowance For Doubtful Accounts Receivable": null,
+      "Assets Held For Sale Current": null,
+      "Available For Sale Securities": null,
+      "Capital Lease Obligations": null,
+      "Capital Stock": null,
+      "Cash And Cash Equivalents": null,
+      "Cash Cash Equivalents And Short Term Investments": null,
+      "Cash Equivalents": null,
+      "Cash Financial": null,
+      "Common Stock": null,
+      "Common Stock Equity": null,
+      "Current Assets": null,
+      "Current Capital Lease Obligation": null,
+      "Current Debt": null,
+      "Current Debt And Capital Lease Obligation": null,
+      "Current Liabilities": null,
+      "Current Provisions": null,
+      "Defined Pension Benefit": null,
+      "Derivative Product Liabilities": null,
+      "Financial Assets": null,
+      "Financial Assets Designatedas Fair Value Through Profitor Loss Total": null,
+      "Finished Goods": null,
+      "Goodwill": null,
+      "Goodwill And Other Intangible Assets": null,
+      "Gross Accounts Receivable": null,
+      "Gross PPE": null,
+      "Hedging Assets Current": null,
+      "Held To Maturity Securities": null,
+      "Inventory": null,
+      "Invested Capital": null,
+      "Investmentin Financial Assets": null,
+      "Investmentsin Associatesat Cost": 7648000000.0,
+      "Investmentsin Joint Venturesat Cost": 15767000000.0,
+      "Long Term Capital Lease Obligation": null,
+      "Long Term Debt": null,
+      "Long Term Debt And Capital Lease Obligation": null,
+      "Long Term Equity Investment": null,
+      "Long Term Provisions": null,
+      "Minority Interest": null,
+      "Net Debt": null,
+      "Net PPE": null,
+      "Net Tangible Assets": null,
+      "Non Current Accrued Expenses": 364000000.0,
+      "Non Current Deferred Taxes Assets": null,
+      "Non Current Deferred Taxes Liabilities": null,
+      "Non Current Pension And Other Postretirement Benefit Plans": null,
+      "Non Current Prepaid Assets": 1520000000.0,
+      "Ordinary Shares Number": null,
+      "Other Current Assets": null,
+      "Other Current Liabilities": 1000000.0,
+      "Other Equity Interest": null,
+      "Other Intangible Assets": null,
+      "Other Inventories": null,
+      "Other Non Current Assets": null,
+      "Other Non Current Liabilities": 1000000.0,
+      "Other Payable": null,
+      "Other Properties": null,
+      "Other Receivables": null,
+      "Payables": null,
+      "Prepaid Assets": null,
+      "Properties": null,
+      "Raw Materials": null,
+      "Restricted Cash": null,
+      "Retained Earnings": null,
+      "Share Issued": null,
+      "Stockholders Equity": null,
+      "Tangible Book Value": null,
+      "Taxes Receivable": null,
+      "Total Assets": null,
+      "Total Capitalization": null,
+      "Total Debt": null,
+      "Total Equity Gross Minority Interest": null,
+      "Total Liabilities Net Minority Interest": null,
+      "Total Non Current Assets": null,
+      "Total Non Current Liabilities Net Minority Interest": null,
+      "Total Tax Payable": null,
+      "Tradeand Other Payables Non Current": null,
+      "Treasury Shares Number": null,
+      "Treasury Stock": null,
+      "Working Capital": null
+    },
+    "2022-12-31": {
+      "Accounts Payable": 42632000000.0,
+      "Accounts Receivable": 39334000000.0,
+      "Accumulated Depreciation": -236319000000.0,
+      "Additional Paid In Capital": 350000000.0,
+      "Allowance For Doubtful Accounts Receivable": -1055000000.0,
+      "Assets Held For Sale Current": 2851000000.0,
+      "Available For Sale Securities": 2841000000.0,
+      "Capital Lease Obligations": 27643000000.0,
+      "Capital Stock": 584000000.0,
+      "Cash And Cash Equivalents": 40090000000.0,
+      "Cash Cash Equivalents And Short Term Investments": 40090000000.0,
+      "Cash Equivalents": 33638000000.0,
+      "Cash Financial": 6608000000.0,
+      "Common Stock": 584000000.0,
+      "Common Stock Equity": 190472000000.0,
+      "Current Assets": 165938000000.0,
+      "Current Capital Lease Obligation": 4381000000.0,
+      "Current Debt": 4620000000.0,
+      "Current Debt And Capital Lease Obligation": 9001000000.0,
+      "Current Liabilities": 121311000000.0,
+      "Current Provisions": 2910000000.0,
+      "Defined Pension Benefit": 10200000000.0,
+      "Derivative Product Liabilities": 3563000000.0,
+      "Financial Assets": 582000000.0,
+      "Financial Assets Designatedas Fair Value Through Profitor Loss Total": 500000000.0,
+      "Finished Goods": 27823000000.0,
+      "Goodwill": 16039000000.0,
+      "Goodwill And Other Intangible Assets": 25701000000.0,
+      "Gross Accounts Receivable": 40389000000.0,
+      "Gross PPE": 434961000000.0,
+      "Hedging Assets Current": 24437000000.0,
+      "Held To Maturity Securities": 21000000.0,
+      "Inventory": 31894000000.0,
+      "Invested Capital": 246624000000.0,
+      "Investmentin Financial Assets": 3362000000.0,
+      "Investmentsin Associatesat Cost": 6808000000.0,
+      "Investmentsin Joint Venturesat Cost": 17056000000.0,
+      "Long Term Capital Lease Obligation": 23262000000.0,
+      "Long Term Debt": 51532000000.0,
+      "Long Term Debt And Capital Lease Obligation": 74794000000.0,
+      "Long Term Equity Investment": 23864000000.0,
+      "Long Term Provisions": 23845000000.0,
+      "Minority Interest": 2125000000.0,
+      "Net Debt": 16062000000.0,
+      "Net PPE": 198642000000.0,
+      "Net Tangible Assets": 164771000000.0,
+      "Non Current Accrued Expenses": 253000000.0,
+      "Non Current Deferred Taxes Assets": 7815000000.0,
+      "Non Current Deferred Taxes Liabilities": 16186000000.0,
+      "Non Current Pension And Other Postretirement Benefit Plans": 7296000000.0,
+      "Non Current Prepaid Assets": 2160000000.0,
+      "Ordinary Shares Number": 7003503393.0,
+      "Other Current Assets": -1000000.0,
+      "Other Current Liabilities": -1000000.0,
+      "Other Equity Interest": 1140000000.0,
+      "Other Intangible Assets": 9662000000.0,
+      "Other Inventories": 2557000000.0,
+      "Other Non Current Assets": 1000000.0,
+      "Other Non Current Liabilities": -1000000.0,
+      "Other Payable": 18500000000.0,
+      "Other Properties": 146380000000.0,
+      "Other Receivables": 12096000000.0,
+      "Payables": 69271000000.0,
+      "Prepaid Assets": 14511000000.0,
+      "Properties": 288581000000.0,
+      "Raw Materials": 1514000000.0,
+      "Restricted Cash": 156000000.0,
+      "Retained Earnings": 169482000000.0,
+      "Share Issued": 7003503393.0,
+      "Stockholders Equity": 190472000000.0,
+      "Tangible Book Value": 164771000000.0,
+      "Taxes Receivable": 363000000.0,
+      "Total Assets": 443024000000.0,
+      "Total Capitalization": 242004000000.0,
+      "Total Debt": 83795000000.0,
+      "Total Equity Gross Minority Interest": 192597000000.0,
+      "Total Liabilities Net Minority Interest": 250427000000.0,
+      "Total Non Current Assets": 277086000000.0,
+      "Total Non Current Liabilities Net Minority Interest": 129116000000.0,
+      "Total Tax Payable": 8139000000.0,
+      "Tradeand Other Payables Non Current": 3432000000.0,
+      "Treasury Shares Number": 0.0,
+      "Treasury Stock": 726000000.0,
+      "Working Capital": 44627000000.0
+    },
+    "2023-12-31": {
+      "Accounts Payable": 34591000000.0,
+      "Accounts Receivable": 36273000000.0,
+      "Accumulated Depreciation": -260235000000.0,
+      "Additional Paid In Capital": 390000000.0,
+      "Allowance For Doubtful Accounts Receivable": -600000000.0,
+      "Assets Held For Sale Current": 951000000.0,
+      "Available For Sale Securities": 2890000000.0,
+      "Capital Lease Obligations": 27709000000.0,
+      "Capital Stock": 544000000.0,
+      "Cash And Cash Equivalents": 38314000000.0,
+      "Cash Cash Equivalents And Short Term Investments": 38314000000.0,
+      "Cash Equivalents": 32888000000.0,
+      "Cash Financial": 5886000000.0,
+      "Common Stock": 544000000.0,
+      "Common Stock Equity": 186607000000.0,
+      "Current Assets": 134115000000.0,
+      "Current Capital Lease Obligation": 4643000000.0,
+      "Current Debt": 5288000000.0,
+      "Current Debt And Capital Lease Obligation": 9931000000.0,
+      "Current Liabilities": 95467000000.0,
+      "Current Provisions": 4041000000.0,
+      "Defined Pension Benefit": 9151000000.0,
+      "Derivative Product Liabilities": 2301000000.0,
+      "Financial Assets": 801000000.0,
+      "Financial Assets Designatedas Fair Value Through Profitor Loss Total": 328000000.0,
+      "Finished Goods": 22232000000.0,
+      "Goodwill": 16660000000.0,
+      "Goodwill And Other Intangible Assets": 26913000000.0,
+      "Gross Accounts Receivable": 36873000000.0,
+      "Gross PPE": 455070000000.0,
+      "Hedging Assets Current": 15098000000.0,
+      "Held To Maturity Securities": 28000000.0,
+      "Inventory": 26019000000.0,
+      "Invested Capital": 240439000000.0,
+      "Investmentin Financial Assets": 3246000000.0,
+      "Investmentsin Associatesat Cost": 7075000000.0,
+      "Investmentsin Joint Venturesat Cost": 17382000000.0,
+      "Long Term Capital Lease Obligation": 23066000000.0,
+      "Long Term Debt": 48544000000.0,
+      "Long Term Debt And Capital Lease Obligation": 71610000000.0,
+      "Long Term Equity Investment": 24457000000.0,
+      "Long Term Provisions": 22531000000.0,
+      "Minority Interest": 1755000000.0,
+      "Net Debt": 15518000000.0,
+      "Net PPE": 194835000000.0,
+      "Net Tangible Assets": 159694000000.0,
+      "Non Current Accrued Expenses": null,
+      "Non Current Deferred Taxes Assets": 6454000000.0,
+      "Non Current Deferred Taxes Liabilities": 15347000000.0,
+      "Non Current Pension And Other Postretirement Benefit Plans": 7549000000.0,
+      "Non Current Prepaid Assets": null,
+      "Ordinary Shares Number": 6486309049.0,
+      "Other Current Assets": null,
+      "Other Current Liabilities": null,
+      "Other Equity Interest": 1308000000.0,
+      "Other Intangible Assets": 10253000000.0,
+      "Other Inventories": 2108000000.0,
+      "Other Non Current Assets": null,
+      "Other Non Current Liabilities": null,
+      "Other Payable": 17406000000.0,
+      "Other Properties": 160765000000.0,
+      "Other Receivables": 10098000000.0,
+      "Payables": 58524000000.0,
+      "Prepaid Assets": 6156000000.0,
+      "Properties": 294305000000.0,
+      "Raw Materials": 1679000000.0,
+      "Restricted Cash": 460000000.0,
+      "Retained Earnings": 165915000000.0,
+      "Share Issued": 6524109049.0,
+      "Stockholders Equity": 186607000000.0,
+      "Tangible Book Value": 159694000000.0,
+      "Taxes Receivable": 558000000.0,
+      "Total Assets": 406270000000.0,
+      "Total Capitalization": 235151000000.0,
+      "Total Debt": 81541000000.0,
+      "Total Equity Gross Minority Interest": 188362000000.0,
+      "Total Liabilities Net Minority Interest": 217908000000.0,
+      "Total Non Current Assets": 272155000000.0,
+      "Total Non Current Liabilities Net Minority Interest": 122441000000.0,
+      "Total Tax Payable": 6527000000.0,
+      "Tradeand Other Payables Non Current": 3103000000.0,
+      "Treasury Shares Number": 37800000.0,
+      "Treasury Stock": 997000000.0,
+      "Working Capital": 38648000000.0
+    },
+    "2024-12-31": {
+      "Accounts Payable": 29767000000.0,
+      "Accounts Receivable": 31041000000.0,
+      "Accumulated Depreciation": -245527000000.0,
+      "Additional Paid In Capital": 424000000.0,
+      "Allowance For Doubtful Accounts Receivable": -527000000.0,
+      "Assets Held For Sale Current": 9857000000.0,
+      "Available For Sale Securities": 2121000000.0,
+      "Capital Lease Obligations": 28702000000.0,
+      "Capital Stock": 510000000.0,
+      "Cash And Cash Equivalents": 37836000000.0,
+      "Cash Cash Equivalents And Short Term Investments": 37836000000.0,
+      "Cash Equivalents": null,
+      "Cash Financial": null,
+      "Common Stock": 510000000.0,
+      "Common Stock Equity": 178307000000.0,
+      "Current Assets": 127926000000.0,
+      "Current Capital Lease Obligation": 4710000000.0,
+      "Current Debt": 6920000000.0,
+      "Current Debt And Capital Lease Obligation": 11630000000.0,
+      "Current Liabilities": 95034000000.0,
+      "Current Provisions": 4469000000.0,
+      "Defined Pension Benefit": 10003000000.0,
+      "Derivative Product Liabilities": 2185000000.0,
+      "Financial Assets": 374000000.0,
+      "Financial Assets Designatedas Fair Value Through Profitor Loss Total": 97000000.0,
+      "Finished Goods": 20211000000.0,
+      "Goodwill": 16032000000.0,
+      "Goodwill And Other Intangible Assets": 25512000000.0,
+      "Gross Accounts Receivable": 31568000000.0,
+      "Gross PPE": 430746000000.0,
+      "Hedging Assets Current": 9673000000.0,
+      "Held To Maturity Securities": 37000000.0,
+      "Inventory": 23426000000.0,
+      "Invested Capital": 226683000000.0,
+      "Investmentin Financial Assets": 2255000000.0,
+      "Investmentsin Associatesat Cost": 7662000000.0,
+      "Investmentsin Joint Venturesat Cost": 15783000000.0,
+      "Long Term Capital Lease Obligation": 23992000000.0,
+      "Long Term Debt": 41456000000.0,
+      "Long Term Debt And Capital Lease Obligation": 65448000000.0,
+      "Long Term Equity Investment": 23445000000.0,
+      "Long Term Provisions": 21227000000.0,
+      "Minority Interest": 1861000000.0,
+      "Net Debt": 10540000000.0,
+      "Net PPE": 185219000000.0,
+      "Net Tangible Assets": 152795000000.0,
+      "Non Current Accrued Expenses": null,
+      "Non Current Deferred Taxes Assets": 6857000000.0,
+      "Non Current Deferred Taxes Liabilities": 13505000000.0,
+      "Non Current Pension And Other Postretirement Benefit Plans": 6752000000.0,
+      "Non Current Prepaid Assets": null,
+      "Ordinary Shares Number": 6084231158.0,
+      "Other Current Assets": null,
+      "Other Current Liabilities": null,
+      "Other Equity Interest": 1417000000.0,
+      "Other Intangible Assets": 9480000000.0,
+      "Other Inventories": 1602000000.0,
+      "Other Non Current Assets": null,
+      "Other Non Current Liabilities": null,
+      "Other Payable": 16248000000.0,
+      "Other Properties": 150507000000.0,
+      "Other Receivables": 8526000000.0,
+      "Payables": 54102000000.0,
+      "Prepaid Assets": 5713000000.0,
+      "Properties": 280239000000.0,
+      "Raw Materials": 1613000000.0,
+      "Restricted Cash": 1274000000.0,
+      "Retained Earnings": 158834000000.0,
+      "Share Issued": 6115031158.0,
+      "Stockholders Equity": 178307000000.0,
+      "Tangible Book Value": 152795000000.0,
+      "Taxes Receivable": 391000000.0,
+      "Total Assets": 387609000000.0,
+      "Total Capitalization": 219763000000.0,
+      "Total Debt": 77078000000.0,
+      "Total Equity Gross Minority Interest": 180168000000.0,
+      "Total Liabilities Net Minority Interest": 207441000000.0,
+      "Total Non Current Assets": 259683000000.0,
+      "Total Non Current Liabilities Net Minority Interest": 112407000000.0,
+      "Total Tax Payable": 8087000000.0,
+      "Tradeand Other Payables Non Current": 3290000000.0,
+      "Treasury Shares Number": 30800000.0,
+      "Treasury Stock": 803000000.0,
+      "Working Capital": 32892000000.0
+    },
+    "2025-12-31": {
+      "Accounts Payable": 28140000000.0,
+      "Accounts Receivable": 30005000000.0,
+      "Accumulated Depreciation": -259861000000.0,
+      "Additional Paid In Capital": 457000000.0,
+      "Allowance For Doubtful Accounts Receivable": -1052000000.0,
+      "Assets Held For Sale Current": 1030000000.0,
+      "Available For Sale Securities": 1478000000.0,
+      "Capital Lease Obligations": 28933000000.0,
+      "Capital Stock": 477000000.0,
+      "Cash And Cash Equivalents": 29630000000.0,
+      "Cash Cash Equivalents And Short Term Investments": 29630000000.0,
+      "Cash Equivalents": null,
+      "Cash Financial": null,
+      "Common Stock": 477000000.0,
+      "Common Stock Equity": 174392000000.0,
+      "Current Assets": 107173000000.0,
+      "Current Capital Lease Obligation": 4611000000.0,
+      "Current Debt": 4517000000.0,
+      "Current Debt And Capital Lease Obligation": 9128000000.0,
+      "Current Liabilities": 82415000000.0,
+      "Current Provisions": 5884000000.0,
+      "Defined Pension Benefit": 5052000000.0,
+      "Derivative Product Liabilities": 1108000000.0,
+      "Financial Assets": 619000000.0,
+      "Financial Assets Designatedas Fair Value Through Profitor Loss Total": 40000000.0,
+      "Finished Goods": 17925000000.0,
+      "Goodwill": 15662000000.0,
+      "Goodwill And Other Intangible Assets": 26672000000.0,
+      "Gross Accounts Receivable": 31057000000.0,
+      "Gross PPE": 444938000000.0,
+      "Hedging Assets Current": 9114000000.0,
+      "Held To Maturity Securities": 39000000.0,
+      "Inventory": 22216000000.0,
+      "Invested Capital": 221102000000.0,
+      "Investmentin Financial Assets": 1557000000.0,
+      "Investmentsin Associatesat Cost": null,
+      "Investmentsin Joint Venturesat Cost": null,
+      "Long Term Capital Lease Obligation": 24322000000.0,
+      "Long Term Debt": 42193000000.0,
+      "Long Term Debt And Capital Lease Obligation": 66515000000.0,
+      "Long Term Equity Investment": 27775000000.0,
+      "Long Term Provisions": 21411000000.0,
+      "Minority Interest": 927000000.0,
+      "Net Debt": 17080000000.0,
+      "Net PPE": 185077000000.0,
+      "Net Tangible Assets": 147720000000.0,
+      "Non Current Accrued Expenses": null,
+      "Non Current Deferred Taxes Assets": 8173000000.0,
+      "Non Current Deferred Taxes Liabilities": 11983000000.0,
+      "Non Current Pension And Other Postretirement Benefit Plans": 7136000000.0,
+      "Non Current Prepaid Assets": null,
+      "Ordinary Shares Number": 5689891670.0,
+      "Other Current Assets": null,
+      "Other Current Liabilities": null,
+      "Other Equity Interest": 1359000000.0,
+      "Other Intangible Assets": 11010000000.0,
+      "Other Inventories": 2699000000.0,
+      "Other Non Current Assets": null,
+      "Other Non Current Liabilities": null,
+      "Other Payable": 15846000000.0,
+      "Other Properties": 161389000000.0,
+      "Other Receivables": 7996000000.0,
+      "Payables": 49996000000.0,
+      "Prepaid Assets": 4322000000.0,
+      "Properties": 283549000000.0,
+      "Raw Materials": 1592000000.0,
+      "Restricted Cash": 586000000.0,
+      "Retained Earnings": 153528000000.0,
+      "Share Issued": 5718636398.0,
+      "Stockholders Equity": 174392000000.0,
+      "Tangible Book Value": 147720000000.0,
+      "Taxes Receivable": 2080000000.0,
+      "Total Assets": 370350000000.0,
+      "Total Capitalization": 216585000000.0,
+      "Total Debt": 75643000000.0,
+      "Total Equity Gross Minority Interest": 175319000000.0,
+      "Total Liabilities Net Minority Interest": 195031000000.0,
+      "Total Non Current Assets": 263177000000.0,
+      "Total Non Current Liabilities Net Minority Interest": 112616000000.0,
+      "Total Tax Payable": 6010000000.0,
+      "Tradeand Other Payables Non Current": 4463000000.0,
+      "Treasury Shares Number": 28744728.0,
+      "Treasury Stock": 847000000.0,
+      "Working Capital": 24758000000.0
+    }
+  },
+  "dividendCurrency": "GBp",
+  "dividends": [
+    {
+      "amount": 15.889999,
+      "exDate": "2005-08-03T08:00:00+01:00"
+    },
+    {
+      "amount": 15.639999,
+      "exDate": "2005-11-02T08:00:00+00:00"
+    },
+    {
+      "amount": 15.639999,
+      "exDate": "2006-02-08T08:00:00+00:00"
+    },
+    {
+      "amount": 17.13,
+      "exDate": "2006-05-10T08:00:00+01:00"
+    },
+    {
+      "amount": 17.08,
+      "exDate": "2006-08-02T08:00:00+01:00"
+    },
+    {
+      "amount": 16.769999,
+      "exDate": "2006-11-01T08:00:00+00:00"
+    },
+    {
+      "amount": 16.599998,
+      "exDate": "2007-02-07T08:00:00+00:00"
+    },
+    {
+      "amount": 17.085,
+      "exDate": "2007-05-09T08:00:00+01:00"
+    },
+    {
+      "amount": 17.560001,
+      "exDate": "2007-08-01T08:00:00+01:00"
+    },
+    {
+      "amount": 16.6127,
+      "exDate": "2007-10-31T08:00:00+00:00"
+    },
+    {
+      "amount": 18.109999,
+      "exDate": "2008-02-06T08:00:00+00:00"
+    },
+    {
+      "amount": 20.05,
+      "exDate": "2008-05-14T08:00:00+01:00"
+    },
+    {
+      "amount": 20.21,
+      "exDate": "2008-08-06T08:00:00+01:00"
+    },
+    {
+      "amount": 24.539999,
+      "exDate": "2008-11-05T08:00:00+00:00"
+    },
+    {
+      "amount": 27.970001,
+      "exDate": "2009-02-04T08:00:00+00:00"
+    },
+    {
+      "amount": 28.650002,
+      "exDate": "2009-05-06T08:00:00+01:00"
+    },
+    {
+      "amount": 25.52,
+      "exDate": "2009-08-05T08:00:00+01:00"
+    },
+    {
+      "amount": 25.650002,
+      "exDate": "2009-11-04T08:00:00+00:00"
+    },
+    {
+      "amount": 26.359999,
+      "exDate": "2010-02-10T08:00:00+00:00"
+    },
+    {
+      "amount": 27.369999,
+      "exDate": "2010-05-05T08:00:00+01:00"
+    },
+    {
+      "amount": 24.201,
+      "exDate": "2010-08-04T08:00:00+01:00"
+    },
+    {
+      "amount": 26.72,
+      "exDate": "2010-11-03T08:00:00+00:00"
+    },
+    {
+      "amount": 25.82,
+      "exDate": "2011-02-09T08:00:00+00:00"
+    },
+    {
+      "amount": 25.71,
+      "exDate": "2011-05-11T08:00:00+01:00"
+    },
+    {
+      "amount": 25.77,
+      "exDate": "2011-08-03T08:00:00+01:00"
+    },
+    {
+      "amount": 23.043499,
+      "exDate": "2011-11-02T08:00:00+00:00"
+    },
+    {
+      "amount": 26.74,
+      "exDate": "2012-02-15T08:00:00+00:00"
+    },
+    {
+      "amount": 27.919998,
+      "exDate": "2012-05-09T08:00:00+01:00"
+    },
+    {
+      "amount": 27.08,
+      "exDate": "2012-08-08T08:00:00+01:00"
+    },
+    {
+      "amount": 26.859999,
+      "exDate": "2012-11-14T08:00:00+00:00"
+    },
+    {
+      "amount": 28.79,
+      "exDate": "2013-02-13T08:00:00+00:00"
+    },
+    {
+      "amount": 28.99,
+      "exDate": "2013-05-15T08:00:00+01:00"
+    },
+    {
+      "amount": 28.670002,
+      "exDate": "2013-08-14T08:00:00+01:00"
+    },
+    {
+      "amount": 27.509998,
+      "exDate": "2013-11-13T08:00:00+00:00"
+    },
+    {
+      "amount": 26.88,
+      "exDate": "2014-02-12T08:00:00+00:00"
+    },
+    {
+      "amount": 28.029999,
+      "exDate": "2014-05-14T08:00:00+01:00"
+    },
+    {
+      "amount": 29.09,
+      "exDate": "2014-08-13T08:00:00+01:00"
+    },
+    {
+      "amount": 30.160002,
+      "exDate": "2014-11-13T08:00:00+00:00"
+    },
+    {
+      "amount": 31.2,
+      "exDate": "2015-02-12T08:00:00+00:00"
+    },
+    {
+      "amount": 30.75,
+      "exDate": "2015-05-14T08:00:00+01:00"
+    },
+    {
+      "amount": 30.919998,
+      "exDate": "2015-08-13T08:00:00+01:00"
+    },
+    {
+      "amount": 31.07,
+      "exDate": "2015-11-12T08:00:00+00:00"
+    },
+    {
+      "amount": 32.78,
+      "exDate": "2016-02-18T08:00:00+00:00"
+    },
+    {
+      "amount": 32.98,
+      "exDate": "2016-05-19T08:00:00+01:00"
+    },
+    {
+      "amount": 35.27,
+      "exDate": "2016-08-11T08:00:00+01:00"
+    },
+    {
+      "amount": 37.16,
+      "exDate": "2016-11-10T08:00:00+00:00"
+    },
+    {
+      "amount": 38.640003,
+      "exDate": "2017-02-16T08:00:00+00:00"
+    },
+    {
+      "amount": 37.12,
+      "exDate": "2017-05-18T08:00:00+01:00"
+    },
+    {
+      "amount": 36.28,
+      "exDate": "2017-08-10T08:00:00+01:00"
+    },
+    {
+      "amount": 35.02,
+      "exDate": "2017-11-16T08:00:00+00:00"
+    },
+    {
+      "amount": 33.91,
+      "exDate": "2018-02-15T08:00:00+00:00"
+    },
+    {
+      "amount": 35.18,
+      "exDate": "2018-05-10T08:00:00+01:00"
+    },
+    {
+      "amount": 36.5,
+      "exDate": "2018-08-09T08:00:00+01:00"
+    },
+    {
+      "amount": 36.77,
+      "exDate": "2018-11-15T08:00:00+00:00"
+    },
+    {
+      "amount": 35.94,
+      "exDate": "2019-02-14T08:00:00+00:00"
+    },
+    {
+      "amount": 36.97,
+      "exDate": "2019-05-16T08:00:00+01:00"
+    },
+    {
+      "amount": 38.010002,
+      "exDate": "2019-08-15T08:00:00+01:00"
+    },
+    {
+      "amount": 35.73,
+      "exDate": "2019-11-14T08:00:00+00:00"
+    },
+    {
+      "amount": 36.399998,
+      "exDate": "2020-02-13T08:00:00+00:00"
+    },
+    {
+      "amount": 12.68,
+      "exDate": "2020-05-14T08:00:00+01:00"
+    },
+    {
+      "amount": 12.09,
+      "exDate": "2020-08-13T08:00:00+01:00"
+    },
+    {
+      "amount": 12.48,
+      "exDate": "2020-11-12T08:00:00+00:00"
+    },
+    {
+      "amount": 11.96,
+      "exDate": "2021-02-18T08:00:00+00:00"
+    },
+    {
+      "amount": 12.259999,
+      "exDate": "2021-05-13T08:00:00+01:00"
+    },
+    {
+      "amount": 17.380001,
+      "exDate": "2021-08-12T08:00:00+01:00"
+    },
+    {
+      "amount": 18.06,
+      "exDate": "2021-11-11T08:00:00+00:00"
+    },
+    {
+      "amount": 18.279999,
+      "exDate": "2022-02-17T08:00:00+00:00"
+    },
+    {
+      "amount": 20.01,
+      "exDate": "2022-05-19T08:00:00+01:00"
+    },
+    {
+      "amount": 21.57,
+      "exDate": "2022-08-11T08:00:00+01:00"
+    },
+    {
+      "amount": 20.61,
+      "exDate": "2022-11-10T08:00:00+00:00"
+    },
+    {
+      "amount": 24.11,
+      "exDate": "2023-02-16T08:00:00+00:00"
+    },
+    {
+      "amount": 22.99,
+      "exDate": "2023-05-18T08:00:00+01:00"
+    },
+    {
+      "amount": 26.12,
+      "exDate": "2023-08-10T08:00:00+01:00"
+    },
+    {
+      "amount": 26.31,
+      "exDate": "2023-11-16T08:00:00+00:00"
+    },
+    {
+      "amount": 26.9,
+      "exDate": "2024-02-15T08:00:00+00:00"
+    },
+    {
+      "amount": 26.94,
+      "exDate": "2024-05-16T08:00:00+01:00"
+    },
+    {
+      "amount": 26.15,
+      "exDate": "2024-08-15T08:00:00+01:00"
+    },
+    {
+      "amount": 27.03,
+      "exDate": "2024-11-14T08:00:00+00:00"
+    },
+    {
+      "amount": 27.79,
+      "exDate": "2025-02-13T08:00:00+00:00"
+    },
+    {
+      "amount": 26.409998,
+      "exDate": "2025-05-15T08:00:00+01:00"
+    },
+    {
+      "amount": 26.62,
+      "exDate": "2025-08-14T08:00:00+01:00"
+    },
+    {
+      "amount": 26.85,
+      "exDate": "2025-11-13T08:00:00+00:00"
+    },
+    {
+      "amount": 27.869999,
+      "exDate": "2026-02-19T08:00:00+00:00"
+    },
+    {
+      "amount": 29.179998,
+      "exDate": "2026-05-21T08:00:00+01:00"
+    },
+    {
+      "amount": 28.92,
+      "exDate": "2026-08-13T08:00:00+01:00"
+    },
+    {
+      "amount": 29.798874,
+      "exDate": "2026-11-12T08:00:00+00:00"
+    }
+  ],
+  "info": {
+    "52WeekChange": 0.2915002,
+    "SandP52WeekChange": 0.04872036,
+    "address1": "Shell Centre",
+    "allTimeHigh": 6418.88,
+    "allTimeLow": 3.045,
+    "ask": 3618.0,
+    "auditRisk": 2,
+    "averageAnalystRating": "2.2 - Buy",
+    "averageDailyVolume10Day": 11730903,
+    "averageDailyVolume3Month": 10323476,
+    "averageVolume": 10323476,
+    "averageVolume10days": 11730903,
+    "beta": -0.248,
+    "bid": 3617.5,
+    "boardRisk": 1,
+    "bookValue": 25.85746,
+    "city": "London",
+    "compensationAsOfEpochDate": 1767139200,
+    "compensationRisk": 1,
+    "corporateActions": [],
+    "country": "United Kingdom",
+    "cryptoTradeable": false,
+    "currency": "GBp",
+    "currentPrice": 3616.0,
+    "currentRatio": 1.377,
+    "customPriceAlertConfidence": "LOW",
+    "dayHigh": 3618.0,
+    "dayLow": 3572.0,
+    "debtToEquity": 38.13,
+    "dividendRate": 1.19,
+    "dividendYield": 3.35,
+    "earningsCallTimestampEnd": 1793284200,
+    "earningsCallTimestampStart": 1793284200,
+    "earningsGrowth": 1.367,
+    "earningsQuarterlyGrowth": 1.266,
+    "earningsTimestamp": 1801758600,
+    "earningsTimestampEnd": 1801758600,
+    "earningsTimestampStart": 1801758600,
+    "ebitda": 67562999808,
+    "ebitdaMargins": 0.21028,
+    "enterpriseToEbitda": 3.618,
+    "enterpriseToRevenue": 0.761,
+    "enterpriseValue": 244440285184,
+    "epsCurrentYear": 6.63588,
+    "epsForward": 4.4261847,
+    "epsTrailingTwelveMonths": 4.3,
+    "esgPopulated": false,
+    "exDividendDate": 1794441600,
+    "exchange": "LSE",
+    "exchangeDataDelayedBy": 15,
+    "exchangeTimezoneName": "Europe/London",
+    "exchangeTimezoneShortName": "GMT",
+    "fiftyDayAverage": 3735.86,
+    "fiftyDayAverageChange": -119.86011,
+    "fiftyDayAverageChangePercent": -0.03208367,
+    "fiftyTwoWeekChangePercent": 29.15002,
+    "fiftyTwoWeekHigh": 4110.0,
+    "fiftyTwoWeekHighChange": -494.0,
+    "fiftyTwoWeekHighChangePercent": -0.120194644,
+    "fiftyTwoWeekLow": 2553.772,
+    "fiftyTwoWeekLowChange": 1062.228,
+    "fiftyTwoWeekLowChangePercent": 0.41594476,
+    "fiftyTwoWeekRange": "2553.772 - 4110.0",
+    "financialCurrency": "USD",
+    "firstTradeDateMilliseconds": 841302000000,
+    "fiveYearAvgDividendYield": 3.65,
+    "floatShares": 5588265416,
+    "forwardEps": 4.4261847,
+    "forwardPE": 8.169564,
+    "freeCashflow": 29048250368,
+    "fullExchangeName": "LSE",
+    "fullTimeEmployees": 84000,
+    "fulldayChange": 60.5,
+    "fulldayChangePercent": 1.7015891,
+    "fulldayPrice": 3616.0,
+    "gmtOffSetMilliseconds": 0,
+    "governanceEpochDate": 1793491200,
+    "grossMargins": 0.26926002,
+    "grossProfits": 86511001600,
+    "hasPrePostMarketData": false,
+    "heldPercentInsiders": 0.00079,
+    "heldPercentInstitutions": 0.36367,
+    "impliedSharesOutstanding": 5636691609,
+    "industry": "Oil & Gas Integrated",
+    "industryDisp": "Oil & Gas Integrated",
+    "industryKey": "oil-gas-integrated",
+    "irWebsite": "http://www.shell.com/home/content/investor/",
+    "isCMEFuture": false,
+    "isEarningsDateEstimate": false,
+    "language": "en-US",
+    "lastDividendDate": 1794441600,
+    "lastDividendValue": 0.3906,
+    "lastFiscalYearEnd": 1767139200,
+    "lastSplitDate": 1121385600,
+    "lastSplitFactor": "2:1",
+    "longBusinessSummary": "Shell plc operates as an energy and petrochemical company in Europe, Asia, Oceania, Africa, the United States, and other parts of the Americas. It operates through the following segments: Integrated Gas, Upstream, Marketing, Chemicals and Products, and Renewables and Energy Solutions. The company explores for and extracts natural gas to produce liquefied natural gas or convert it into gas-to-liquids (GTL) fuels and other products; explores for and extracts crude oil, natural gas, and natural gas liquids; and operates marketing and transportation of oil, gas, and liquids, supported by the infrastructure required to deliver them to market or to process them within Shell's chemical manufacturing plants and refineries. It is also involved in marketing, which includes mobility, lubricants, and sectors focused on decarbonization; operates a retail network, including electric vehicle charging, convenience retail, and the wholesale commercial fuels business for transport and industry; sells products for road transport and machinery in manufacturing, mining, power generation, agriculture, and construction; and provides low-carbon energy solutions, such as biofuels, to a broad range of commercial customers, including those in the aviation, marine, and agriculture sectors. In addition, the company offers chemicals and products, including chemicals manufacturing plants with their own marketing network, and refineries that turn crude oil and other feedstocks into a range of oil products, which are moved and marketed around the world for domestic, industrial, and transport use; and operates a pipeline business, trading, and optimization of crude oil, oil products, and petrochemicals. The company was formerly known as Royal Dutch Shell plc and changed its name to Shell plc in January 2022. Shell plc was founded in 1897 and is headquartered in London, United Kingdom.",
+    "longName": "Shell plc",
+    "market": "gb_market",
+    "marketCap": 203822776320,
+    "marketState": "REGULAR",
+    "maxAge": 86400,
+    "messageBoardId": "finmb_22385966",
+    "mostRecentQuarter": 1790726400,
+    "nameChangeDate": "2026-11-25",
+    "netIncomeToCommon": 32707000320,
+    "nextFiscalYearEnd": 1798675200,
+    "nonDilutedMarketCap": 201709877116,
+    "numberOfAnalystOpinions": 16,
+    "open": 3582.5,
+    "operatingCashflow": 57976000512,
+    "operatingMargins": 0.1525,
+    "overallRisk": 1,
+    "payoutRatio": 0.2627,
+    "pegRatio": 0.14,
+    "phone": "44 20 7934 1234",
+    "prevName": "Royal Dutch Shell plc",
+    "previousClose": 3555.5,
+    "priceEpsCurrentYear": 544.91644,
+    "priceHint": 2,
+    "priceToBook": 1.3984358,
+    "priceToSalesTrailing12Months": 0.63437897,
+    "profitMargins": 0.1018,
+    "quickRatio": 0.925,
+    "quoteSourceName": "Delayed Quote",
+    "quoteType": "EQUITY",
+    "recommendationKey": "buy",
+    "recommendationMean": 2.21053,
+    "region": "US",
+    "regularMarketChange": 60.5,
+    "regularMarketChangePercent": 1.7015891,
+    "regularMarketDayHigh": 3618.0,
+    "regularMarketDayLow": 3572.0,
+    "regularMarketDayRange": "3572.0 - 3618.0",
+    "regularMarketOpen": 3582.5,
+    "regularMarketPreviousClose": 3555.5,
+    "regularMarketPrice": 3616.0,
+    "regularMarketTime": 1795703413,
+    "regularMarketVolume": 1788038,
+    "returnOnAssets": 0.07672,
+    "returnOnEquity": 0.17432,
+    "revenueGrowth": 0.362,
+    "revenuePerShare": 56.905,
+    "sector": "Energy",
+    "sectorDisp": "Energy",
+    "sectorKey": "energy",
+    "shareHolderRightsRisk": 1,
+    "sharesOutstanding": 5636691609,
+    "shortName": "SHELL PLC ORD EUR0.07",
+    "sourceInterval": 15,
+    "symbol": "SHEL.L",
+    "targetHighPrice": 5050.093,
+    "targetLowPrice": 3778.7964,
+    "targetMeanPrice": 4242.523,
+    "targetMedianPrice": 4189.4385,
+    "totalCash": 36424998912,
+    "totalCashPerShare": 6.357,
+    "totalDebt": 76074999808,
+    "totalRevenue": 321294991360,
+    "tradeable": false,
+    "trailingAnnualDividendRate": 1.544,
+    "trailingAnnualDividendYield": 0.0004342568,
+    "trailingEps": 4.3,
+    "trailingPE": 8.409302,
+    "trailingPegRatio": 1.298,
+    "triggerable": false,
+    "twoHundredDayAverage": 3378.09,
+    "twoHundredDayAverageChange": 237.90991,
+    "twoHundredDayAverageChangePercent": 0.07042734,
+    "typeDisp": "Equity",
+    "volume": 1788038,
+    "website": "https://www.shell.com",
+    "zip": "SE1 7NA"
+  },
+  "priceMetadata": {
+    "chartPreviousClose": 3574.5,
+    "currency": "GBp",
+    "exchangeName": "LSE",
+    "fullExchangeName": "LSE",
+    "regularMarketPrice": 3616.0,
+    "regularMarketTime": "2026-11-26T14:30:13+00:00"
+  },
+  "symbol": "SHEL.L",
+  "yfinanceVersion": "1.8.0"
+}
