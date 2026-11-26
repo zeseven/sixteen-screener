@@ -16,13 +16,14 @@ interface RequestCounterRepository {
     /**
      * Reserves up to [requested] calls to [source] in one transaction: reads the current window of every limit in [limits],
      * grants `k = min(requested, remaining)` where remaining is the smallest `limit - count` (never negative), adds `k`
-     * to every window and returns `k`. Without limits all [requested] calls are granted and nothing is stored.
+     * to every window and returns `k`. Counters without a limit (`limit == null`) don't restrict the grant but are
+     * counted like the others. Without limits all [requested] calls are granted and nothing is stored.
      */
     suspend fun tryAcquire(source: SourceId, limits: List<RequestLimit>, requested: Int, now: Instant): Int
 
     /**
      * Marks the current windows of every limit in [limits] as exhausted after an upstream `429`, in one transaction:
-     * each count is raised to its limit; a count already above the limit is kept.
+     * each count is raised to its limit; a count already above the limit is kept. Counters without a limit are not changed.
      */
     suspend fun saturate(source: SourceId, limits: List<RequestLimit>, now: Instant)
 

@@ -253,15 +253,16 @@ object AppConfigLoader {
             val interval = rawInterval?.let { enumValueOrNull<LimitInterval>(it) }
                 ?: null.also { errors += "$label: unknown limit interval '$rawInterval' (known: ${LimitInterval.entries.joinToString()})" }
             val rawLimit = block.stringOrNull("limit")
-            val limit = rawLimit?.toIntOrNull()?.takeIf { it >= 0 }
-                ?: null.also { errors += "$label: invalid limit '$rawLimit'" }
+            val limit = rawLimit?.let { raw ->
+                raw.toIntOrNull()?.takeIf { it >= 0 } ?: null.also { errors += "$label: invalid limit '$raw'" }
+            }
             val rawUnit = block.stringOrNull("unit")
             val unit = if (rawUnit == null) {
                 LimitUnit.REQUESTS
             } else {
                 enumValueOrNull<LimitUnit>(rawUnit) ?: null.also { errors += "$label: unknown limit unit '$rawUnit'" }
             }
-            if (interval == null || limit == null || unit == null) return null
+            if (interval == null || (rawLimit != null && limit == null) || unit == null) return null
             return RequestLimit(interval, limit, unit)
         }
     }

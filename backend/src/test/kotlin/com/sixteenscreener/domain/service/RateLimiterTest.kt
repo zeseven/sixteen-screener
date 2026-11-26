@@ -17,6 +17,8 @@ class RateLimiterTest : FunSpec({
     val finnhub = SourceId.of("finnhub")
     val logoapi = SourceId.of("logoapi")
     val unlimited = SourceId.of("unlimited")
+    val yahoo = SourceId.of("yahoo")
+    val dailyCounter = RequestLimit(LimitInterval.DAY, null)
     val perMinute = RequestLimit(LimitInterval.MINUTE, 60)
     val perDay = RequestLimit(LimitInterval.DAY, 100)
 
@@ -24,7 +26,12 @@ class RateLimiterTest : FunSpec({
         val clock = MutableClock(Instant.parse("2026-11-14T12:00:30Z"))
         val counters = InMemoryRequestCounterRepository()
         val limiter = RateLimiter(
-            mapOf(finnhub to listOf(perMinute, perDay), logoapi to listOf(perDay), unlimited to emptyList()),
+            mapOf(
+                finnhub to listOf(perMinute, perDay),
+                logoapi to listOf(perDay),
+                unlimited to emptyList(),
+                yahoo to listOf(dailyCounter),
+            ),
             counters,
             clock,
             totalCountedSources = setOf(unlimited, logoapi),
@@ -71,6 +78,27 @@ class RateLimiterTest : FunSpec({
         val fixture = Fixture()
         fixture.limiter.tryAcquire(unlimited, 500) shouldBe 500
         fixture.limiter.usage(unlimited).shouldBeEmpty()
+    }
+
+    test("a source with a counter without a limit gets every call and counts it per day") {
+        val fixture = Fixture()
+        fixture.limiter.tryAcquire(yahoo, 500) shouldBe 500
+        fixture.limiter.tryAcquire(yahoo, 2) shouldBe 2
+
+        fixture.limiter.usage(yahoo).single().used shouldBe 502
+
+        fixture.clock.advanceBy(Duration.ofDays(1))
+        fixture.limiter.usage(yahoo).single().used shouldBe 0
+    }
+
+    test("saturation keeps a counter without a limit as it is") {
+        val fixture = Fixture()
+        fixture.limiter.tryAcquire(yahoo, 2)
+
+        fixture.limiter.saturate(yahoo)
+
+        fixture.limiter.usage(yahoo).single().used shouldBe 2
+        fixture.limiter.tryAcquire(yahoo) shouldBe 1
     }
 
     test("requesting zero calls grants zero") {

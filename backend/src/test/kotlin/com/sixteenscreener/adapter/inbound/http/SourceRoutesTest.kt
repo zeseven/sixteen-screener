@@ -65,6 +65,14 @@ private fun sourcesConfig(): AppConfig = testConfig().let { config ->
                 ),
             ),
             finnhubSource.copy(
+                id = SourceId.of("yahoo"),
+                name = "Yahoo Finance",
+                capabilities = setOf(Capability.QUOTE, Capability.DIVIDENDS),
+                roles = setOf(SourceRole.US, SourceRole.INTERNATIONAL),
+                automaticRequests = false,
+                limits = listOf(RequestLimit(LimitInterval.DAY, null)),
+            ),
+            finnhubSource.copy(
                 id = logoapi,
                 name = "logoapi.sh",
                 capabilities = setOf(Capability.LOGO),
@@ -95,11 +103,11 @@ private fun JsonObject.items(): List<JsonObject> = getValue("items").jsonArray.m
 
 private fun JsonObject.item(id: SourceId): JsonObject = items().single { it["id"] == JsonPrimitive(id.value) }
 
-private fun limit(interval: String, limit: Int, used: Int, resetsAt: String, unit: String = "REQUESTS") = JsonObject(
+private fun limit(interval: String, limit: Int?, used: Int, resetsAt: String, unit: String = "REQUESTS") = JsonObject(
     mapOf(
         "interval" to JsonPrimitive(interval),
         "unit" to JsonPrimitive(unit),
-        "limit" to JsonPrimitive(limit),
+        "limit" to (limit?.let(::JsonPrimitive) ?: JsonNull),
         "used" to JsonPrimitive(used),
         "resetsAt" to JsonPrimitive(resetsAt),
     ),
@@ -118,7 +126,7 @@ class SourceRoutesTest : FunSpec({
 
             body.keys shouldBe setOf("items")
             body.items().map { it.getValue("id").jsonPrimitive.content } shouldContainExactly
-                listOf("finnhub", "eodhd", "sec-edgar", "tiingo", "logoapi", "eodhd-logos", "finnhub-logos")
+                listOf("finnhub", "eodhd", "sec-edgar", "tiingo", "yahoo", "logoapi", "eodhd-logos", "finnhub-logos")
             body.item(finnhub) shouldBe JsonObject(
                 mapOf(
                     "id" to JsonPrimitive("finnhub"),
@@ -150,6 +158,17 @@ class SourceRoutesTest : FunSpec({
             )
             body.item(logoapi)["limits"] shouldBe JsonArray(emptyList())
             body.item(secEdgar)["roles"] shouldBe JsonArray(emptyList())
+        }
+    }
+
+    test("a counter without a limit is returned with a null limit and its usage") {
+        routeTest(config = sourcesConfig()) { ports ->
+            val saved = ports.savedProfile()
+            ports.requestCounters.setCount(SourceId.of("yahoo"), LimitInterval.DAY, ports.clock.now(), 7)
+
+            val body = client.get("/profiles/${saved.id}/sources").json()
+
+            body.item(SourceId.of("yahoo"))["limits"] shouldBe JsonArray(listOf(limit("DAY", null, 7, "2026-11-15T00:00:00Z")))
         }
     }
 

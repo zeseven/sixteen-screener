@@ -23,8 +23,8 @@ class InMemoryRequestCounterRepository : RequestCounterRepository {
         if (limits.isEmpty()) return requested
         return mutex.withLock {
             val windows = limits.map { it to windowKey(source, it, now) }
-            val remaining = windows.minOf { (limit, key) -> (limit.limit - counts.getOrDefault(key, 0)).coerceAtLeast(0) }
-            val granted = minOf(requested, remaining)
+            val remaining = windows.minOf { (limit, key) -> limit.remaining(counts.getOrDefault(key, 0).toLong()) }
+            val granted = minOf(requested.toLong(), remaining).toInt()
             if (granted > 0) windows.forEach { (_, key) -> counts.merge(key, granted, Int::plus) }
             granted
         }
@@ -33,7 +33,7 @@ class InMemoryRequestCounterRepository : RequestCounterRepository {
     override suspend fun saturate(source: SourceId, limits: List<RequestLimit>, now: Instant) {
         mutex.withLock {
             limits.forEach { limit ->
-                counts.merge(windowKey(source, limit, now), limit.limit, ::maxOf)
+                limit.limit?.let { counts.merge(windowKey(source, limit, now), it, ::maxOf) }
             }
         }
     }

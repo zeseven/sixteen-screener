@@ -23,7 +23,7 @@ class FirestoreRequestCounterRepository(private val firestore: Firestore) : Requ
         val windows = windows(source, limits, now)
         return firestore.transaction { tx ->
             val counts = tx.readCounts(windows)
-            val remaining = windows.minOf { (it.limit.limit - counts.getValue(it.reference.id)).coerceAtLeast(0L) }
+            val remaining = windows.minOf { it.limit.remaining(counts.getValue(it.reference.id)) }
             val granted = minOf(requested.toLong(), remaining)
             if (granted > 0) {
                 windows.distinctBy { it.reference.id }
@@ -34,13 +34,14 @@ class FirestoreRequestCounterRepository(private val firestore: Firestore) : Requ
     }
 
     override suspend fun saturate(source: SourceId, limits: List<RequestLimit>, now: Instant) {
-        if (limits.isEmpty()) return
-        val windows = windows(source, limits, now)
+        val limited = limits.filterNot { it.isUnlimited }
+        if (limited.isEmpty()) return
+        val windows = windows(source, limited, now)
         firestore.transaction { tx ->
             val counts = tx.readCounts(windows)
             windows.groupBy { it.reference.id }.values.forEach { sameWindow ->
                 val window = sameWindow.first()
-                val target = maxOf(counts.getValue(window.reference.id), sameWindow.maxOf { it.limit.limit.toLong() })
+                val target = maxOf(counts.getValue(window.reference.id), sameWindow.maxOf { checkNotNull(it.limit.limit).toLong() })
                 if (target != counts.getValue(window.reference.id)) tx.writeCount(window, target)
             }
         }

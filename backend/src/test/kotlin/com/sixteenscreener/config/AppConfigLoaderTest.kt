@@ -266,6 +266,18 @@ class AppConfigLoaderTest : FunSpec({
         )
     }
 
+    test("a limit entry without a limit is a counter without a limit") {
+        val config = AppConfigLoader.load(
+            configWith(source("finnhub", roles = ALL_ROLES, extra = "limits = [{ interval = DAY }, { interval = MINUTE, limit = 5 }]")),
+            FULL_ENV,
+        )
+
+        config.sources.single().limits shouldContainExactly listOf(
+            RequestLimit(LimitInterval.DAY, null),
+            RequestLimit(LimitInterval.MINUTE, 5),
+        )
+    }
+
     test("fails when the EODHD API key is missing") {
         loadErrors(ApplicationConfig("application.conf"), FULL_ENV - "EODHD_API_KEY") shouldContainExactly
             listOf("Source 'eodhd' is enabled but environment variable EODHD_API_KEY is not set")

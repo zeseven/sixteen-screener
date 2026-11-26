@@ -103,6 +103,44 @@ fun requestCounterRepositoryContract(newRepository: suspend () -> RequestCounter
         repository.usage(source, listOf(perMinute), now).single().used shouldBe 70
     }
 
+    test("a counter without a limit counts every call and never refuses one") {
+        val repository = newRepository()
+        val counter = RequestLimit(LimitInterval.DAY, null)
+
+        repository.tryAcquire(source, listOf(counter), 1000, now) shouldBe 1000
+        repository.tryAcquire(source, listOf(counter), 5, now) shouldBe 5
+
+        repository.usage(source, listOf(counter), now).single().used shouldBe 1005
+    }
+
+    test("a counter without a limit resets with its window") {
+        val repository = newRepository()
+        val counter = RequestLimit(LimitInterval.DAY, null)
+        repository.tryAcquire(source, listOf(counter), 3, now)
+
+        repository.usage(source, listOf(counter), now + Duration.ofDays(1)).single().used shouldBe 0
+    }
+
+    test("a counter without a limit next to a limit counts the granted calls only") {
+        val repository = newRepository()
+        val counter = RequestLimit(LimitInterval.DAY, null)
+
+        repository.tryAcquire(source, listOf(perMinute, counter), 70, now) shouldBe 60
+
+        repository.usage(source, listOf(perMinute, counter), now).map { it.used } shouldContainExactly listOf(60, 60)
+    }
+
+    test("saturation leaves a counter without a limit unchanged") {
+        val repository = newRepository()
+        val counter = RequestLimit(LimitInterval.DAY, null)
+        repository.tryAcquire(source, listOf(counter), 2, now)
+
+        repository.saturate(source, listOf(counter), now)
+
+        repository.usage(source, listOf(counter), now).single().used shouldBe 2
+        repository.tryAcquire(source, listOf(counter), 1, now) shouldBe 1
+    }
+
     test("a source without a total counter has a total of zero") {
         newRepository().totals(listOf(source, other)) shouldBe mapOf(source to 0L, other to 0L)
     }

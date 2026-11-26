@@ -46,20 +46,27 @@ enum class LimitUnit {
 }
 
 /**
- * Request limit of a source.
+ * Request limit of a source, or a counter without a limit (ADR-089).
  *
  * @property interval counter window
- * @property limit maximum count per window
+ * @property limit maximum count per window; null for a counter that counts and resets with its window but never
+ * refuses a request
  * @property unit what is counted
  */
 data class RequestLimit(
     val interval: LimitInterval,
-    val limit: Int,
+    val limit: Int?,
     val unit: LimitUnit = LimitUnit.REQUESTS,
 ) {
     init {
-        require(limit >= 0) { "Limit must not be negative" }
+        require(limit == null || limit >= 0) { "Limit must not be negative" }
     }
+
+    /** Whether this is a counter without a limit. */
+    val isUnlimited: Boolean get() = limit == null
+
+    /** Calls still allowed in a window that has counted [used] calls; never negative, [Long.MAX_VALUE] without a limit. */
+    fun remaining(used: Long): Long = limit?.let { (it - used).coerceAtLeast(0L) } ?: Long.MAX_VALUE
 }
 
 /**
