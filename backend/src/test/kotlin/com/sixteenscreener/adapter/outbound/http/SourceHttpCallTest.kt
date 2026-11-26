@@ -6,6 +6,7 @@ import com.sixteenscreener.domain.model.SourceResult
 import com.sixteenscreener.fakes.MutableClock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
+import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.call.body
@@ -32,6 +33,7 @@ import java.nio.channels.UnresolvedAddressException
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Duration.Companion.seconds
 
 @Serializable
@@ -270,6 +272,40 @@ class SourceHttpCallTest : FunSpec({
                 delay(120.milliseconds)
                 respond("""{"c": 1}""", HttpStatusCode.OK, jsonHeaders)
             }
+
+            val results = coroutineScope { List(3) { async { call.price() } }.awaitAll() }
+
+            results shouldBe List(3) { SourceResult.Success(1.0, SourceCallOutcome.success(now)) }
+        }
+
+        test("with a pacer, requests start at least the interval apart") {
+            val starts = CopyOnWriteArrayList<Long>()
+            val call = SourceHttpCall(
+                SourceHttpClient.create(
+                    MockEngine {
+                        starts += System.nanoTime()
+                        respond("""{"c": 1}""", HttpStatusCode.OK, jsonHeaders)
+                    },
+                ),
+                timeout = 200.milliseconds,
+                clock = clock,
+                pacer = RequestPacer(100.milliseconds),
+            )
+
+            coroutineScope { List(3) { async { call.price() } }.awaitAll() }
+
+            starts.zipWithNext { first, second -> second - first }.forEach {
+                it.nanoseconds.inWholeMilliseconds shouldBeGreaterThanOrEqualTo 99L
+            }
+        }
+
+        test("time spent waiting for the pacer does not count toward the timeout") {
+            val call = SourceHttpCall(
+                SourceHttpClient.create(MockEngine { respond("""{"c": 1}""", HttpStatusCode.OK, jsonHeaders) }),
+                timeout = 100.milliseconds,
+                clock = clock,
+                pacer = RequestPacer(150.milliseconds),
+            )
 
             val results = coroutineScope { List(3) { async { call.price() } }.awaitAll() }
 

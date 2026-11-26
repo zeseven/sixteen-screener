@@ -20,6 +20,7 @@ import com.sixteenscreener.adapter.outbound.gcs.GcsClientFactory
 import com.sixteenscreener.adapter.outbound.gcs.GcsExchangeDirectoryStore
 import com.sixteenscreener.adapter.outbound.gcs.GcsLogoStorage
 import com.sixteenscreener.adapter.outbound.gcs.GcsPaths
+import com.sixteenscreener.adapter.outbound.http.RequestPacer
 import com.sixteenscreener.adapter.outbound.http.SourceHttpCall
 import com.sixteenscreener.adapter.outbound.logoapi.LogoApiClient
 import com.sixteenscreener.adapter.outbound.http.SourceHttpClient
@@ -30,6 +31,7 @@ import com.sixteenscreener.config.AppConfig
 import com.sixteenscreener.config.AppConfigLoader
 import com.sixteenscreener.config.AppConfigLoader.SEC_EDGAR_FILES_BASE_URL
 import com.sixteenscreener.config.InvalidConfigurationException
+import com.sixteenscreener.config.SourceConfig
 import com.sixteenscreener.domain.model.ImageFormat
 import com.sixteenscreener.domain.model.SourceDescription
 import com.sixteenscreener.domain.model.SourceId
@@ -259,7 +261,7 @@ private fun finnhubClient(config: AppConfig, httpClient: HttpClient, clock: Cloc
             id = source.id,
             baseUrl = source.baseUrl,
             apiKey = checkNotNull(config.secrets.finnhubApiKey) { "Finnhub API key missing" },
-            call = SourceHttpCall(httpClient, source.timeout, clock),
+            call = source.httpCall(httpClient, clock),
         )
     }
 
@@ -269,7 +271,7 @@ private fun eodhdClient(config: AppConfig, httpClient: HttpClient, clock: Clock)
             id = source.id,
             baseUrl = source.baseUrl,
             apiToken = checkNotNull(config.secrets.eodhdApiKey) { "EODHD API key missing" },
-            call = SourceHttpCall(httpClient, source.timeout, clock),
+            call = source.httpCall(httpClient, clock),
             clock = clock,
         )
     }
@@ -283,7 +285,7 @@ private fun secEdgarClient(
 ): SecEdgarClient? =
     config.enabledSources.firstOrNull { it.id == SEC_EDGAR }?.let { source ->
         val userAgent = checkNotNull(config.secrets.secEdgarUserAgent) { "SEC EDGAR user agent missing" }
-        val call = SourceHttpCall(httpClient, source.timeout, clock)
+        val call = source.httpCall(httpClient, clock)
         SecEdgarClient(
             id = source.id,
             baseUrl = source.baseUrl,
@@ -302,12 +304,12 @@ private fun secEdgarClient(
 
 private fun logoApiClient(config: AppConfig, httpClient: HttpClient, clock: Clock): LogoApiClient? =
     config.enabledSources.firstOrNull { it.id == LOGOAPI }?.let { source ->
-        LogoApiClient(id = source.id, baseUrl = source.baseUrl, call = SourceHttpCall(httpClient, source.timeout, clock))
+        LogoApiClient(id = source.id, baseUrl = source.baseUrl, call = source.httpCall(httpClient, clock))
     }
 
 private fun eodhdLogoClient(config: AppConfig, httpClient: HttpClient, clock: Clock): EodhdLogoClient? =
     config.enabledSources.firstOrNull { it.id == EODHD_LOGOS }?.let { source ->
-        EodhdLogoClient(id = source.id, baseUrl = source.baseUrl, call = SourceHttpCall(httpClient, source.timeout, clock))
+        EodhdLogoClient(id = source.id, baseUrl = source.baseUrl, call = source.httpCall(httpClient, clock))
     }
 
 private fun finnhubLogoClient(
@@ -320,11 +322,14 @@ private fun finnhubLogoClient(
         FinnhubLogoClient(
             id = source.id,
             baseUrl = source.baseUrl,
-            call = SourceHttpCall(httpClient, source.timeout, clock),
+            call = source.httpCall(httpClient, clock),
             profiles = companyCache,
             profileSource = FINNHUB,
         )
     }
+
+private fun SourceConfig.httpCall(httpClient: HttpClient, clock: Clock): SourceHttpCall =
+    SourceHttpCall(httpClient, timeout, clock, pacer = minRequestInterval?.let(::RequestPacer))
 
 fun bundledDefaultLogo(): ByteArray =
     checkNotNull(AppServices::class.java.getResource(DEFAULT_LOGO_RESOURCE)) { "Default logo resource missing" }.readBytes()

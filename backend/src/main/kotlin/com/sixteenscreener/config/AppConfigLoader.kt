@@ -32,6 +32,7 @@ object AppConfigLoader {
     private const val ADDITIONAL_BASE_URLS = "additionalBaseUrls"
     private const val DIRECTORY_EXCHANGES = "directoryExchanges"
     private const val DEFAULT_SOURCES = "defaultSources"
+    private const val MIN_REQUEST_INTERVAL_MILLIS = "minRequestIntervalMillis"
 
     private val REQUIRED_ADDITIONAL_BASE_URLS: Map<String, List<String>> = mapOf(
         "sec-edgar" to listOf(SEC_EDGAR_FILES_BASE_URL),
@@ -175,6 +176,10 @@ object AppConfigLoader {
             val timeoutMillis = block.stringOrNull("timeoutMillis")?.let { raw ->
                 raw.toLongOrNull()?.takeIf { it > 0 } ?: null.also { errors += "$label: invalid timeoutMillis '$raw'" }
             } ?: DEFAULT_TIMEOUT_MILLIS
+            val minRequestIntervalMillis = block.stringOrNull(MIN_REQUEST_INTERVAL_MILLIS)?.let { raw ->
+                raw.toLongOrNull()?.takeIf { it > 0 }
+                    ?: null.also { errors += "$label: invalid $MIN_REQUEST_INTERVAL_MILLIS '$raw'" }
+            }
 
             if (errors.size > errorCount) {
                 rawId?.let(invalidSourceIds::add)
@@ -193,6 +198,7 @@ object AppConfigLoader {
                 countTotalCalls = countTotalCalls,
                 directoryExchanges = directoryExchanges,
                 automaticRequests = automaticRequests,
+                minRequestInterval = minRequestIntervalMillis?.milliseconds,
             )
         }
 

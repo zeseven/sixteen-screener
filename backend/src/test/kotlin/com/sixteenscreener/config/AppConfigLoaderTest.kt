@@ -278,6 +278,23 @@ class AppConfigLoaderTest : FunSpec({
         )
     }
 
+    test("minimum request interval of a source; absent by default") {
+        val config = AppConfigLoader.load(
+            configWith(source("finnhub", roles = ALL_ROLES), source("yahoo", extra = "minRequestIntervalMillis = 1000")),
+            FULL_ENV,
+        )
+
+        config.source(SourceId.of("finnhub"))!!.minRequestInterval shouldBe null
+        config.source(SourceId.of("yahoo"))!!.minRequestInterval shouldBe 1000.milliseconds
+    }
+
+    context("fails for an invalid minimum request interval") {
+        withData("0", "-5", "soon") { raw ->
+            loadErrors(configWith(source("finnhub", roles = ALL_ROLES, extra = "minRequestIntervalMillis = \"$raw\""))) shouldContainExactly
+                listOf("Source 'finnhub': invalid minRequestIntervalMillis '$raw'")
+        }
+    }
+
     test("fails when the EODHD API key is missing") {
         loadErrors(ApplicationConfig("application.conf"), FULL_ENV - "EODHD_API_KEY") shouldContainExactly
             listOf("Source 'eodhd' is enabled but environment variable EODHD_API_KEY is not set")

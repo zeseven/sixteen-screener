@@ -47,12 +47,15 @@ fun interface ErrorStatusMapping {
  * One call to a source over HTTP: runs the request within [timeout] and classifies the outcome (ADR-028).
  * Every source client sends its requests through this class, one instance per source, which sends at most
  * [maxParallelRequests] requests at a time; time spent waiting for a free slot does not count toward the timeout (ADR-081).
+ * With a [pacer], a request that holds a slot also waits for its turn (ADR-089); that wait doesn't count toward the timeout
+ * either.
  */
 class SourceHttpCall(
     private val client: HttpClient,
     private val timeout: Duration,
     private val clock: Clock,
     maxParallelRequests: Int = DEFAULT_MAX_PARALLEL_REQUESTS,
+    private val pacer: RequestPacer? = null,
 ) {
     private val logger = LoggerFactory.getLogger(SourceHttpCall::class.java)
     private val parallelRequests = Semaphore(maxParallelRequests)
@@ -65,6 +68,7 @@ class SourceHttpCall(
     ): SourceResult<T> {
         val response = try {
             parallelRequests.withPermit {
+                pacer?.awaitTurn()
                 client.request {
                     request()
                     timeout { requestTimeoutMillis = (requestTimeout ?: timeout).inWholeMilliseconds }

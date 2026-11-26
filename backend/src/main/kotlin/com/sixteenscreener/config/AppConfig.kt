@@ -40,6 +40,7 @@ data class SourceConfig(
     val countTotalCalls: Boolean = false,
     val directoryExchanges: Set<ExchangeCode>? = null,
     val automaticRequests: Boolean = true,
+    val minRequestInterval: Duration? = null,
 )
 
 data class SourceSecrets(
