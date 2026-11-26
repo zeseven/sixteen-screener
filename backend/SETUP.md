@@ -203,6 +203,10 @@ gcloud secrets add-iam-policy-binding eodhd-api-key \
   --role="roles/secretmanager.secretAccessor"
 ```
 
+The backend calls the Yahoo proxy as this service account (an ID token from the metadata server). Its
+`roles/run.invoker` binding on the proxy service is granted in `yahoo-proxy/SETUP.md` section 5, after the proxy's
+first deployment.
+
 ## 9. Build service account
 
 Cloud Run needs a `linux/amd64` image, so the native image is built with Cloud Build (building it locally

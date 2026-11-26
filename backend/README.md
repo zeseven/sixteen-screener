@@ -1,7 +1,8 @@
 # Sixteen Screener backend
 
-Kotlin service built with Ktor. It collects stock data from external sources (Finnhub, EODHD, SEC EDGAR, logoapi.sh, EODHD logos, Finnhub logos),
-caches it in Firestore and Cloud Storage, and serves the REST API described in `docs/openapi.yaml`.
+Kotlin service built with Ktor. It collects stock data from external sources (Finnhub, EODHD, SEC EDGAR, Yahoo Finance,
+logoapi.sh, EODHD logos, Finnhub logos), caches it in Firestore and Cloud Storage, and serves the REST API described in
+`docs/openapi.yaml`. Yahoo Finance is read through the Yahoo proxy service in `../yahoo-proxy`.
 The service is compiled into a GraalVM native image and runs on Cloud Run.
 
 One-time configuration of the GCP project (Firestore, bucket, secrets, service accounts, IAM) is described in
@@ -17,8 +18,11 @@ One-time configuration of the GCP project (Firestore, bucket, secrets, service a
 
 Static configuration is in `src/main/resources/application.conf`: the list of sources with their base URLs,
 capabilities, roles (`SEARCH`, `US`, `INTERNATIONAL`), `automaticRequests` (off for sources called only on a manual
-refresh, such as EODHD), request limits and timeouts, and optionally `directoryExchanges`, the exchange codes whose
-symbol lists a source is asked for (`[US]` for the Finnhub free plan, `[]` for none; without it, any exchange).
+refresh, such as EODHD and Yahoo Finance), request limits and timeouts, and optionally `directoryExchanges`, the exchange
+codes whose symbol lists a source is asked for (`[US]` for the Finnhub free plan, `[]` for none; without it, any
+exchange), and `minRequestIntervalMillis`, the minimum time between the starts of two requests to the source per
+instance (`1000` for Yahoo Finance; later requests wait for their turn). A limit entry without `limit`
+(`{ interval = DAY }`) is a counter without a limit: requests are counted and shown, but never refused.
 `defaultSources` names the default source of each role (`search`, `us`, `international`); each must be enabled and
 configured for its role. Environment variables override or complete it:
 
@@ -30,6 +34,7 @@ configured for its role. Environment variables override or complete it:
 | `FINNHUB_API_KEY`         | if Finnhub enabled | Finnhub API key (Secret Manager on Cloud Run)                               |
 | `EODHD_API_KEY`           | if EODHD enabled   | EODHD API token (Secret Manager on Cloud Run)                               |
 | `SEC_EDGAR_USER_AGENT`    | if SEC enabled     | `User-Agent` for SEC EDGAR: app name and contact email (Secret Manager)     |
+| `YAHOO_PROXY_URL`         | if Yahoo enabled   | URL of the Yahoo proxy: its Cloud Run URL (`https`, called with an ID token of the runtime service account), or `http://localhost:8099` for a proxy run locally (no token) |
 | `PORT`                    | no                 | HTTP port (default `8080`; set by Cloud Run)                                |
 | `FIRESTORE_EMULATOR_HOST` | no                 | Use the Firestore emulator, e.g. `localhost:8085` (local runs and tests)    |
 | `STORAGE_EMULATOR_HOST`   | no                 | Use a Cloud Storage emulator without credentials, e.g. `http://localhost:4443` |
@@ -87,8 +92,12 @@ STORAGE_EMULATOR_HOST=http://localhost:4443 \
 FINNHUB_API_KEY=your-finnhub-key \
 EODHD_API_KEY=your-eodhd-key \
 SEC_EDGAR_USER_AGENT="SixteenScreener you@example.com" \
+YAHOO_PROXY_URL=http://localhost:8099 \
 ./gradlew run
 ```
+
+`YAHOO_PROXY_URL` points to a Yahoo proxy run locally (`cd ../yahoo-proxy && PORT=8099 uv run python -m yahoo_proxy`,
+see `yahoo-proxy/README.md`); the backend starts without it running, Yahoo calls then fail with a timeout.
 
 Against a real project: log in with Application Default Credentials and drop the emulator variables:
 
@@ -96,6 +105,7 @@ Against a real project: log in with Application Default Credentials and drop the
 gcloud auth application-default login
 GCP_PROJECT_ID="$PROJECT_ID" LOGO_BUCKET="$LOGO_BUCKET" \
 FINNHUB_API_KEY=your-finnhub-key EODHD_API_KEY=your-eodhd-key SEC_EDGAR_USER_AGENT="SixteenScreener you@example.com" \
+YAHOO_PROXY_URL=http://localhost:8099 \
 ./gradlew run
 ```
 
@@ -125,6 +135,7 @@ docker run --rm -p 8080:8080 \
   -e FINNHUB_API_KEY=your-finnhub-key \
   -e EODHD_API_KEY=your-eodhd-key \
   -e SEC_EDGAR_USER_AGENT="SixteenScreener you@example.com" \
+  -e YAHOO_PROXY_URL=http://host.docker.internal:8099 \
   sixteen-screener-backend
 ```
 
@@ -148,6 +159,12 @@ type because of quota restrictions. `_REGION` still selects the Artifact Registr
 
 ## Deploy to Cloud Run
 
+The Yahoo proxy is deployed first (`yahoo-proxy/README.md`); its URL is passed to the backend:
+
+```bash
+YAHOO_PROXY_URL="$(gcloud run services describe sixteen-screener-yahoo --region="$REGION" --format='value(status.url)')"
+```
+
 ```bash
 gcloud run deploy "$SERVICE_NAME" \
   --region="$REGION" \
@@ -159,7 +176,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --cpu-boost \
   --cpu=1 \
   --memory=512Mi \
-  --set-env-vars=GCP_PROJECT_ID="$PROJECT_ID",LOGO_BUCKET="$LOGO_BUCKET" \
+  --set-env-vars=GCP_PROJECT_ID="$PROJECT_ID",LOGO_BUCKET="$LOGO_BUCKET",YAHOO_PROXY_URL="$YAHOO_PROXY_URL" \
   --set-secrets=FINNHUB_API_KEY=finnhub-api-key:latest,EODHD_API_KEY=eodhd-api-key:latest,SEC_EDGAR_USER_AGENT=sec-edgar-user-agent:latest
 ```
 
@@ -168,6 +185,8 @@ gcloud run deploy "$SERVICE_NAME" \
 - `--max-instances=2`: caps the number of instances and therefore the cost
 - `--cpu-boost`: extra CPU during startup
 - `--service-account`: runtime service account with access to Firestore, the bucket and the secrets only
+- `--set-env-vars`: `YAHOO_PROXY_URL` is the audience of the ID token the backend gets from the metadata server for
+  proxy calls; the runtime service account needs `roles/run.invoker` on the proxy (`yahoo-proxy/SETUP.md` section 5)
 - `--set-secrets`: source credentials are read from Secret Manager into environment variables; the `latest`
   version is resolved when a new revision starts
 
@@ -190,10 +209,20 @@ curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/profiles/${PROFILE_I
 curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/profiles/${PROFILE_ID}/companies/SAP.DE/price-ratios?trigger=MANUAL"
 curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/profiles/${PROFILE_ID}/companies/SAP.DE/dividends?trigger=MANUAL"
 curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/logos/AAPL"
+
+# Source dropdown options of every detailed screen tab (no source calls)
+curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/profiles/${PROFILE_ID}/companies/SAP.DE/sources"
+
+# Yahoo Finance (manual only, through the Yahoo proxy): the price and ratios tab makes 2 proxy calls, other tabs 1
+curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/profiles/${PROFILE_ID}/companies/SAP.DE/dividends?source=yahoo&trigger=MANUAL"
+curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/profiles/${PROFILE_ID}/companies/SAP.DE/profile?source=yahoo&trigger=MANUAL"
+curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/profiles/${PROFILE_ID}/companies/AAPL/price-ratios?source=yahoo&trigger=MANUAL"
 ```
 
 `PROFILE_ID` is the `id` returned by `POST /profiles`. Identity tokens expire after one hour.
 The EODHD free plan allows 20 requests per day; requests to EODHD are made only with `trigger=MANUAL`.
+Yahoo Finance has no limit; its requests are counted per day (`"limit": null` on the sources endpoint) and sent at most
+once per second per instance. A `trigger=AUTO` request of Yahoo data calls nothing and warms the proxy up instead.
 
 ## Native image notes
 
