@@ -6,6 +6,7 @@ import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheetItem
 import com.sixteenscreener.app.domain.model.CallResult
 import com.sixteenscreener.app.domain.model.Capability
+import com.sixteenscreener.app.domain.model.CompanySources
 import com.sixteenscreener.app.domain.model.DataStatus
 import com.sixteenscreener.app.domain.model.DefaultSources
 import com.sixteenscreener.app.domain.model.Dividend
@@ -34,6 +35,7 @@ import com.sixteenscreener.app.domain.model.SearchStatus
 import com.sixteenscreener.app.domain.model.SourceCallOutcome
 import com.sixteenscreener.app.domain.model.SourceDataMeta
 import com.sixteenscreener.app.domain.model.SourceId
+import com.sixteenscreener.app.domain.model.SourceOption
 import com.sixteenscreener.app.domain.model.SourceRole
 import com.sixteenscreener.app.domain.model.Symbol
 import com.sixteenscreener.app.domain.model.Tag
@@ -544,6 +546,62 @@ class OkHttpApiClientTest {
 
         assertEquals(SearchStatus.LIMIT_REACHED, results.status)
         assertTrue(results.items.isEmpty())
+    }
+
+    @Test
+    fun `getCompanySources requests the options of the company and keeps the backend order of each tab`() = runTest {
+        enqueueFixture("company_sources.json")
+
+        val sources = client.getCompanySources(profileId, Symbol("AAPL")).value()
+
+        assertEquals("/profiles/${profileId.value}/companies/AAPL/sources", server.takeRequest().pathAndQuery())
+        val finnhub = SourceOption(SourceId.FINNHUB, "Finnhub", isDefault = true, automaticRequests = true)
+        val secEdgar = SourceOption(SourceId.SEC_EDGAR, "SEC EDGAR", isDefault = false, automaticRequests = true)
+        val yahoo = SourceOption(SourceId("yahoo"), "Yahoo Finance", isDefault = false, automaticRequests = false)
+        assertEquals(
+            CompanySources(
+                priceRatios = listOf(finnhub, yahoo),
+                dividends = listOf(yahoo),
+                balanceSheet = listOf(finnhub, secEdgar, yahoo),
+                profile = emptyList(),
+            ),
+            sources,
+        )
+    }
+
+    @Test
+    fun `getCompanySources encodes the symbol as one path segment`() = runTest {
+        enqueue(body = """{"priceRatios":[],"dividends":[],"balanceSheet":[],"profile":[]}""")
+
+        client.getCompanySources(profileId, Symbol("BRK/B"))
+
+        assertEquals("/profiles/${profileId.value}/companies/BRK%2FB/sources", server.takeRequest().url.encodedPath)
+    }
+
+    @Test
+    fun `getCompanySources without a tab is a parse error`() = runTest {
+        enqueue(body = """{"priceRatios":[],"dividends":[],"balanceSheet":[]}""")
+
+        assertTrue(client.getCompanySources(profileId, Symbol("AAPL")).error() is ApiError.Parse)
+    }
+
+    @Test
+    fun `getCompanySources maps 404 to not found`() = runTest {
+        enqueue(code = 404)
+
+        assertTrue(client.getCompanySources(profileId, Symbol("NOPE")).error() is ApiError.NotFound)
+    }
+
+    @Test
+    fun `getDividends and getCompanyProfile pass the selected source with the automatic trigger`() = runTest {
+        enqueueFixture("dividends.json")
+        enqueueFixture("company_profile.json")
+
+        client.getDividends(profileId, Symbol("SAP.DE"), source = SourceId("yahoo"))
+        client.getCompanyProfile(profileId, Symbol("SAP.DE"), source = SourceId("yahoo"))
+
+        assertEquals("/profiles/${profileId.value}/companies/SAP.DE/dividends?source=yahoo&trigger=AUTO", server.takeRequest().pathAndQuery())
+        assertEquals("/profiles/${profileId.value}/companies/SAP.DE/profile?source=yahoo&trigger=AUTO", server.takeRequest().pathAndQuery())
     }
 
     @Test

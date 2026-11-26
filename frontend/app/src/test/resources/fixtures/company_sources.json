@@ -1,0 +1,16 @@
+{
+  "priceRatios": [
+    { "id": "finnhub", "name": "Finnhub", "isDefault": true, "automaticRequests": true },
+    { "id": "yahoo", "name": "Yahoo Finance", "isDefault": false, "automaticRequests": false }
+  ],
+  "dividends": [
+    { "id": "yahoo", "name": "Yahoo Finance", "isDefault": false, "automaticRequests": false }
+  ],
+  "balanceSheet": [
+    { "id": "finnhub", "name": "Finnhub", "isDefault": true, "automaticRequests": true },
+    { "id": "sec-edgar", "name": "SEC EDGAR", "isDefault": false, "automaticRequests": true },
+    { "id": "yahoo", "name": "Yahoo Finance", "isDefault": false, "automaticRequests": false }
+  ],
+  "profile": [],
+  "futureField": "ignored"
+}

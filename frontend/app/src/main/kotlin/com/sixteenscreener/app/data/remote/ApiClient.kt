@@ -3,6 +3,7 @@ package com.sixteenscreener.app.data.remote
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
 import com.sixteenscreener.app.domain.model.CompanyProfileData
+import com.sixteenscreener.app.domain.model.CompanySources
 import com.sixteenscreener.app.domain.model.Dividends
 import com.sixteenscreener.app.domain.model.Exchange
 import com.sixteenscreener.app.domain.model.IndicatorSetting
@@ -49,6 +50,12 @@ interface ApiClient {
 
     /** `GET /profiles/{profileId}/search?query=`. */
     suspend fun search(profileId: ProfileId, query: String): ApiResult<SearchResults>
+
+    /**
+     * `GET /profiles/{profileId}/companies/{symbol}/sources`: the source dropdown options of each detailed screen tab, in backend
+     * order.
+     */
+    suspend fun getCompanySources(profileId: ProfileId, symbol: Symbol): ApiResult<CompanySources>
 
     /**
      * `GET /profiles/{profileId}/companies/{symbol}/price-ratios`; [source] `null` means the profile's default source of the

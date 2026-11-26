@@ -2,12 +2,14 @@ package com.sixteenscreener.app.data.remote.dto
 
 import com.sixteenscreener.app.domain.model.CallResult
 import com.sixteenscreener.app.domain.model.Capability
+import com.sixteenscreener.app.domain.model.CompanySources
 import com.sixteenscreener.app.domain.model.LimitInterval
 import com.sixteenscreener.app.domain.model.LimitUnit
 import com.sixteenscreener.app.domain.model.RequestLimit
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceCallOutcome
 import com.sixteenscreener.app.domain.model.SourceId
+import com.sixteenscreener.app.domain.model.SourceOption
 import com.sixteenscreener.app.domain.model.SourceRole
 import kotlinx.serialization.Serializable
 import java.time.Instant
@@ -46,6 +48,31 @@ data class SourceCallOutcomeDto(
     val httpStatus: Int? = null,
     val at: String,
 )
+
+@Serializable
+data class CompanySourcesDto(
+    val priceRatios: List<SourceOptionDto>,
+    val dividends: List<SourceOptionDto>,
+    val balanceSheet: List<SourceOptionDto>,
+    val profile: List<SourceOptionDto>,
+)
+
+@Serializable
+data class SourceOptionDto(
+    val id: String,
+    val name: String,
+    val isDefault: Boolean,
+    val automaticRequests: Boolean,
+)
+
+fun CompanySourcesDto.toDomain() = CompanySources(
+    priceRatios = priceRatios.map { it.toDomain() },
+    dividends = dividends.map { it.toDomain() },
+    balanceSheet = balanceSheet.map { it.toDomain() },
+    profile = profile.map { it.toDomain() },
+)
+
+fun SourceOptionDto.toDomain() = SourceOption(id = SourceId(id), name = name, isDefault = isDefault, automaticRequests = automaticRequests)
 
 fun SourcesDto.toDomain(): List<Source> = items.map { it.toDomain() }
 
