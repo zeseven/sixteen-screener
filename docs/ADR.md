@@ -950,7 +950,7 @@ The static exchange table (ADR-062) gets an ISO 3166-1 alpha-2 country and a mai
 **Decision:**
 - The Yahoo client sends at most 1 request per second per backend instance; further requests wait for their turn. This is a per-source setting (`minRequestIntervalMillis`), not a Firestore counter.
 - The Yahoo source has no request limits (supersedes the 20 per minute and 200 per day of ADR-088). Its requests are counted per day by a counter without a limit (`limit = null`), which resets daily and is shown on the Sources screen.
-- Proxy calls time out after 40 seconds. A proxy `404` (Yahoo has no such data) is a successful call with empty data.
+- Proxy calls time out after 40 seconds. A proxy `404` (Yahoo has no such data) is a successful call that returns no data (`NO_DATA`, nothing cached). A proxy `429` is a source error, not a reached limit.
 - `GET /profiles/{profileId}/companies/{symbol}/sources` returns the dropdown options of every tab: the sources of the company's role that provide the tab's data (plus SEC EDGAR for US balance sheets), the profile's default source first, Yahoo Finance last. The app selects the first option of each tab.
 
 **Consequences:** With 2 backend instances the proxy can get up to 2 requests per second. A `429` from Yahoo doesn't stop further manual requests; they keep failing until Yahoo lifts the block. Tabs whose default source has no such data (US dividends, international profiles and balance sheets) open with Yahoo Finance selected, showing cached data or a hint to refresh.

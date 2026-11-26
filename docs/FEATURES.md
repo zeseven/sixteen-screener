@@ -138,19 +138,19 @@ Implemented together with the source dropdown of the detailed screen (see Detail
 - [x] Yahoo proxy: pytest tests against recorded `yfinance` results, no Yahoo calls
 - [x] Yahoo proxy: Cloud Run service with min instances 0, max instances 1 and startup CPU boost; own runtime service account without roles; `roles/run.invoker` granted to the backend's runtime service account only
 - [x] `yahoo-proxy/README.md` (local run, tests, Cloud Build and deploy commands, `yfinance` upgrade) and `yahoo-proxy/SETUP.md` (service account, IAM, Artifact Registry access)
-- [ ] Backend: Yahoo client calling the proxy with a Google-signed ID token from the metadata server (cached until shortly before expiry, none for an `http` proxy URL); proxy URL from `YAHOO_PROXY_URL`; 40 s timeout; proxy `404` handled as empty data
-- [ ] Backend: `yahoo` source configured with roles `US` and `INTERNATIONAL`, automatic requests off, never a default source, last in configuration order
-- [ ] Backend: at most 1 request per second per backend instance to the Yahoo proxy (requests wait for their turn), as a per-source `minRequestIntervalMillis` setting
-- [ ] Backend: daily request counter without a limit (`limit = null`, resets daily) for the Yahoo source
-- [ ] Backend: Yahoo suffix per symbol suffix in the static exchange table, used to build Yahoo symbols (US dots become dashes); `NOT_SUPPORTED` without a request for exchanges without a Yahoo suffix
-- [ ] Backend: Yahoo key statistics mapped to the shared ratio codes (fractions of percent ratios multiplied by 100); dividend yield from the last 12 months of dividends and the latest cached Yahoo quote
-- [ ] Backend: fire-and-forget `GET /health` warm-up of the proxy on an `AUTO` request of Yahoo data that doesn't call Yahoo (at most once per minute per backend instance)
-- [ ] Backend: `GET /profiles/{profileId}/companies/{symbol}/sources` with the dropdown options of each detailed screen tab (default source first, Yahoo Finance last)
-- [ ] Sources screen: Yahoo Finance listed last, with its daily counter shown without a limit
+- [x] Backend: Yahoo client calling the proxy with a Google-signed ID token from the metadata server (cached until shortly before expiry, none for an `http` proxy URL); proxy URL from `YAHOO_PROXY_URL`; 40 s timeout; proxy `404` handled as no data (`NO_DATA`, nothing cached)
+- [x] Backend: `yahoo` source configured with roles `US` and `INTERNATIONAL`, automatic requests off, never a default source, last in configuration order
+- [x] Backend: at most 1 request per second per backend instance to the Yahoo proxy (requests wait for their turn), as a per-source `minRequestIntervalMillis` setting
+- [x] Backend: daily request counter without a limit (`limit = null`, resets daily) for the Yahoo source
+- [x] Backend: Yahoo suffix per symbol suffix in the static exchange table, used to build Yahoo symbols (US dots become dashes); `NOT_SUPPORTED` without a request for exchanges without a Yahoo suffix
+- [x] Backend: Yahoo key statistics mapped to the shared ratio codes (fractions of percent ratios multiplied by 100); dividend yield from the last 12 months of dividends and the latest cached Yahoo quote
+- [x] Backend: fire-and-forget `GET /health` warm-up of the proxy on an `AUTO` request of Yahoo data that doesn't call Yahoo (at most once per minute per backend instance)
+- [x] Backend: `GET /profiles/{profileId}/companies/{symbol}/sources` with the dropdown options of each detailed screen tab (default source first, Yahoo Finance last)
+- [x] Sources screen: Yahoo Finance listed last, with its daily counter shown without a limit
 
 ### Detailed screen
 - [x] Dividends tab (EODHD for international stocks; no dividends for US stocks until a US dividends source is added)
-- [ ] Source dropdown on each tab, with the options from the company sources endpoint; the first option selected when the screen opens; selecting a source loads the tab from it (`AUTO`); the refresh button refreshes every tab from its selected source (`MANUAL`); one source displayed at a time (implemented together with the Yahoo Finance source)
+- [x] Source dropdown on each tab, with the options from the company sources endpoint; the first option selected when the screen opens; selecting a source loads the tab from it (`AUTO`); the refresh button refreshes every tab from its selected source (`MANUAL`); one source displayed at a time (implemented together with the Yahoo Finance source)
 - [x] Hint to refresh when a source with automatic requests off has no cached data (`NOT_REQUESTED`)
 
 ### Watchlist screen
