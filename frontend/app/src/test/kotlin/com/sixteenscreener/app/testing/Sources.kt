@@ -14,7 +14,7 @@ import java.time.Instant
 object Sources {
     fun limit(
         interval: LimitInterval = LimitInterval.MINUTE,
-        limit: Int = 60,
+        limit: Int? = 60,
         used: Int = 12,
         unit: LimitUnit = LimitUnit.REQUESTS,
         resetsAt: Instant? = null,

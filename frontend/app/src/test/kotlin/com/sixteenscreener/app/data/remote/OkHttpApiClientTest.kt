@@ -840,7 +840,7 @@ class OkHttpApiClientTest {
         val sources = client.getSources(profileId).value()
 
         assertEquals("/profiles/${profileId.value}/sources", server.takeRequest().pathAndQuery())
-        assertEquals(listOf("finnhub", "sec-edgar", "logoapi", "finnhub-logos", "eodhd"), sources.map { it.id.value })
+        assertEquals(listOf("finnhub", "sec-edgar", "logoapi", "finnhub-logos", "eodhd", "yahoo"), sources.map { it.id.value })
         val finnhub = sources[0]
         assertEquals("Finnhub", finnhub.name)
         assertTrue(finnhub.isDefault)
@@ -878,6 +878,24 @@ class OkHttpApiClientTest {
         assertFalse(eodhd.automaticRequests)
         assertEquals(listOf(SourceRole.INTERNATIONAL), eodhd.roles)
         assertEquals(listOf(SourceRole.INTERNATIONAL), eodhd.defaultFor)
+        val yahoo = sources[5]
+        assertEquals(
+            listOf(RequestLimit(LimitInterval.DAY, LimitUnit.REQUESTS, null, 12, Instant.parse("2026-11-15T00:00:00Z"))),
+            yahoo.limits,
+        )
+    }
+
+    @Test
+    fun `getSources parses a limit without the limit field as a counter without a limit`() = runTest {
+        enqueue(
+            body = """{"items":[{"id":"yahoo","name":"Yahoo Finance","capabilities":[],"isDefault":false,""" +
+                """"limits":[{"interval":"DAY","unit":"REQUESTS","used":0}]}]}""",
+        )
+
+        val limit = client.getSources(profileId).value().single().limits.single()
+
+        assertNull(limit.limit)
+        assertEquals(0, limit.used)
     }
 
     @Test

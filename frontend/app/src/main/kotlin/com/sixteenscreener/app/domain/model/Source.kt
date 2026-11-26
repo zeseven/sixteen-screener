@@ -25,8 +25,8 @@ data class RequestLimit(
     val interval: LimitInterval,
     /** What is counted. */
     val unit: LimitUnit,
-    /** Maximum count per interval. */
-    val limit: Int,
+    /** Maximum count per interval; `null` for a counter without a limit, which counts and resets but never refuses a request. */
+    val limit: Int?,
     /** Count used in the current interval. */
     val used: Int,
     /** When the current interval ends, if known. */

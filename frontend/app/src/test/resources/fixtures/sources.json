@@ -65,6 +65,19 @@
         { "interval": "DAY", "unit": "REQUESTS", "limit": 20, "used": 3, "resetsAt": "2026-11-15T00:00:00Z" }
       ],
       "lastCall": { "result": "HTTP_ERROR", "httpStatus": 402, "at": "2026-11-14T09:00:00Z" }
+    },
+    {
+      "id": "yahoo",
+      "name": "Yahoo Finance",
+      "capabilities": ["QUOTE", "RATIOS", "DIVIDENDS", "BALANCE_SHEET", "COMPANY_PROFILE"],
+      "roles": ["US", "INTERNATIONAL"],
+      "defaultFor": [],
+      "isDefault": false,
+      "automaticRequests": false,
+      "limits": [
+        { "interval": "DAY", "unit": "REQUESTS", "limit": null, "used": 12, "resetsAt": "2026-11-15T00:00:00Z" }
+      ],
+      "lastCall": null
     }
   ]
 }

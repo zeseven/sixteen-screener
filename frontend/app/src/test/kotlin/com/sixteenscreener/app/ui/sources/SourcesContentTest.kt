@@ -160,6 +160,44 @@ class SourcesContentTest {
     }
 
     @Test
+    fun `counter without a limit shows only the used count with its interval`() {
+        setSources(
+            source(
+                limits = listOf(
+                    limit(LimitInterval.DAY, limit = null, used = 12),
+                    limit(LimitInterval.MINUTE, limit = null, used = 0),
+                    limit(LimitInterval.MONTH, limit = null, used = 7, unit = LimitUnit.UNIQUE_SYMBOLS),
+                    limit(LimitInterval.MONTH, limit = null, used = 1, unit = LimitUnit.UNIQUE_SYMBOLS),
+                ),
+            ),
+        )
+
+        val texts = composeRule.onAllNodesWithTag(SourcesScreenTags.LIMIT, useUnmergedTree = true).fetchSemanticsNodes()
+            .map { node -> node.config[SemanticsProperties.Text].joinToString { it.text } }
+        assertEquals(listOf("12 per day", "0 per minute", "7 symbols per month", "1 symbol per month"), texts)
+    }
+
+    @Test
+    fun `counter without a limit is never reached and shows its reset time`() {
+        setSources(source(limits = listOf(limit(LimitInterval.DAY, limit = null, used = 5000, resetsAt = Instant.parse("2026-11-14T10:01:00Z")))))
+
+        composeRule.onNodeWithTag(SourcesScreenTags.LIMIT, useUnmergedTree = true).assertTextEquals("5000 per day, resets 10:01")
+    }
+
+    @Test
+    fun `sources are listed in backend order with the last one after the others`() {
+        setSources(
+            source(id = "finnhub", name = "Finnhub"),
+            source(id = "eodhd", name = "EODHD"),
+            source(id = "yahoo", name = "Yahoo Finance", limits = listOf(limit(LimitInterval.DAY, limit = null, used = 3))),
+        )
+
+        val names = composeRule.onAllNodesWithTag(SourcesScreenTags.NAME, useUnmergedTree = true).fetchSemanticsNodes()
+            .map { node -> node.config[SemanticsProperties.Text].joinToString { it.text } }
+        assertEquals(listOf("Finnhub", "EODHD", "Yahoo Finance"), names)
+    }
+
+    @Test
     fun `source without limits says so`() {
         setSources(source(limits = emptyList()))
 

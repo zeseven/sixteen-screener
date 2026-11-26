@@ -35,7 +35,7 @@ data class SourceDto(
 data class RequestLimitDto(
     val interval: String,
     val unit: String,
-    val limit: Int,
+    val limit: Int? = null,
     val used: Int,
     val resetsAt: String? = null,
 )

@@ -238,12 +238,8 @@ private fun capabilityName(capability: Capability): Int? = when (capability) {
 @Composable
 private fun LimitText(limit: RequestLimit) {
     val interval = stringResource(intervalName(limit.interval))
-    val usageCount = if (limit.unit == LimitUnit.UNIQUE_SYMBOLS) {
-        pluralStringResource(R.plurals.source_limit_usage_symbols, limit.limit, limit.used, limit.limit, interval)
-    } else {
-        stringResource(R.string.source_limit_usage, limit.used, limit.limit, interval)
-    }
-    val isReached = limit.used >= limit.limit
+    val usageCount = usageCountText(limit, interval)
+    val isReached = limit.limit?.let { limit.used >= it } == true
     val usage = if (isReached) stringResource(R.string.source_limit_reached, usageCount) else usageCount
     val clock = LocalClock.current
     val text = limit.resetsAt?.let { resetsAt ->
@@ -255,6 +251,19 @@ private fun LimitText(limit: RequestLimit) {
         color = if (isReached) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.testTag(SourcesScreenTags.LIMIT),
     )
+}
+
+/** "used / limit interval", or "used interval" for a counter without a limit. */
+@Composable
+private fun usageCountText(limit: RequestLimit, interval: String): String {
+    val maximum = limit.limit
+    val countsSymbols = limit.unit == LimitUnit.UNIQUE_SYMBOLS
+    return when {
+        maximum == null && countsSymbols -> pluralStringResource(R.plurals.source_counter_usage_symbols, limit.used, limit.used, interval)
+        maximum == null -> stringResource(R.string.source_counter_usage, limit.used, interval)
+        countsSymbols -> pluralStringResource(R.plurals.source_limit_usage_symbols, maximum, limit.used, maximum, interval)
+        else -> stringResource(R.string.source_limit_usage, limit.used, maximum, interval)
+    }
 }
 
 @Composable
@@ -313,6 +322,17 @@ private fun SourcesContentPreview() {
                         isDefault = false,
                         automaticRequests = false,
                         limits = listOf(RequestLimit(LimitInterval.DAY, LimitUnit.REQUESTS, 20, 3, null)),
+                        lastCall = null,
+                    ),
+                    Source(
+                        id = SourceId("yahoo"),
+                        name = "Yahoo Finance",
+                        capabilities = listOf(Capability.QUOTE, Capability.DIVIDENDS, Capability.COMPANY_PROFILE),
+                        roles = listOf(SourceRole.US, SourceRole.INTERNATIONAL),
+                        defaultFor = emptyList(),
+                        isDefault = false,
+                        automaticRequests = false,
+                        limits = listOf(RequestLimit(LimitInterval.DAY, LimitUnit.REQUESTS, null, 12, null)),
                         lastCall = null,
                     ),
                 ),

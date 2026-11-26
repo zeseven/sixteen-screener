@@ -86,6 +86,11 @@
         <item quantity="one">%1$d / %2$d symbol %3$s</item>
         <item quantity="other">%1$d / %2$d symbols %3$s</item>
     </plurals>
+    <string name="source_counter_usage">%1$d %2$s</string>
+    <plurals name="source_counter_usage_symbols">
+        <item quantity="one">%1$d symbol %2$s</item>
+        <item quantity="other">%1$d symbols %2$s</item>
+    </plurals>
     <string name="source_limit_reached">%1$s, limit reached</string>
     <string name="source_limit_resets">resets %1$s</string>
     <string name="source_limit_with_reset">%1$s, %2$s</string>
