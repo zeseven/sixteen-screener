@@ -32,6 +32,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sixteenscreener.app.R
 import com.sixteenscreener.app.domain.model.Company
+import com.sixteenscreener.app.domain.model.Dividends
+import com.sixteenscreener.app.domain.model.PriceAndRatios
+import com.sixteenscreener.app.domain.model.SourceDataMeta
 import com.sixteenscreener.app.domain.model.SourceId
 import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.Symbol
@@ -42,7 +45,6 @@ import com.sixteenscreener.app.ui.component.QuotePriceAndCacheIndicator
 import com.sixteenscreener.app.ui.component.RemoveFromWatchlistButton
 import com.sixteenscreener.app.ui.component.apiErrorMessage
 import com.sixteenscreener.app.ui.detail.balancesheet.BalanceSheetGrid
-import com.sixteenscreener.app.ui.detail.balancesheet.BalanceSheetSourceDropdown
 import com.sixteenscreener.app.ui.detail.dividends.DividendsTab
 import com.sixteenscreener.app.ui.detail.priceratios.PriceAndRatiosTab
 import com.sixteenscreener.app.ui.detail.profile.AddTagDialog
@@ -100,7 +102,7 @@ fun DetailContent(
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onTabSelected: (DetailTab) -> Unit,
-    onSourceSelected: (SourceId?) -> Unit,
+    onSourceSelected: (DetailTab, SourceId) -> Unit,
     onToggleWatchlist: () -> Unit,
     onMessageShown: (DetailMessage) -> Unit,
     modifier: Modifier = Modifier,
@@ -124,10 +126,10 @@ fun DetailContent(
             HorizontalDivider()
             DetailTabs(uiState.selectedTab, onTabSelected)
             when (uiState.selectedTab) {
-                DetailTab.PRICE_AND_RATIOS -> PriceAndRatiosContent(uiState)
-                DetailTab.DIVIDENDS -> DividendsContent(uiState)
+                DetailTab.PRICE_AND_RATIOS -> PriceAndRatiosContent(uiState, onSourceSelected)
+                DetailTab.DIVIDENDS -> DividendsContent(uiState, onSourceSelected)
                 DetailTab.BALANCE_SHEET -> BalanceSheetContent(uiState, onSourceSelected)
-                DetailTab.COMPANY_PROFILE -> CompanyProfileContent(uiState, tagActions)
+                DetailTab.COMPANY_PROFILE -> CompanyProfileContent(uiState, onSourceSelected, tagActions)
             }
         }
     }
@@ -197,47 +199,49 @@ private val DetailTab.title: Int
     }
 
 @Composable
-private fun PriceAndRatiosContent(uiState: DetailUiState) {
-    val data = uiState.priceAndRatios
-    val meta = data.value?.meta
-    SourceDataFrame(meta = meta, sourceName = meta?.let { uiState.sourceName(it.source) }, isLoading = data.isLoading, error = data.error) {
-        data.value?.let { PriceAndRatiosTab(it) }
-    }
+private fun PriceAndRatiosContent(uiState: DetailUiState, onSourceSelected: (DetailTab, SourceId) -> Unit) {
+    SourceTabContent(DetailTab.PRICE_AND_RATIOS, uiState.priceAndRatios, uiState, onSourceSelected, PriceAndRatios::meta) { PriceAndRatiosTab(it) }
 }
 
 @Composable
-private fun DividendsContent(uiState: DetailUiState) {
-    val data = uiState.dividends
-    val meta = data.value?.meta
-    SourceDataFrame(meta = meta, sourceName = meta?.let { uiState.sourceName(it.source) }, isLoading = data.isLoading, error = data.error) {
-        data.value?.let { DividendsTab(it) }
-    }
+private fun DividendsContent(uiState: DetailUiState, onSourceSelected: (DetailTab, SourceId) -> Unit) {
+    SourceTabContent(DetailTab.DIVIDENDS, uiState.dividends, uiState, onSourceSelected, Dividends::meta) { DividendsTab(it) }
 }
 
 @Composable
-private fun BalanceSheetContent(uiState: DetailUiState, onSourceSelected: (SourceId?) -> Unit) {
-    val balanceSheet = uiState.balanceSheet
-    val data = balanceSheet.data
-    val meta = data.value?.meta
+private fun BalanceSheetContent(uiState: DetailUiState, onSourceSelected: (DetailTab, SourceId) -> Unit) {
+    SourceTabContent(DetailTab.BALANCE_SHEET, uiState.balanceSheet, uiState, onSourceSelected, BalanceSheetView::meta) { BalanceSheetGrid(it.table) }
+}
+
+/** Source dropdown of [tab] above the data of the selected source, or a message when no source provides the data. */
+@Composable
+private fun <T> SourceTabContent(
+    tab: DetailTab,
+    state: SourceTabState<T>,
+    uiState: DetailUiState,
+    onSourceSelected: (DetailTab, SourceId) -> Unit,
+    metaOf: (T) -> SourceDataMeta,
+    content: @Composable (T) -> Unit,
+) {
     Column {
-        BalanceSheetSourceDropdown(
-            sources = balanceSheet.sources,
-            selectedSource = balanceSheet.selectedSource,
-            defaultSource = balanceSheet.defaultSource,
-            sourceName = uiState::sourceName,
-            onSourceSelected = onSourceSelected,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        SourceDataFrame(meta = meta, sourceName = meta?.let { uiState.sourceName(it.source) }, isLoading = data.isLoading, error = data.error) {
-            data.value?.let { BalanceSheetGrid(it.table) }
+        SourceDropdown(state.options, state.selectedSource, onSourceSelected = { onSourceSelected(tab, it) })
+        if (state.hasNoSource) {
+            NoSourceMessage()
+        } else {
+            val data = state.data
+            val meta = data.value?.let(metaOf)
+            SourceDataFrame(meta = meta, sourceName = meta?.let { uiState.sourceName(it.source) }, isLoading = data.isLoading, error = data.error) {
+                data.value?.let { content(it) }
+            }
         }
     }
 }
 
 /** Company profile tab: the user tags first, available whatever the state of the profile data, then the profile data. */
 @Composable
-private fun CompanyProfileContent(uiState: DetailUiState, tagActions: TagActions) {
-    val data = uiState.companyProfile
+private fun CompanyProfileContent(uiState: DetailUiState, onSourceSelected: (DetailTab, SourceId) -> Unit, tagActions: TagActions) {
+    val profile = uiState.companyProfile
+    val data = profile.data
     val meta = data.value?.meta
     val tags = uiState.tags
     Column(
@@ -247,14 +251,19 @@ private fun CompanyProfileContent(uiState: DetailUiState, tagActions: TagActions
             .testTag(DetailScreenTags.COMPANY_PROFILE_CONTENT),
     ) {
         CompanyTagsSection(state = tags, onAddTag = tagActions.onAddRequested, onRemoveTag = tagActions.onRemove)
-        SourceDataFrame(
-            meta = meta,
-            sourceName = meta?.let { uiState.sourceName(it.source) },
-            isLoading = data.isLoading,
-            error = data.error,
-            inScrollableParent = true,
-        ) {
-            CompanyProfileTab(data.value?.profile)
+        SourceDropdown(profile.options, profile.selectedSource, onSourceSelected = { onSourceSelected(DetailTab.COMPANY_PROFILE, it) })
+        if (profile.hasNoSource) {
+            NoSourceMessage()
+        } else {
+            SourceDataFrame(
+                meta = meta,
+                sourceName = meta?.let { uiState.sourceName(it.source) },
+                isLoading = data.isLoading,
+                error = data.error,
+                inScrollableParent = true,
+            ) {
+                CompanyProfileTab(data.value?.profile)
+            }
         }
     }
     if (tags.isAddDialogOpen) {
@@ -296,7 +305,7 @@ private fun DetailContentPreview() {
             onBack = {},
             onRefresh = {},
             onTabSelected = {},
-            onSourceSelected = {},
+            onSourceSelected = { _, _ -> },
             onToggleWatchlist = {},
             onMessageShown = {},
         )

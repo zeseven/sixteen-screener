@@ -32,13 +32,9 @@ import com.sixteenscreener.app.domain.BalanceSheetRow
 import com.sixteenscreener.app.domain.BalanceSheetTable
 import com.sixteenscreener.app.domain.NumberFormats
 import com.sixteenscreener.app.domain.model.FiscalPeriod
-import com.sixteenscreener.app.domain.model.Source
-import com.sixteenscreener.app.domain.model.SourceId
-import com.sixteenscreener.app.ui.component.FilterDropdown
 import com.sixteenscreener.app.ui.theme.SixteenTheme
 
 object BalanceSheetTags {
-    const val SOURCE_DROPDOWN = "balance_sheet_source_dropdown"
     const val TABLE = "balance_sheet_table"
     const val YEAR_COLUMNS = "balance_sheet_year_columns"
     const val LABEL = "balance_sheet_label"
@@ -50,34 +46,6 @@ object BalanceSheetTags {
 private val LabelColumnWidth = 152.dp
 private val YearColumnWidth = 88.dp
 private val RowHeight = 48.dp
-
-/**
- * Source dropdown of the balance sheet tab (ADR-047): the default entry (`null`) lets the backend pick the profile's default source
- * of the company's role and is labelled with the source that answered it, or "Default" until it answered; every other balance
- * sheet source is offered for every company.
- */
-@Composable
-fun BalanceSheetSourceDropdown(
-    sources: List<Source>,
-    selectedSource: SourceId?,
-    defaultSource: SourceId?,
-    sourceName: (SourceId) -> String,
-    onSourceSelected: (SourceId?) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val defaultLabel = defaultSource?.let(sourceName) ?: stringResource(R.string.detail_balance_sheet_default_source)
-    FilterDropdown(
-        label = stringResource(R.string.detail_balance_sheet_source),
-        selected = selectedSource,
-        options = listOf(null) + sources.map { it.id }.filterNot { it == defaultSource },
-        optionLabel = { source -> source?.let(sourceName) ?: defaultLabel },
-        onSelect = onSourceSelected,
-        isActive = false,
-        modifier = modifier
-            .padding(horizontal = 16.dp)
-            .testTag(BalanceSheetTags.SOURCE_DROPDOWN),
-    )
-}
 
 /**
  * Balance sheet table (ADR-053): fixed label column, one column per period (newest first) scrolling horizontally,

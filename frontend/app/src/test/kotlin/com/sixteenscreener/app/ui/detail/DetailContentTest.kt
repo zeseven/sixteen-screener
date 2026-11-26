@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.isNotSelected
@@ -37,6 +38,7 @@ import com.sixteenscreener.app.domain.model.DataStatus
 import com.sixteenscreener.app.domain.model.Dividends
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.SourceId
+import com.sixteenscreener.app.domain.model.SourceOption
 import com.sixteenscreener.app.domain.model.Symbol
 import com.sixteenscreener.app.testing.AccessibilityMatchers
 import com.sixteenscreener.app.testing.Companies
@@ -44,7 +46,6 @@ import com.sixteenscreener.app.testing.CompanyData
 import com.sixteenscreener.app.testing.CompanyData.item
 import com.sixteenscreener.app.testing.CompanyData.period
 import com.sixteenscreener.app.testing.MutableClock
-import com.sixteenscreener.app.testing.Sources.source
 import com.sixteenscreener.app.ui.component.CompanyRowTags
 import com.sixteenscreener.app.ui.component.LocalClock
 import com.sixteenscreener.app.ui.detail.balancesheet.BalanceSheetTags
@@ -85,7 +86,7 @@ class DetailContentTest {
                         onBack = { events += "back" },
                         onRefresh = { events += "refresh" },
                         onTabSelected = { events += "tab $it" },
-                        onSourceSelected = { events += "source ${it?.value}" },
+                        onSourceSelected = { tab, source -> events += "source $tab ${source.value}" },
                         onToggleWatchlist = { events += "toggle" },
                         onMessageShown = { events += "shown" },
                     )
@@ -98,24 +99,29 @@ class DetailContentTest {
         selectedTab: DetailTab = DetailTab.PRICE_AND_RATIOS,
         priceAndRatios: TabData<PriceAndRatios> = TabData(CompanyData.priceAndRatios()),
         dividends: TabData<Dividends> = TabData(),
-        balanceSheet: BalanceSheetTabState = BalanceSheetTabState(),
+        balanceSheet: SourceTabState<BalanceSheetView> = SourceTabState(),
         companyProfile: TabData<CompanyProfileData> = TabData(),
+        dividendOptions: List<SourceOption> = emptyList(),
+        profileOptions: List<SourceOption> = emptyList(),
     ) = DetailUiState(
         symbol = apple.symbol,
         header = apple,
         headerQuote = CompanyData.priceAndRatios().quote,
         selectedTab = selectedTab,
-        priceAndRatios = priceAndRatios,
-        dividends = dividends,
+        priceAndRatios = SourceTabState(data = priceAndRatios),
+        dividends = SourceTabState(options = dividendOptions, selectedSource = dividendOptions.firstOrNull()?.id, data = dividends),
         balanceSheet = balanceSheet,
-        companyProfile = companyProfile,
+        companyProfile = SourceTabState(options = profileOptions, selectedSource = profileOptions.firstOrNull()?.id, data = companyProfile),
         sourceNames = sourceNames,
     )
 
-    private fun balanceSheetState(sheet: BalanceSheet, selected: SourceId? = null) = BalanceSheetTabState(
-        sources = listOf(source("finnhub", "Finnhub", isDefault = true), source("sec-edgar", "SEC EDGAR")),
+    private val finnhubOption = SourceOption(SourceId.FINNHUB, "Finnhub", isDefault = true, automaticRequests = true)
+    private val secEdgarOption = SourceOption(SourceId.SEC_EDGAR, "SEC EDGAR", isDefault = false, automaticRequests = true)
+    private val yahooOption = SourceOption(SourceId("yahoo"), "Yahoo Finance", isDefault = false, automaticRequests = false)
+
+    private fun balanceSheetState(sheet: BalanceSheet, selected: SourceId = sheet.meta.source) = SourceTabState(
+        options = listOf(finnhubOption, secEdgarOption, yahooOption),
         selectedSource = selected,
-        defaultSource = sheet.meta.source.takeIf { selected == null },
         data = TabData(BalanceSheetView(sheet.meta, BalanceSheetTable.of(sheet.periods))),
     )
 
@@ -460,13 +466,13 @@ class DetailContentTest {
     }
 
     @Test
-    fun `source dropdown offers every balance sheet source`() {
+    fun `source dropdown offers the options of the tab and passes the picked source up with its tab`() {
         setContent(state(selectedTab = DetailTab.BALANCE_SHEET, balanceSheet = balanceSheetState(CompanyData.balanceSheet())))
 
-        tagged(BalanceSheetTags.SOURCE_DROPDOWN).performClick()
+        tagged(SourceDropdownTags.DROPDOWN).performClick()
         composeRule.onNodeWithText("SEC EDGAR").performClick()
 
-        assertEquals(listOf("source sec-edgar"), events)
+        assertEquals(listOf("source BALANCE_SHEET sec-edgar"), events)
     }
 
     @Test
@@ -543,33 +549,89 @@ class DetailContentTest {
     }
 
     @Test
-    fun `default entry is labelled Default until a source answered and is passed up as no source`() {
-        setContent(state(selectedTab = DetailTab.BALANCE_SHEET, balanceSheet = BalanceSheetTabState(sources = listOf(source("sec-edgar", "SEC EDGAR")))))
+    fun `source dropdown lists the options in the given order and marks the default and manual-only sources`() {
+        setContent(state(selectedTab = DetailTab.BALANCE_SHEET, balanceSheet = balanceSheetState(CompanyData.balanceSheet())))
 
-        tagged(BalanceSheetTags.SOURCE_DROPDOWN).performClick()
-        composeRule.onNode(hasText("Default") and isSelected()).performClick()
+        composeRule.onNodeWithText("Source: Finnhub (default)").assertExists()
+        tagged(SourceDropdownTags.DROPDOWN).performClick()
 
-        assertEquals(listOf("source null"), events)
+        val tops = listOf("Finnhub (default)", "SEC EDGAR", "Yahoo Finance (manual only)")
+            .map { label -> composeRule.onNodeWithText(label).getUnclippedBoundsInRoot().top }
+        assertEquals(tops.sorted(), tops)
+        assertEquals(3, tops.distinct().size)
     }
 
     @Test
-    fun `default entry is labelled with the source that answered and that source is not offered twice`() {
-        setContent(state(selectedTab = DetailTab.BALANCE_SHEET, balanceSheet = balanceSheetState(CompanyData.balanceSheet())))
+    fun `manual-only selected source shows the refresh hint of its not requested data`() {
+        val notRequested = CompanyData.dividends(dividendYield = null, status = DataStatus.NOT_REQUESTED)
+        setContent(
+            state(
+                selectedTab = DetailTab.DIVIDENDS,
+                dividends = TabData(notRequested.copy(meta = notRequested.meta.copy(source = SourceId("yahoo"), fetchedAt = null))),
+                dividendOptions = listOf(yahooOption),
+            ),
+        )
 
-        composeRule.onNodeWithText("Source: Finnhub").assertExists()
-        tagged(BalanceSheetTags.SOURCE_DROPDOWN).performClick()
+        composeRule.onNodeWithText("Source: Yahoo Finance (manual only)").assertExists()
+        composeRule.onNodeWithText("No data yet. Tap refresh to load.").assertExists()
+    }
 
-        composeRule.onAllNodes(hasText("Finnhub") and isSelected()).assertCountEquals(1)
-        composeRule.onNodeWithText("Default").assertDoesNotExist()
+    @Test
+    fun `tab without options shows no dropdown`() {
+        setContent(state())
+
+        tagged(SourceDropdownTags.DROPDOWN).assertDoesNotExist()
+        tagged(SourceDropdownTags.NO_SOURCE).assertDoesNotExist()
+        tagged(PriceAndRatiosTags.PRICE).assertExists()
+    }
+
+    @Test
+    fun `tab whose data no source provides shows a message instead of the dropdown and data`() {
+        setContent(
+            state(
+                selectedTab = DetailTab.BALANCE_SHEET,
+                balanceSheet = SourceTabState(hasNoSource = true),
+            ),
+        )
+
+        tagged(SourceDropdownTags.DROPDOWN).assertDoesNotExist()
+        tagged(SourceDropdownTags.NO_SOURCE).assertTextEquals("No source provides this data for this company.")
+        tagged(SourceDataFrameTags.PROGRESS).assertDoesNotExist()
+    }
+
+    @Test
+    fun `company profile without a source keeps its tags section and shows the message`() {
+        setContent(
+            state(selectedTab = DetailTab.COMPANY_PROFILE).let { it.copy(companyProfile = SourceTabState(hasNoSource = true)) },
+        )
+
+        tagged(SourceDropdownTags.NO_SOURCE).assertExists()
+        composeRule.onNodeWithText("Country").assertDoesNotExist()
+    }
+
+    @Test
+    fun `company profile dropdown passes the picked profile source up`() {
+        setContent(
+            state(
+                selectedTab = DetailTab.COMPANY_PROFILE,
+                companyProfile = TabData(CompanyData.companyProfileData()),
+                profileOptions = listOf(finnhubOption, yahooOption),
+            ),
+        )
+
+        tagged(SourceDropdownTags.DROPDOWN).performClick()
+        composeRule.onNodeWithText("Yahoo Finance (manual only)").performClick()
+
+        assertEquals(listOf("source COMPANY_PROFILE yahoo"), events)
     }
 
     @Test
     fun `source dropdown marks the selected source`() {
         setContent(state(selectedTab = DetailTab.BALANCE_SHEET, balanceSheet = balanceSheetState(CompanyData.balanceSheet())))
 
-        tagged(BalanceSheetTags.SOURCE_DROPDOWN).performClick()
+        tagged(SourceDropdownTags.DROPDOWN).performClick()
 
-        composeRule.onNode(hasText("Finnhub") and isSelected()).assertExists()
+        composeRule.onNode(hasText("Finnhub (default)") and isSelected()).assertExists()
         composeRule.onNode(hasText("SEC EDGAR") and isNotSelected()).assertExists()
     }
 

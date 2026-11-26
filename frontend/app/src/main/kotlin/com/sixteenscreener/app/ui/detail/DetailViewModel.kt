@@ -11,9 +11,10 @@ import com.sixteenscreener.app.domain.TagRules
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.ApiResult
 import com.sixteenscreener.app.domain.model.BalanceSheet
+import com.sixteenscreener.app.domain.model.CompanyIdentity
 import com.sixteenscreener.app.domain.model.CompanyProfile
 import com.sixteenscreener.app.domain.model.CompanyProfileData
-import com.sixteenscreener.app.domain.model.CompanyIdentity
+import com.sixteenscreener.app.domain.model.CompanySources
 import com.sixteenscreener.app.domain.model.Dividends
 import com.sixteenscreener.app.domain.model.PriceAndRatios
 import com.sixteenscreener.app.domain.model.Quote
@@ -22,6 +23,7 @@ import com.sixteenscreener.app.domain.model.RowMarketData
 import com.sixteenscreener.app.domain.model.Source
 import com.sixteenscreener.app.domain.model.SourceDataMeta
 import com.sixteenscreener.app.domain.model.SourceId
+import com.sixteenscreener.app.domain.model.SourceOption
 import com.sixteenscreener.app.domain.model.Symbol
 import com.sixteenscreener.app.domain.model.Tag
 import com.sixteenscreener.app.domain.model.WatchlistItem
@@ -30,9 +32,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -57,15 +57,16 @@ data class BalanceSheetView(
     val table: BalanceSheetTable,
 )
 
-data class BalanceSheetTabState(
-    /** Balance sheet sources that can be picked explicitly; empty until loaded. */
-    val sources: List<Source> = emptyList(),
-    /** Source picked in the dropdown; `null` for the profile's default source of the company's role, picked by the backend. */
+/** Source dropdown of a tab and the data of its selected source. */
+data class SourceTabState<out T>(
+    /** Dropdown options in backend order; empty while unknown, when the sources request failed or when no source has the data. */
+    val options: List<SourceOption> = emptyList(),
+    /** Source of [data]; `null` for the profile's default source picked by the backend when the options could not be loaded. */
     val selectedSource: SourceId? = null,
-    /** Source that answered the request for the default source; `null` until it answered. */
-    val defaultSource: SourceId? = null,
+    /** Whether no source provides this tab's data for the company; nothing is requested then. */
+    val hasNoSource: Boolean = false,
     /** Data of [selectedSource]. */
-    val data: TabData<BalanceSheetView> = TabData(),
+    val data: TabData<T> = TabData(),
 )
 
 /** One-time message of the detailed screen, shown as a snackbar. */
@@ -103,14 +104,14 @@ data class DetailUiState(
     val header: CompanyIdentity? = null,
     /** Whether the loaded company profile reports the company's exchange as its home exchange; `false` until it arrives. */
     val homeExchange: Boolean = false,
-    /** Price of the header: the loaded price, or the last watchlist market data of the company until it arrives. */
+    /** Price of the header: the price of the selected source, or the last watchlist market data of the company without it. */
     val headerQuote: Quote? = null,
     val inWatchlist: Boolean = false,
     val selectedTab: DetailTab = DetailTab.PRICE_AND_RATIOS,
-    val priceAndRatios: TabData<PriceAndRatios> = TabData(),
-    val dividends: TabData<Dividends> = TabData(),
-    val balanceSheet: BalanceSheetTabState = BalanceSheetTabState(),
-    val companyProfile: TabData<CompanyProfileData> = TabData(),
+    val priceAndRatios: SourceTabState<PriceAndRatios> = SourceTabState(),
+    val dividends: SourceTabState<Dividends> = SourceTabState(),
+    val balanceSheet: SourceTabState<BalanceSheetView> = SourceTabState(),
+    val companyProfile: SourceTabState<CompanyProfileData> = SourceTabState(),
     val tags: TagsUiState = TagsUiState(),
     /** Display names of the known sources. */
     val sourceNames: Map<SourceId, String> = emptyMap(),
@@ -120,17 +121,22 @@ data class DetailUiState(
 }
 
 /**
- * Detailed screen: each tab loads its data once when first shown, the refresh button reloads every tab from the sources (ADR-052).
- * The company profile loads when the screen opens, as the header shows its identity, home exchange and the company's tags.
- * Tags come with the company profile, from the watchlist until it arrives, and are saved as a whole list after each change; they are
- * shown and edited only while the company is in the watchlist (ADR-061, ADR-086).
- * The balance sheet keeps the result of each selected source while the screen is open (ADR-007, ADR-047).
+ * Detailed screen. The source dropdown options of all tabs are requested once when the screen opens; each tab selects its first
+ * option and loads its data from it when first shown, the price and ratio and the company profile tabs at once (ADR-089).
+ * Selecting another source loads the tab from it unless a result of that source is kept; the refresh button reloads every tab from
+ * its selected source with the manual trigger (ADR-052). Selections and kept results live while the screen is open (ADR-007).
+ * Without the options the tabs fall back to the profile's default source, picked by the backend.
+ *
+ * The header (identity, security type, home exchange) comes from the company profile of the profile's default source, as before
+ * the dropdown: the profile tab's request when its default option is selected, otherwise a request without a source.
+ * Tags come with every company profile response, from the watchlist until one arrives, and are saved as a whole list after each
+ * change; they are shown and edited only while the company is in the watchlist (ADR-061, ADR-086).
  */
 @HiltViewModel(assistedFactory = DetailViewModel.Factory::class)
 class DetailViewModel @AssistedInject constructor(
     @Assisted private val route: DetailRoute,
     private val companyRepository: CompanyRepository,
-    private val sourceRepository: SourceRepository,
+    sourceRepository: SourceRepository,
     private val watchlistRepository: WatchlistRepository,
     private val tagRepository: TagRepository,
 ) : ViewModel() {
@@ -140,14 +146,24 @@ class DetailViewModel @AssistedInject constructor(
         fun create(route: DetailRoute): DetailViewModel
     }
 
+    private sealed interface SourceOptions {
+        data object Loading : SourceOptions
+
+        /** The options could not be loaded: every tab uses the profile's default source without naming it. */
+        data object Unavailable : SourceOptions
+
+        data class Loaded(val sources: CompanySources) : SourceOptions
+    }
+
     private data class ScreenState(
         val selectedTab: DetailTab = DetailTab.PRICE_AND_RATIOS,
-        val priceAndRatios: TabData<PriceAndRatios> = TabData(),
-        val dividends: TabData<Dividends> = TabData(),
-        val balanceSheetSources: List<Source> = emptyList(),
-        val selectedSource: SourceId? = null,
+        val sourceOptions: SourceOptions = SourceOptions.Loading,
+        /** Selected source of each tab with options; a missing tab uses the profile's default source. */
+        val selectedSources: Map<DetailTab, SourceId> = emptyMap(),
+        val priceAndRatios: Map<SourceId?, TabData<PriceAndRatios>> = emptyMap(),
+        val dividends: Map<SourceId?, TabData<Dividends>> = emptyMap(),
         val balanceSheets: Map<SourceId?, TabData<BalanceSheetView>> = emptyMap(),
-        val companyProfile: TabData<CompanyProfileData> = TabData(),
+        val companyProfiles: Map<SourceId?, TabData<CompanyProfileData>> = emptyMap(),
         /** Tags from the company profile or the last change, `null` until known. */
         val tags: List<Tag>? = null,
         /** Number of tag changes, so a company profile requested before a change doesn't bring back the old tags. */
@@ -157,21 +173,37 @@ class DetailViewModel @AssistedInject constructor(
         val profileTags: List<Tag> = emptyList(),
         val tagDialogError: ApiError? = null,
         val message: DetailMessage? = null,
-    )
+    ) {
+        fun optionsOf(tab: DetailTab): List<SourceOption> = (sourceOptions as? SourceOptions.Loaded)?.sources?.of(tab).orEmpty()
 
-    private sealed interface LoadKey {
-        data class Tab(val tab: DetailTab) : LoadKey
+        fun hasNoSource(tab: DetailTab): Boolean = sourceOptions is SourceOptions.Loaded && optionsOf(tab).isEmpty()
 
-        data class BalanceSheetOf(val source: SourceId?) : LoadKey
+        fun selectedSourceOf(tab: DetailTab): SourceId? = selectedSources[tab]
+
+        /** Source of the header's company profile: the default option of the profile tab, or the backend's default without it. */
+        fun headerSource(): SourceId? = optionsOf(DetailTab.COMPANY_PROFILE).firstOrNull { it.isDefault }?.id
+
+        fun headerProfile(): CompanyProfile? = companyProfiles[headerSource()]?.value?.profile
+
+        fun dataOf(tab: DetailTab): Map<SourceId?, TabData<*>> = when (tab) {
+            DetailTab.PRICE_AND_RATIOS -> priceAndRatios
+            DetailTab.DIVIDENDS -> dividends
+            DetailTab.BALANCE_SHEET -> balanceSheets
+            DetailTab.COMPANY_PROFILE -> companyProfiles
+        }
+
+        /** Sources whose results a refresh keeps: the selected one, and the header's for the company profile. */
+        fun refreshedSourcesOf(tab: DetailTab): Set<SourceId?> =
+            if (tab == DetailTab.COMPANY_PROFILE) setOf(selectedSourceOf(tab), headerSource()) else setOf(selectedSourceOf(tab))
     }
+
+    private data class LoadKey(val tab: DetailTab, val source: SourceId?)
 
     private val symbol = route.symbol
     private val screenState = MutableStateFlow(ScreenState())
-    private val requestedTabs = mutableSetOf<DetailTab>()
+    private val requestedTabs = mutableSetOf(DetailTab.PRICE_AND_RATIOS, DetailTab.COMPANY_PROFILE)
     private val loadJobs = mutableMapOf<LoadKey, Job>()
-    private val balanceSheetSources = viewModelScope.async(start = CoroutineStart.LAZY) {
-        sourceRepository.getBalanceSheetSources().ifEmpty { SourceRepository.FALLBACK_BALANCE_SHEET_SOURCES }
-    }
+    private var isRefreshPending = false
 
     val uiState: StateFlow<DetailUiState> = combine(
         screenState,
@@ -184,42 +216,42 @@ class DetailViewModel @AssistedInject constructor(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, toUiState(ScreenState(), null, emptySet(), null, null))
 
     init {
-        loadOnce(DetailTab.PRICE_AND_RATIOS)
-        loadOnce(DetailTab.COMPANY_PROFILE)
+        viewModelScope.launch { loadSourceOptions() }
     }
 
     fun onTabSelected(tab: DetailTab) {
         screenState.update { it.copy(selectedTab = tab) }
-        if (tab == DetailTab.BALANCE_SHEET) viewModelScope.launch { loadBalanceSheetSources() }
-        loadOnce(tab)
+        if (requestedTabs.add(tab)) loadTab(tab, RequestTrigger.AUTO)
+    }
+
+    /** Shows the data of [source] on [tab], loading it unless a result of this source is kept or loading. */
+    fun onSourceSelected(tab: DetailTab, source: SourceId) {
+        val state = screenState.value
+        if (state.optionsOf(tab).none { it.id == source } || state.selectedSourceOf(tab) == source) return
+        screenState.update { it.copy(selectedSources = it.selectedSources + (tab to source)) }
+        requestedTabs += tab
+        val kept = state.dataOf(tab)[source]
+        if (kept == null || (kept.value == null && !kept.isLoading)) load(tab, source, RequestTrigger.AUTO)
     }
 
     /**
-     * Shows the balance sheet of [source], or of the default source when `null`, loading it unless a result of this source is
-     * kept.
+     * Reloads every tab from its selected source, including tabs not shown yet; kept results of other sources are dropped (ADR-052).
+     * A refresh before the options arrive is sent once they are known.
      */
-    fun onSourceSelected(source: SourceId?) {
-        screenState.update { it.copy(selectedSource = source) }
-        val kept = screenState.value.balanceSheets[source]
-        if (kept == null || (kept.value == null && !kept.isLoading)) loadBalanceSheet(source, RequestTrigger.AUTO)
-    }
-
-    /** Reloads every tab from the sources, including tabs not shown yet; other balance sheet sources are dropped (ADR-052). */
     fun refresh() {
         requestedTabs += DetailTab.entries
-        loadPriceAndRatios(RequestTrigger.MANUAL)
-        loadDividends(RequestTrigger.MANUAL)
-        loadCompanyProfile(RequestTrigger.MANUAL)
-        val source = screenState.value.selectedSource
-        loadJobs.keys.filter { it is LoadKey.BalanceSheetOf && it.source != source }.forEach { loadJobs.remove(it)?.cancel() }
-        screenState.update { state -> state.copy(balanceSheets = state.balanceSheets.filterKeys { it == source }) }
-        loadBalanceSheet(source, RequestTrigger.MANUAL)
+        if (screenState.value.sourceOptions is SourceOptions.Loading) {
+            isRefreshPending = true
+            return
+        }
+        dropResultsOfOtherSources()
+        DetailTab.entries.forEach { loadTab(it, RequestTrigger.MANUAL) }
     }
 
     fun onToggleWatchlist() {
         val state = uiState.value
         val company = state.header ?: return
-        val sector = state.companyProfile.value?.profile?.sector
+        val sector = screenState.value.headerProfile()?.sector
         viewModelScope.launch {
             val result = if (state.inWatchlist) watchlistRepository.remove(symbol) else watchlistRepository.add(WatchlistItem.of(company, sector))
             when (result) {
@@ -281,49 +313,80 @@ class DetailViewModel @AssistedInject constructor(
         }
     }
 
-    private fun loadOnce(tab: DetailTab) {
-        if (!requestedTabs.add(tab)) return
-        when (tab) {
-            DetailTab.PRICE_AND_RATIOS -> loadPriceAndRatios(RequestTrigger.AUTO)
-            DetailTab.DIVIDENDS -> loadDividends(RequestTrigger.AUTO)
-            DetailTab.COMPANY_PROFILE -> loadCompanyProfile(RequestTrigger.AUTO)
-            DetailTab.BALANCE_SHEET -> loadBalanceSheet(screenState.value.selectedSource, RequestTrigger.AUTO)
+    private suspend fun loadSourceOptions() {
+        val result = companyRepository.getCompanySources(symbol)
+        screenState.update { state ->
+            when (result) {
+                is ApiResult.Success -> state.copy(
+                    sourceOptions = SourceOptions.Loaded(result.value),
+                    selectedSources = DetailTab.entries
+                        .mapNotNull { tab -> result.value.of(tab).firstOrNull()?.let { tab to it.id } }
+                        .toMap(),
+                )
+                is ApiResult.Failure -> state.copy(sourceOptions = SourceOptions.Unavailable)
+            }
+        }
+        val trigger = if (isRefreshPending) RequestTrigger.MANUAL else RequestTrigger.AUTO
+        isRefreshPending = false
+        requestedTabs.toList().forEach { loadTab(it, trigger) }
+    }
+
+    /** Loads [tab] from its selected source; the company profile tab also loads the header's profile when it is another source. */
+    private fun loadTab(tab: DetailTab, trigger: RequestTrigger) {
+        val state = screenState.value
+        if (state.sourceOptions is SourceOptions.Loading) return
+        val selected = state.selectedSourceOf(tab)
+        if (!state.hasNoSource(tab)) load(tab, selected, trigger)
+        val headerSource = state.headerSource()
+        if (tab == DetailTab.COMPANY_PROFILE && (state.hasNoSource(tab) || headerSource != selected)) {
+            loadCompanyProfile(headerSource, trigger)
         }
     }
 
-    private fun loadPriceAndRatios(trigger: RequestTrigger) = launchLoad(
-        key = LoadKey.Tab(DetailTab.PRICE_AND_RATIOS),
-        update = { state, transform -> state.copy(priceAndRatios = transform(state.priceAndRatios)) },
-        request = { companyRepository.getPriceAndRatios(symbol, trigger = trigger) },
-    )
-
-    private fun loadDividends(trigger: RequestTrigger) = launchLoad(
-        key = LoadKey.Tab(DetailTab.DIVIDENDS),
-        update = { state, transform -> state.copy(dividends = transform(state.dividends)) },
-        request = { companyRepository.getDividends(symbol, trigger = trigger) },
-    )
-
-    private fun loadCompanyProfile(trigger: RequestTrigger) {
-        val tagChangesAtRequest = screenState.value.tagChanges
-        launchLoad(
-            key = LoadKey.Tab(DetailTab.COMPANY_PROFILE),
-            update = { state, transform -> state.copy(companyProfile = transform(state.companyProfile)) },
-            request = { companyRepository.getCompanyProfile(symbol, trigger = trigger) },
-            onLoaded = { state, data -> if (state.tagChanges == tagChangesAtRequest) state.copy(tags = data.tags) else state },
-        )
+    private fun dropResultsOfOtherSources() {
+        val state = screenState.value
+        val refreshed = DetailTab.entries.associateWith(state::refreshedSourcesOf)
+        loadJobs.keys.filterNot { it.source in refreshed.getValue(it.tab) }.forEach { loadJobs.remove(it)?.cancel() }
+        screenState.update {
+            it.copy(
+                priceAndRatios = it.priceAndRatios.filterKeys { source -> source in refreshed.getValue(DetailTab.PRICE_AND_RATIOS) },
+                dividends = it.dividends.filterKeys { source -> source in refreshed.getValue(DetailTab.DIVIDENDS) },
+                balanceSheets = it.balanceSheets.filterKeys { source -> source in refreshed.getValue(DetailTab.BALANCE_SHEET) },
+                companyProfiles = it.companyProfiles.filterKeys { source -> source in refreshed.getValue(DetailTab.COMPANY_PROFILE) },
+            )
+        }
     }
 
-    private fun loadBalanceSheet(source: SourceId?, trigger: RequestTrigger) = launchLoad(
-        key = LoadKey.BalanceSheetOf(source),
-        update = { state, transform ->
-            state.copy(balanceSheets = state.balanceSheets + (source to transform(state.balanceSheets[source] ?: TabData())))
-        },
-        request = { companyRepository.getBalanceSheet(symbol, source, trigger).toView() },
-    )
+    private fun load(tab: DetailTab, source: SourceId?, trigger: RequestTrigger) {
+        val key = LoadKey(tab, source)
+        when (tab) {
+            DetailTab.PRICE_AND_RATIOS -> launchLoad(
+                key = key,
+                update = { state, transform -> state.copy(priceAndRatios = state.priceAndRatios.updated(source, transform)) },
+                request = { companyRepository.getPriceAndRatios(symbol, source, trigger) },
+            )
+            DetailTab.DIVIDENDS -> launchLoad(
+                key = key,
+                update = { state, transform -> state.copy(dividends = state.dividends.updated(source, transform)) },
+                request = { companyRepository.getDividends(symbol, source, trigger) },
+            )
+            DetailTab.BALANCE_SHEET -> launchLoad(
+                key = key,
+                update = { state, transform -> state.copy(balanceSheets = state.balanceSheets.updated(source, transform)) },
+                request = { companyRepository.getBalanceSheet(symbol, source, trigger).toView() },
+            )
+            DetailTab.COMPANY_PROFILE -> loadCompanyProfile(source, trigger)
+        }
+    }
 
-    private suspend fun loadBalanceSheetSources() {
-        val sources = balanceSheetSources.await()
-        screenState.update { it.copy(balanceSheetSources = sources) }
+    private fun loadCompanyProfile(source: SourceId?, trigger: RequestTrigger) {
+        val tagChangesAtRequest = screenState.value.tagChanges
+        launchLoad(
+            key = LoadKey(DetailTab.COMPANY_PROFILE, source),
+            update = { state, transform -> state.copy(companyProfiles = state.companyProfiles.updated(source, transform)) },
+            request = { companyRepository.getCompanyProfile(symbol, source, trigger) },
+            onLoaded = { state, data -> if (state.tagChanges == tagChangesAtRequest) state.copy(tags = data.tags) else state },
+        )
     }
 
     private fun <T> launchLoad(
@@ -341,6 +404,9 @@ class DetailViewModel @AssistedInject constructor(
             }
         }
     }
+
+    private fun <T> Map<SourceId?, TabData<T>>.updated(source: SourceId?, transform: (TabData<T>) -> TabData<T>) =
+        this + (source to transform(this[source] ?: TabData()))
 
     private fun <T> TabData<T>.loadedWith(result: ApiResult<T>): TabData<T> = when (result) {
         is ApiResult.Success -> TabData(value = result.value)
@@ -361,22 +427,19 @@ class DetailViewModel @AssistedInject constructor(
     ): DetailUiState {
         val inWatchlist = symbol in watchlistSymbols || (watchlist == null && route.initiallyInWatchlist)
         val tags = if (inWatchlist) screen.tags ?: watchlist?.firstOrNull { it.symbol == symbol }?.tags.orEmpty() else emptyList()
+        val headerProfile = screen.headerProfile()
+        val priceAndRatios = screen.tabState(DetailTab.PRICE_AND_RATIOS, screen.priceAndRatios)
         return DetailUiState(
             symbol = symbol,
-            header = screen.companyProfile.value?.profile?.toIdentity() ?: route.initialCompany,
-            homeExchange = screen.companyProfile.value?.profile?.homeExchange == true,
-            headerQuote = screen.priceAndRatios.value?.quote ?: rowMarketData?.quote,
+            header = headerProfile?.toIdentity() ?: route.initialCompany,
+            homeExchange = headerProfile?.homeExchange == true,
+            headerQuote = priceAndRatios.data.value?.quote ?: rowMarketData?.quote,
             inWatchlist = inWatchlist,
             selectedTab = screen.selectedTab,
-            priceAndRatios = screen.priceAndRatios,
-            dividends = screen.dividends,
-            balanceSheet = BalanceSheetTabState(
-                sources = screen.balanceSheetSources,
-                selectedSource = screen.selectedSource,
-                defaultSource = screen.balanceSheets[null]?.value?.meta?.source,
-                data = screen.balanceSheets[screen.selectedSource] ?: TabData(),
-            ),
-            companyProfile = screen.companyProfile,
+            priceAndRatios = priceAndRatios,
+            dividends = screen.tabState(DetailTab.DIVIDENDS, screen.dividends),
+            balanceSheet = screen.tabState(DetailTab.BALANCE_SHEET, screen.balanceSheets),
+            companyProfile = screen.tabState(DetailTab.COMPANY_PROFILE, screen.companyProfiles),
             tags = TagsUiState(
                 tags = tags,
                 isEditable = inWatchlist,
@@ -385,9 +448,19 @@ class DetailViewModel @AssistedInject constructor(
                 suggestions = screen.profileTags.filterNot { TagRules.contains(tags, it) },
                 dialogError = screen.tagDialogError,
             ),
-            sourceNames = (SourceRepository.FALLBACK_BALANCE_SHEET_SOURCES + screen.balanceSheetSources + sources.orEmpty())
-                .associate { it.id to it.name },
+            sourceNames = sources.orEmpty().associate { it.id to it.name } +
+                DetailTab.entries.flatMap(screen::optionsOf).associate { it.id to it.name },
             message = screen.message,
+        )
+    }
+
+    private fun <T> ScreenState.tabState(tab: DetailTab, data: Map<SourceId?, TabData<T>>): SourceTabState<T> {
+        val selected = selectedSourceOf(tab)
+        return SourceTabState(
+            options = optionsOf(tab),
+            selectedSource = selected,
+            hasNoSource = hasNoSource(tab),
+            data = if (sourceOptions is SourceOptions.Loading) TabData(isLoading = true) else data[selected] ?: TabData(),
         )
     }
 
@@ -405,4 +478,12 @@ class DetailViewModel @AssistedInject constructor(
     private companion object {
         const val LOGO_PATH = "/logos/"
     }
+}
+
+/** Dropdown options of [tab]. */
+fun CompanySources.of(tab: DetailTab): List<SourceOption> = when (tab) {
+    DetailTab.PRICE_AND_RATIOS -> priceRatios
+    DetailTab.DIVIDENDS -> dividends
+    DetailTab.BALANCE_SHEET -> balanceSheet
+    DetailTab.COMPANY_PROFILE -> profile
 }

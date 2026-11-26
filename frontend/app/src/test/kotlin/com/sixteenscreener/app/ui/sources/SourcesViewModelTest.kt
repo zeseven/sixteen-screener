@@ -55,7 +55,7 @@ class SourcesViewModelTest {
     fun `cached sources are shown at once`() = runTest {
         apiClient.getSources = { ApiResult.Success(listOf(finnhub)) }
         repository = DefaultSourceRepository(apiClient, profileRepository, backgroundScope)
-        repository.getBalanceSheetSources()
+        repository.refresh()
 
         val viewModel = viewModel()
 

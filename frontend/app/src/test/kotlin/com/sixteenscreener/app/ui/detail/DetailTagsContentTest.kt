@@ -68,7 +68,7 @@ class DetailTagsContentTest {
                         onBack = {},
                         onRefresh = {},
                         onTabSelected = {},
-                        onSourceSelected = {},
+                        onSourceSelected = { _, _ -> },
                         onToggleWatchlist = {},
                         onMessageShown = { events += "shown" },
                         tagActions = TagActions(
@@ -92,7 +92,7 @@ class DetailTagsContentTest {
         header = apple,
         inWatchlist = tags.isEditable,
         selectedTab = selectedTab,
-        companyProfile = companyProfile,
+        companyProfile = SourceTabState(data = companyProfile),
         tags = tags,
     )
 
