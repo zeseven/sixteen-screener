@@ -148,6 +148,18 @@ object KnownExchangeCodes {
         "SN" to "SN",
     )
 
+    private val yahooSuffixesByCode: Map<String, String> = listOf(
+        "AS", "BR", "PA", "LS", "IR", "MI", "MC",
+        "DE", "F", "BE", "DU", "HM", "HA", "MU", "SG",
+        "VI", "SW", "L", "IL",
+        "CO", "ST", "HE", "OL", "IC",
+        "WA", "PR", "BD", "AT", "TL", "RG", "VS", "IS",
+        "TO", "V", "NE", "CN",
+        "T", "HK", "KS", "KQ", "TW", "TWO", "SS", "SZ", "NS", "BO", "SI", "BK", "JK", "KL",
+        "AX", "NZ", "TA", "SR", "JO",
+        "SA", "MX", "BA", "SN",
+    ).associateWith { it }
+
     /** All known exchange codes. */
     val codes: Set<ExchangeCode> = (micsByCode.keys + ExchangeCode.US.value).map(::ExchangeCode).toSet()
 
@@ -165,4 +177,11 @@ object KnownExchangeCodes {
      * `US` for [ExchangeCode.US]; null for exchanges EODHD doesn't cover and for unknown codes (ADR-083).
      */
     fun eodhdCodeOf(code: ExchangeCode): String? = eodhdCodesByCode[code.value]
+
+    /**
+     * Yahoo Finance suffix of the exchange identified by [code], used to build Yahoo symbols (`SAP.DE` is `SAP.DE`);
+     * an empty suffix for [ExchangeCode.US]; null for exchanges without a known Yahoo suffix and for unknown codes (ADR-088).
+     */
+    fun yahooSuffixOf(code: ExchangeCode): String? =
+        if (code == ExchangeCode.US) "" else yahooSuffixesByCode[code.value]
 }
