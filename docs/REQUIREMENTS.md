@@ -24,6 +24,7 @@ Finnhub.io, 60 calls/minute
 Tiingo, 50 calls/hour (up to 1,000/day, max 500 unique symbols/mo)
 Alpha Vantage, 25 calls/day (5 calls/min)
 EODHD, 20 calls/day
+Yahoo Finance, no official API and no fixed limits (read through the community library `yfinance`). Used only as the last option for data the other sources don't provide (mainly dividends and company profiles of European companies). It is never a default source and is called only on a manual refresh. It may stop working at any time without notice.
 
 ### Company logos
 Download company logos in svg format from logoapi.sh
@@ -87,6 +88,7 @@ On the detailed screen, ratios that make an indicator are shown in the indicator
 
 ## Users and profiles
 This app has a limited amount of users (friends and family). It is not designed for commercial use nor for a high load.
+Some sources (Yahoo Finance) may be used only for personal, non-commercial purposes; such sources must be removed before the app is made public or commercial.
 All company data can be cached and shared between users.
 Watchlist and user tags are per-user data and should be stored individually per user (profile).
 When mobile app first starts, it asks for a profile name, which is stored and used on next runs (without asking again).

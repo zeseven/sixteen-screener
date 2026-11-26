@@ -4,7 +4,7 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 (backend + Android app). A feature is checked once it is implemented and covered by tests.
 
 - **Alpha** - end-to-end working app with a minimal set of sources: watchlist, search, detailed screen, profiles.
-- **Beta** - source roles (search, US, international) with EODHD for international stocks, manual-only sources, indicators, dividends, tags.
+- **Beta** - source roles (search, US, international) with EODHD for international stocks, manual-only sources, Yahoo Finance as a manual-only last-option source through a proxy service, indicators, dividends, tags.
 - **RC** - all sources, switching of default sources, source comparison, settings completeness, robustness, polishing and release readiness.
 
 ---
@@ -130,9 +130,24 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 - [x] Sources screen: never-resetting total call counter for sources without request limits (Finnhub logos)
 - [x] First backup logo source when logoapi.sh has no SVG logo, before Finnhub logos: PNG logo from `https://eodhd.com/img/logos/{EODHD exchange code}/{ticker}.png` (`US/FISI`, `XETRA/SAP`; ticker built like an EODHD symbol; no EODHD API calls and no API token), stored in the bucket under `eodhd-logos/`; separate source without request limits, with a never-resetting total call counter; symbols whose exchange has no EODHD code are skipped
 
+### Yahoo Finance source
+Implemented together with the source dropdown of the detailed screen (see Detailed screen): Yahoo Finance is never a default source, so the dropdown is the only way to reach it.
+- [ ] Yahoo proxy: Python service in `yahoo-proxy` (uv, FastAPI, `yfinance` pinned) with endpoints for quote, key statistics, dividends, company profile and annual balance sheet by Yahoo symbol, and `GET /health`
+- [ ] Yahoo proxy: own JSON contract independent of `yfinance` result shapes; minor currency units (`GBp`, `ZAc`, `ILA`) converted into the main unit; every amount returned with its currency
+- [ ] Yahoo proxy: Yahoo errors mapped to `404` (no data), `429` (rate-limited, including a failed crumb request), `502` (other failure or unexpected result shape), `504` (timeout)
+- [ ] Yahoo proxy: pytest tests against recorded `yfinance` results, no Yahoo calls
+- [ ] Yahoo proxy: Cloud Run service with min instances 0, max instances 1 and startup CPU boost; own runtime service account without roles; `roles/run.invoker` granted to the backend's runtime service account only
+- [ ] `yahoo-proxy/README.md` (local run, tests, Cloud Build and deploy commands, `yfinance` upgrade) and `yahoo-proxy/SETUP.md` (service account, IAM, Artifact Registry access)
+- [ ] Backend: Yahoo client calling the proxy with a Google-signed ID token from the metadata server (cached until shortly before expiry); proxy URL from `YAHOO_PROXY_URL`
+- [ ] Backend: `yahoo` source configured with roles `US` and `INTERNATIONAL`, automatic requests off, never a default source, limits 20 per minute and 200 per day
+- [ ] Backend: Yahoo suffix per symbol suffix in the static exchange table, used to build Yahoo symbols (US dots become dashes); `NOT_SUPPORTED` without a request for exchanges without a Yahoo suffix
+- [ ] Backend: Yahoo key statistics mapped to the shared ratio codes (fractions of percent ratios multiplied by 100); dividend yield from the last 12 months of dividends and the latest cached Yahoo quote
+- [ ] Backend: fire-and-forget `GET /health` warm-up of the proxy on an `AUTO` request of Yahoo data that doesn't call Yahoo (at most once per minute per backend instance)
+- [ ] Sources screen and source dropdowns: Yahoo Finance listed last
+
 ### Detailed screen
 - [x] Dividends tab (EODHD for international stocks; no dividends for US stocks until a US dividends source is added)
-- [ ] Source dropdown on each tab, limited to the sources configured for the company's market; one source displayed at a time
+- [ ] Source dropdown on each tab, limited to the sources configured for the company's market; one source displayed at a time (implemented together with the Yahoo Finance source)
 - [x] Hint to refresh when a source with automatic requests off has no cached data (`NOT_REQUESTED`)
 
 ### Watchlist screen

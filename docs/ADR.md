@@ -922,3 +922,20 @@ The static exchange table (ADR-062) gets an ISO 3166-1 alpha-2 country and a mai
 **Decision:** "EODHD logos" (`eodhd-logos`) is a separate logo source, tried after logoapi.sh and before Finnhub logos (ADR-069). The path uses the EODHD exchange code of the static exchange table and the ticker with dots replaced by dashes, as for EODHD symbols; a symbol whose exchange has no EODHD code is a miss without a request. Downloads use `GET`, are limited to 1 MB and must be PNG files, like Finnhub logos. Logos are stored in the bucket under `eodhd-logos/`; all stored logos are looked up before any download. The source has no request limits and a never-resetting total call counter.
 
 **Consequences:** European companies get a real logo more often. Logos stored under `finnhub-logos/` keep being served; EODHD is asked only for companies with no stored logo. The path is undocumented and may change, in which case misses are recorded and Finnhub logos is tried next.
+
+## ADR-088: Yahoo Finance as a manual-only source through a Python proxy service
+
+**Date:** 2026-11-26
+**Status:** Accepted
+
+**Context:** Even with all planned sources (Finnhub, EODHD, FMP, Tiingo, Alpha Vantage) on their free plans, dividend histories and company profiles of European companies are missing, and US companies have no dividends source. Paid plans that cover them still have gaps. Yahoo Finance has the data but no official API and protects its web endpoints against automated clients (cookie and crumb handshake, rate limiting by IP, TLS fingerprint checks). The community library `yfinance` follows these changes and is fixed quickly when Yahoo changes something, but it is Python-only; the JVM libraries are stale. Re-implementing the Yahoo protocol in the Kotlin backend avoids a second service, but every Yahoo change would need a backend fix, and a browser-like TLS fingerprint is not practical with Ktor CIO.
+
+**Decision:**
+- Yahoo Finance is read through a separate Cloud Run service, the Yahoo proxy (`yahoo-proxy` folder, Python, `uv`, FastAPI, `yfinance` pinned). The backend has a Yahoo client like any other source, calling the proxy instead of Yahoo.
+- The proxy is stateless and on demand: no cache, no database, no scheduler. Caching, limits, counters and the last call outcome stay in the backend. The proxy returns its own JSON contract, converts minor currency units and maps Yahoo errors to `404`, `429`, `502` and `504`.
+- Access is limited by Cloud Run IAM to the backend's runtime service account, which authenticates with an ID token from the metadata server.
+- The proxy runs with min instances 0, max instances 1 and startup CPU boost. Its cold start is accepted, because Yahoo is called only on a manual refresh; the backend warms the proxy up with a fire-and-forget health request when Yahoo data is requested without a Yahoo call.
+- The `yahoo` source serves `US` and `INTERNATIONAL`, has automatic requests off, is never a default source, is listed last and has limits of 20 requests per minute and 200 per day.
+- Yahoo is reached only through the source dropdown of the detailed screen tabs, so the source and the dropdown are implemented together. No automatic fallback to Yahoo when the default source answers `NOT_SUPPORTED` (one source per role, ADR-083).
+
+**Consequences:** European companies can get dividends, profiles, ratios and balance sheets, and US companies can get dividends, after selecting Yahoo in the source dropdown. Most Yahoo changes are fixed by upgrading `yfinance` and redeploying the proxy; changes of `yfinance` result shapes need a proxy change only. A second service has to be built, deployed and kept up to date. Yahoo may block the Cloud Run egress addresses or break the library for days or weeks; the source then fails like any other, with cached data shown. The data is used for personal, non-commercial purposes only, in line with the user base of the app; a commercial use would require removing this source.

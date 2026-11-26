@@ -2,6 +2,7 @@
 |- backend (Kotlin application, deployed to GCP as a Cloud Run service)
 |-docs (project documentation, including AI instructions)
 |-frontend (Android application)
+|-yahoo-proxy (Python application, deployed to GCP as a second Cloud Run service; the only caller is the backend)
 
 ### Spec
 Both frontend and backend use the same file docs/openapi.yaml as a source of truth for endpoints spec.
@@ -53,9 +54,29 @@ The service account key is bundled into the APK at build time and is never store
 Database: Firestore, in a named database used only by the backend (`sixteen-screener`), not the project's `(default)` database. Cached data is stored with Firestore TTL feature to be automatically removed.
 Secret Manager is used for tokens and credentials. Cloud Run exposes them to the container as environment variables (`--set-secrets`); the backend uses no Secret Manager client library.
 
+## Yahoo proxy
+Yahoo Finance has no official API. Its data is read with the community library `yfinance`, which follows the changes of the Yahoo web endpoints (cookie and crumb handshake, browser-like TLS fingerprint through `curl_cffi`). The library is Python-only, so it runs in a separate service, the Yahoo proxy, and the backend talks to the proxy instead of Yahoo (ADR-088). When Yahoo changes something, the fix is usually a `yfinance` version bump and a redeploy of the proxy, without changes to the backend.
+
+Language: Python 3, project and dependencies managed with `uv` (`pyproject.toml` and `uv.lock`, `yfinance` pinned to an exact version).
+Web framework: FastAPI served by uvicorn.
+Tests: pytest, run against recorded `yfinance` results; no test calls Yahoo.
+Deployed as: Cloud Run service (`sixteen-screener-yahoo`) in a Docker container, built with Cloud Build and pushed to the same Artifact Registry repository as the backend.
+Folder: `yahoo-proxy`, with its own `README.md` (local run, tests, build and deploy commands, dependency update) and `SETUP.md` (one-time configuration: runtime service account, IAM binding of the backend's service account, Artifact Registry access of the build service account).
+
+The proxy works on demand only: it has no scheduler, no cache, no database and no state other than the Yahoo session `yfinance` keeps in memory. It is called only by the backend, and the backend calls it only for manual requests (see Yahoo Finance under Source roles). Caching, request limits, counters and the last call outcome stay in the backend, as for every other source.
+
+The proxy exposes one read-only endpoint per data type, taking a Yahoo symbol: quote, key statistics (ratios), dividends, company profile and annual balance sheet. Its responses follow a JSON contract owned by the proxy (described in `yahoo-proxy/README.md`), not the shape of `yfinance` results, so a change of `yfinance` result shapes is absorbed in the proxy. Yahoo amounts in minor currency units (`GBp`, `ZAc`, `ILA`) are converted by the proxy into the main unit (GBP, ZAR, ILS), and every amount is returned together with its currency.
+Errors are mapped to status codes the backend already handles: `404` when Yahoo has no data for the symbol, `429` when Yahoo rate-limits the proxy (including a failed crumb request), `502` for any other Yahoo failure or an unexpected result shape, `504` when Yahoo doesn't answer within the proxy's timeout. A `GET /health` endpoint answers without calling Yahoo.
+
+Access: Cloud Run IAM only. The proxy runs as its own service account with no roles; only the backend's runtime service account has `roles/run.invoker` on it (the frontend app's service account and the developer's account have none, except for the developer's account during manual checks). The backend authenticates with a Google-signed ID token for the proxy URL as audience, obtained from the Cloud Run metadata server and reused until shortly before it expires; no Google auth library is used. The proxy URL is a backend setting (`YAHOO_PROXY_URL`).
+
+Scaling: min instances = 0, max instances = 1, startup CPU boost. One instance keeps one Yahoo session and keeps the Yahoo request rate predictable; it also caps the cost. A cold start of the proxy (a few seconds, mostly loading `pandas`) is accepted: the proxy is called only on a manual refresh, usually when the backend is already warm. To hide most of it, an `AUTO` request of Yahoo data that doesn't call Yahoo makes the backend send a fire-and-forget `GET /health` to the proxy (at most once per minute per backend instance), so the proxy is warm by the time the user taps refresh. The backend's Yahoo timeout is long enough to include a cold start.
+
+Dependency updates: when the connection indicator of the Yahoo source shows repeated errors, or a new `yfinance` release is out, `yfinance` is upgraded with `uv`, the proxy tests are run and the proxy is redeployed (commands in `yahoo-proxy/README.md`).
+
 ## Hosting
-Backend lives in Google cloud (GCP).
-Backend image is built with Cloud Build and pushed to Artifact Registry, then deployed as Cloud Run service; gcloud cli commands are described in backend's README.
+Backend and Yahoo proxy live in Google cloud (GCP).
+Backend and Yahoo proxy images are built with Cloud Build and pushed to Artifact Registry, then deployed as Cloud Run services; gcloud cli commands are described in the README of each service.
 
 ## Profiles
 Each profile has a UUID assigned by the backend when the profile is created; the profile name is stored as a string field and may contain any characters.
@@ -91,7 +112,7 @@ Sources differ in request limits and in the data their plans provide, so the bac
 The role of a company is taken from its exchange, so it differs from the market (a company of an exchange outside the US and EU markets has no market but has the `INTERNATIONAL` role).
 
 Each source is configured in the application properties with:
-- `roles` - the roles it can serve (Finnhub: `SEARCH`, `US`; EODHD: `INTERNATIONAL`). SEC EDGAR and the logo sources serve no role: SEC EDGAR is an additional balance sheet source for US companies, the logo sources are used only for logos.
+- `roles` - the roles it can serve (Finnhub: `SEARCH`, `US`; EODHD: `INTERNATIONAL`; Yahoo Finance: `US`, `INTERNATIONAL`). SEC EDGAR and the logo sources serve no role: SEC EDGAR is an additional balance sheet source for US companies, the logo sources are used only for logos.
 - `automaticRequests` - whether the source may be called without a manual request of the user (on for Finnhub, off for EODHD).
 A `defaultSources` setting names the default source of each role (`search = finnhub`, `us = finnhub`, `international = eodhd`). The configuration is validated on start: each default source must be enabled and configured for its role.
 Every profile uses the configured default sources; profiles store none, and switching is not implemented yet. When switching is added, a profile stores its own default source per role, limited to the sources configured for that role, and falls back to the configured default.
@@ -113,6 +134,17 @@ In both cases a reached request limit, a failure or a timeout returns the cached
 The free plan provides delayed quotes (with the previous close) and dividends of the last year for global exchanges; ratios, company profiles and balance sheets are not provided (`NOT_SUPPORTED` without a request). Limits: 20 requests per day and 20 per minute; a `402` response (daily limit reached) is handled like a `429`.
 An EODHD symbol is built from the ticker and the EODHD exchange code of the symbol suffix in the static exchange table (`SAP.DE` is `SAP.XETRA`). Dots in tickers become dashes (`BRK.B` is `BRK-B`). A symbol whose exchange has no EODHD code is answered with `NOT_SUPPORTED` without a request. No symbol lists are downloaded from EODHD (`directoryExchanges = []`). The API token is sent in the `Authorization: Bearer` header, so it never appears in logged URLs.
 The quote price is the `close` field in the currency of the static exchange table; prices of London (`LSE`) and Johannesburg (`JSE`) come in pence and ZA cents and are divided by 100 into GBP and ZAR; the previous close of the response is not used (the previous price comes from the quote history, as for other sources). Dividends of the last year are requested; the dividend yield is the sum of the last 12 months of dividends divided by the latest cached quote of the same source, null without a quote or when the currencies differ.
+
+### Yahoo Finance
+Yahoo Finance (`yahoo`) is the last option for data the other sources don't provide, mainly dividends and company profiles of European companies and dividends of US companies. It is unofficial and may stop working at any time, so nothing depends on it:
+- the backend's Yahoo client calls the Yahoo proxy (see Yahoo proxy), never Yahoo itself;
+- it is never a default source; it is used only when selected in the source dropdown of a detailed screen tab, where it is listed last;
+- automatic requests are off: it is never called for the watchlist, for adding a company or for opening the detailed screen, only by a manual refresh, and only when its cached data is missing or older than 1 hour;
+- low request limits protect the Yahoo session of the proxy: 20 requests per minute and 200 per day. A `429` of the proxy sets the counters to their limits, like a `429` of any other source;
+- all failures follow the common rules (cached data with a status, '-' without cached data); the connection indicator shows the status code of the proxy.
+It provides quotes, ratios, dividends, company profiles and annual balance sheets for US and international companies (capabilities `QUOTE`, `RATIOS`, `DIVIDENDS`, `BALANCE_SHEET`, `COMPANY_PROFILE`).
+A Yahoo symbol is built from the ticker and the Yahoo suffix of the symbol suffix in the static exchange table (`SAP.DE` is `SAP.DE`, `SHEL.L` is `SHEL.L`; US symbols have no suffix). Dots in US tickers become dashes (`BRK.B` is `BRK-B`). A symbol whose exchange has no Yahoo suffix is answered with `NOT_SUPPORTED` without a request.
+The backend maps a curated set of Yahoo key statistics to the shared ratio codes, as for Finnhub; Yahoo fractions (`0.15`) of percent ratios are multiplied by 100 to match the shared percent unit. The dividend yield is calculated from the dividends of the last 12 months and the latest cached Yahoo quote, as for EODHD.
 
 ## Company logos
 Being downloaded, logos are stored in a GCS bucket.
