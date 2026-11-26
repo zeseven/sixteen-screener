@@ -18,6 +18,8 @@ import java.time.LocalDate
  * @property website company website
  * @property description company description
  * @property logoUrl URL of the company logo image provided by the source
+ * @property securityType security type as provided by the source's profile, e.g. `Common Stock`; null when the profile
+ * doesn't tell it (the type then comes from the exchange directory only)
  */
 data class CompanyProfile(
     val name: String?,
@@ -32,4 +34,5 @@ data class CompanyProfile(
     val website: String?,
     val description: String?,
     val logoUrl: String? = null,
+    val securityType: String? = null,
 )

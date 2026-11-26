@@ -42,6 +42,15 @@ class CachePayloadCodecTest : FunSpec({
         profile shouldBe sampleProfile.copy(logoUrl = null)
     }
 
+    test("the security type of a profile round-trips; profiles cached without it decode without one") {
+        val yahooProfile = sampleProfile.copy(logoUrl = null, securityType = "Common Stock")
+        val encoded = CachePayloadCodec.encode(DataType.COMPANY_PROFILE, yahooProfile)
+
+        encoded["securityType"] shouldBe "Common Stock"
+        CachePayloadCodec.decode(DataType.COMPANY_PROFILE, encoded) shouldBe yahooProfile
+        CachePayloadCodec.decode(DataType.COMPANY_PROFILE, encoded - "securityType").securityType shouldBe null
+    }
+
     test("the logo URL is stored in the profile payload") {
         CachePayloadCodec.encode(DataType.COMPANY_PROFILE, sampleProfile)["logoUrl"] shouldBe sampleProfile.logoUrl
     }

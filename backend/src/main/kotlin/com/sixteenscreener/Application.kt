@@ -20,6 +20,8 @@ import com.sixteenscreener.adapter.outbound.gcs.GcsClientFactory
 import com.sixteenscreener.adapter.outbound.gcs.GcsExchangeDirectoryStore
 import com.sixteenscreener.adapter.outbound.gcs.GcsLogoStorage
 import com.sixteenscreener.adapter.outbound.gcs.GcsPaths
+import com.sixteenscreener.adapter.outbound.gcp.MetadataServerIdTokenProvider
+import com.sixteenscreener.adapter.outbound.http.BearerTokenProvider
 import com.sixteenscreener.adapter.outbound.http.RequestPacer
 import com.sixteenscreener.adapter.outbound.http.SourceHttpCall
 import com.sixteenscreener.adapter.outbound.logoapi.LogoApiClient
@@ -27,6 +29,7 @@ import com.sixteenscreener.adapter.outbound.http.SourceHttpClient
 import com.sixteenscreener.adapter.outbound.secedgar.SecCikResolver
 import com.sixteenscreener.adapter.outbound.secedgar.SecEdgarClient
 import com.sixteenscreener.adapter.outbound.time.SystemClock
+import com.sixteenscreener.adapter.outbound.yahoo.YahooClient
 import com.sixteenscreener.config.AppConfig
 import com.sixteenscreener.config.AppConfigLoader
 import com.sixteenscreener.config.AppConfigLoader.SEC_EDGAR_FILES_BASE_URL
@@ -213,7 +216,8 @@ fun wireServices(config: AppConfig): AppServices {
     val finnhub = finnhubClient(config, httpClient, clock)
     val eodhd = eodhdClient(config, httpClient, clock)
     val secEdgar = secEdgarClient(config, httpClient, FirestoreSecCikRepository(firestore), rateLimiter, clock)
-    val marketDataSources = listOfNotNull<MarketDataSource>(finnhub, eodhd).associateBy { it.id }
+    val yahoo = yahooClient(config, httpClient, clock)
+    val marketDataSources = listOfNotNull<MarketDataSource>(finnhub, eodhd, yahoo).associateBy { it.id }
     val symbolDirectory = marketDataSources[config.defaultSources.search]?.let { source ->
         ExchangeDirectoryService(
             source = source,
@@ -235,7 +239,7 @@ fun wireServices(config: AppConfig): AppServices {
         sourceCallOutcomes = sourceCallOutcomes,
         sourceCallGuard = sourceCallGuard,
         marketDataSources = marketDataSources,
-        balanceSheetSources = listOfNotNull<BalanceSheetSource>(finnhub, secEdgar).associateBy { it.id },
+        balanceSheetSources = listOfNotNull<BalanceSheetSource>(finnhub, secEdgar, yahoo).associateBy { it.id },
         symbolDirectory = symbolDirectory,
         logoTiers = listOf(
             LogoTier(
@@ -275,6 +279,26 @@ private fun eodhdClient(config: AppConfig, httpClient: HttpClient, clock: Clock)
             clock = clock,
         )
     }
+
+private fun yahooClient(config: AppConfig, httpClient: HttpClient, clock: Clock): YahooClient? =
+    config.enabledSources.firstOrNull { it.id == YAHOO }?.let { source ->
+        YahooClient(
+            id = source.id,
+            baseUrl = source.baseUrl,
+            call = SourceHttpCall(
+                client = httpClient,
+                timeout = source.timeout,
+                clock = clock,
+                pacer = source.minRequestInterval?.let(::RequestPacer),
+                bearerToken = proxyIdToken(source.baseUrl, httpClient, clock),
+            ),
+        )
+    }
+
+/** ID token for a proxy deployed on Cloud Run (`https`); none for a proxy run locally (`http`). */
+internal fun proxyIdToken(proxyUrl: String, httpClient: HttpClient, clock: Clock): BearerTokenProvider? =
+    proxyUrl.trimEnd('/').takeIf { it.startsWith("https://") }
+        ?.let { audience -> MetadataServerIdTokenProvider(httpClient, audience, clock) }
 
 private fun secEdgarClient(
     config: AppConfig,
@@ -342,6 +366,7 @@ private val EODHD = SourceId.of("eodhd")
 private val LOGOAPI = SourceId.of("logoapi")
 private val EODHD_LOGOS = SourceId.of("eodhd-logos")
 private val FINNHUB_LOGOS = SourceId.of("finnhub-logos")
+private val YAHOO = SourceId.of("yahoo")
 
 fun Application.module(services: AppServices) {
     configureCallLogging()

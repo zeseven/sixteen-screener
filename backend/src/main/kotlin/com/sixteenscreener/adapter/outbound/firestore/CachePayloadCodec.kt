@@ -120,6 +120,7 @@ object CachePayloadCodec {
             "website" to profile.website,
             "description" to profile.description,
             "logoUrl" to profile.logoUrl,
+            "securityType" to profile.securityType,
         )
 
     private fun decodeProfile(payload: FirestoreMap): CompanyProfile =
@@ -136,5 +137,6 @@ object CachePayloadCodec {
             website = payload.stringOrNull("website"),
             description = payload.stringOrNull("description"),
             logoUrl = payload.stringOrNull("logoUrl"),
+            securityType = payload.stringOrNull("securityType"),
         )
 }

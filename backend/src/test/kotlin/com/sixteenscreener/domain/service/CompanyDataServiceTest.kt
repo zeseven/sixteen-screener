@@ -539,6 +539,31 @@ class CompanyDataServiceTest : FunSpec({
             identity.stock shouldBe false
         }
 
+        test("without a listing type the security type of the source profile is used") {
+            val f = CompanyDataFixture(internationalCapabilities = ALL_MARKET_DATA).apply {
+                directory.notCovered(ExchangeCode("AS"), FINNHUB)
+            }
+            f.international.profiles[AD] = SourceResult.Success(
+                sampleProfile(name = "VanEck AEX ETF").copy(country = "NL", securityType = "ETF"),
+                f.success(),
+            )
+
+            val result = f.service.companyProfile(f.profile.id, AD, source = null, trigger = RequestTrigger.MANUAL)
+
+            result.identity.type shouldBe "ETF"
+            result.identity.stock shouldBe false
+            result.homeExchange shouldBe false
+        }
+
+        test("the security type of the listing wins over the one of the source profile") {
+            val f = fixture()
+            f.profileFromSource("AAPL", sampleProfile().copy(securityType = "Fund"))
+
+            val identity = f.service.companyProfile(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO).identity
+
+            identity.type shouldBe "Common Stock"
+        }
+
         context("home exchange") {
             withData(
                 nameFn = { "${it.symbol} on ${it.mic} (${it.type}) for ${it.country} -> ${it.home}" },

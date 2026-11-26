@@ -31,7 +31,7 @@ interface MarketDataSource {
     /** Price and financial ratios of [symbol]; ratios missing at the source are returned with a null value. */
     suspend fun ratios(symbol: Symbol): SourceResult<Ratios>
 
-    /** Dividends of [symbol] with an ex-date within the last year, newest first. */
+    /** Dividends of [symbol] of the period the source provides (EODHD: the last year, Yahoo Finance: all), newest first. */
     suspend fun dividends(symbol: Symbol): SourceResult<Dividends>
 
     /** Company profile of [symbol]. */

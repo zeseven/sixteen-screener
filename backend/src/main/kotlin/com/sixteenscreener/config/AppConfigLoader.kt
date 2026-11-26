@@ -22,6 +22,7 @@ object AppConfigLoader {
     const val ENV_SEC_EDGAR_USER_AGENT = "SEC_EDGAR_USER_AGENT"
     const val ENV_EODHD_API_KEY = "EODHD_API_KEY"
     const val ENV_STORAGE_EMULATOR_HOST = "STORAGE_EMULATOR_HOST"
+    const val ENV_YAHOO_PROXY_URL = "YAHOO_PROXY_URL"
 
     private const val DEFAULT_TIMEOUT_MILLIS = 5000L
     private const val MAX_PORT = 65535
@@ -37,6 +38,12 @@ object AppConfigLoader {
     private val REQUIRED_ADDITIONAL_BASE_URLS: Map<String, List<String>> = mapOf(
         "sec-edgar" to listOf(SEC_EDGAR_FILES_BASE_URL),
     )
+
+    private val BASE_URL_VARIABLES: Map<String, String> = mapOf(
+        "yahoo" to ENV_YAHOO_PROXY_URL,
+    )
+
+    private val HTTP_URL = Regex("^https?://[^/\\s]+.*$")
 
     private val REQUIRED_SECRETS: Map<String, String> = mapOf(
         "finnhub" to ENV_FINNHUB_API_KEY,
@@ -61,7 +68,8 @@ object AppConfigLoader {
             duplicateIdErrors(sources) +
             defaultSourcesErrors(defaultSources.filterValues { it !in reader.invalidSourceIds }, sources) +
             missingSecretErrors(sources, env) +
-            missingBaseUrlErrors(sources)
+            missingBaseUrlErrors(sources) +
+            baseUrlVariableErrors(sources)
 
         if (errors.isNotEmpty()) throw InvalidConfigurationException(errors)
 
@@ -116,6 +124,17 @@ object AppConfigLoader {
                 .map { "Source '${source.id}' is enabled but $ADDITIONAL_BASE_URLS.$it is not set" }
         }
 
+    private fun baseUrlVariableErrors(sources: List<SourceConfig>): List<String> =
+        sources.filter { it.enabled }.mapNotNull { source ->
+            val variable = BASE_URL_VARIABLES[source.id.value] ?: return@mapNotNull null
+            when {
+                source.baseUrl.isBlank() -> "Source '${source.id}' is enabled but environment variable $variable is not set"
+                !HTTP_URL.matches(source.baseUrl) ->
+                    "Source '${source.id}': $variable '${source.baseUrl}' is not an http or https URL"
+                else -> null
+            }
+        }
+
     private class ConfigReader(private val config: ApplicationConfig, private val env: Map<String, String>) {
         val errors = mutableListOf<String>()
         val invalidSourceIds = mutableSetOf<String>()
@@ -163,7 +182,10 @@ object AppConfigLoader {
             if (id == null) errors += "$label: missing or invalid id"
             val name = block.stringOrNull("name")?.takeIf { it.isNotBlank() }
                 ?: null.also { errors += "$label: missing name" }
-            val baseUrl = block.stringOrNull("baseUrl")?.takeIf { it.isNotBlank() }
+            val baseUrlVariable = rawId?.let(BASE_URL_VARIABLES::get)
+            val baseUrl = baseUrlVariable?.let { env.secret(it) }
+                ?: block.stringOrNull("baseUrl")?.takeIf { it.isNotBlank() }
+                ?: (if (baseUrlVariable != null) "" else null)
                 ?: null.also { errors += "$label: missing baseUrl" }
             val additionalBaseUrls = additionalBaseUrls(block, label)
             val enabled = boolean(block, "enabled", default = true, label)

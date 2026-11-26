@@ -29,6 +29,7 @@ private val FULL_ENV = mapOf(
     "FINNHUB_API_KEY" to "finnhub-key",
     "SEC_EDGAR_USER_AGENT" to "Sixteen Screener test@example.com",
     "EODHD_API_KEY" to "eodhd-key",
+    "YAHOO_PROXY_URL" to "https://sixteen-screener-yahoo-abc-ew.a.run.app",
 )
 
 private const val SEC_FILES = "additionalBaseUrls = { files = \"https://www.sec.test\" }"
@@ -78,7 +79,7 @@ class AppConfigLoaderTest : FunSpec({
             us = SourceId.of("finnhub"),
             international = SourceId.of("eodhd"),
         )
-        config.sources.map { it.id.value } shouldContainExactly listOf("finnhub", "eodhd", "sec-edgar", "logoapi", "eodhd-logos", "finnhub-logos")
+        config.sources.map { it.id.value } shouldContainExactly listOf("finnhub", "eodhd", "sec-edgar", "yahoo", "logoapi", "eodhd-logos", "finnhub-logos")
         config.secrets.finnhubApiKey shouldBe "finnhub-key"
         config.secrets.secEdgarUserAgent shouldBe "Sixteen Screener test@example.com"
         config.secrets.eodhdApiKey shouldBe "eodhd-key"
@@ -130,7 +131,7 @@ class AppConfigLoaderTest : FunSpec({
         config.source(SourceId.of("sec-edgar"))!!.roles shouldBe emptySet()
         eodhd.limits shouldContainExactly listOf(RequestLimit(LimitInterval.DAY, 20), RequestLimit(LimitInterval.MINUTE, 20))
         eodhd.directoryExchanges shouldBe emptySet()
-        config.manualOnlySources shouldBe setOf(SourceId.of("eodhd"))
+        config.manualOnlySources shouldBe setOf(SourceId.of("eodhd"), SourceId.of("yahoo"))
 
         val secEdgar = config.source(SourceId.of("sec-edgar"))!!
         secEdgar.baseUrl shouldBe "https://data.sec.gov"
@@ -293,6 +294,58 @@ class AppConfigLoaderTest : FunSpec({
             loadErrors(configWith(source("finnhub", roles = ALL_ROLES, extra = "minRequestIntervalMillis = \"$raw\""))) shouldContainExactly
                 listOf("Source 'finnhub': invalid minRequestIntervalMillis '$raw'")
         }
+    }
+
+    test("the bundled Yahoo Finance source: manual only, never a default, paced, counted per day without a limit") {
+        val config = AppConfigLoader.load(ApplicationConfig("application.conf"), FULL_ENV)
+
+        val yahoo = config.source(SourceId.of("yahoo"))!!
+        yahoo.name shouldBe "Yahoo Finance"
+        yahoo.enabled shouldBe true
+        yahoo.baseUrl shouldBe "https://sixteen-screener-yahoo-abc-ew.a.run.app"
+        yahoo.capabilities shouldBe setOf(
+            Capability.QUOTE,
+            Capability.RATIOS,
+            Capability.DIVIDENDS,
+            Capability.BALANCE_SHEET,
+            Capability.COMPANY_PROFILE,
+        )
+        yahoo.roles shouldBe setOf(SourceRole.US, SourceRole.INTERNATIONAL)
+        yahoo.automaticRequests shouldBe false
+        yahoo.limits shouldContainExactly listOf(RequestLimit(LimitInterval.DAY, null))
+        yahoo.timeout shouldBe 40.seconds
+        yahoo.minRequestInterval shouldBe 1000.milliseconds
+        config.manualOnlySources shouldContain SourceId.of("yahoo")
+        config.defaultSources.rolesOf(SourceId.of("yahoo")) shouldBe emptyList()
+        config.sources.filter { it.roles.isNotEmpty() || Capability.BALANCE_SHEET in it.capabilities }.last().id shouldBe
+            SourceId.of("yahoo")
+    }
+
+    test("fails when the Yahoo proxy URL is missing") {
+        loadErrors(ApplicationConfig("application.conf"), FULL_ENV - "YAHOO_PROXY_URL") shouldContainExactly
+            listOf("Source 'yahoo' is enabled but environment variable YAHOO_PROXY_URL is not set")
+        loadErrors(ApplicationConfig("application.conf"), FULL_ENV + ("YAHOO_PROXY_URL" to " ")) shouldContainExactly
+            listOf("Source 'yahoo' is enabled but environment variable YAHOO_PROXY_URL is not set")
+    }
+
+    test("fails when the Yahoo proxy URL is not an http or https URL") {
+        loadErrors(ApplicationConfig("application.conf"), FULL_ENV + ("YAHOO_PROXY_URL" to "yahoo-proxy:8080")) shouldContainExactly
+            listOf("Source 'yahoo': YAHOO_PROXY_URL 'yahoo-proxy:8080' is not an http or https URL")
+    }
+
+    test("a local Yahoo proxy URL over http is accepted") {
+        val config = AppConfigLoader.load(ApplicationConfig("application.conf"), FULL_ENV + ("YAHOO_PROXY_URL" to "http://localhost:8099"))
+
+        config.source(SourceId.of("yahoo"))!!.baseUrl shouldBe "http://localhost:8099"
+    }
+
+    test("a disabled Yahoo source needs no proxy URL") {
+        val config = AppConfigLoader.load(
+            configWith(source("finnhub", roles = ALL_ROLES), "{ id = yahoo, name = Yahoo, enabled = false, capabilities = [QUOTE] }"),
+            FULL_ENV - "YAHOO_PROXY_URL",
+        )
+
+        config.source(SourceId.of("yahoo"))!!.baseUrl shouldBe ""
     }
 
     test("fails when the EODHD API key is missing") {

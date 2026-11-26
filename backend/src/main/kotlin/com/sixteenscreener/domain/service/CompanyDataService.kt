@@ -131,7 +131,12 @@ class CompanyDataService(
         val profile = load(key.source, listOf(plan))[key]
         val fetched = profile.data?.takeIf { plan is Fetch<*, *> && profile.status == DataStatus.FRESH }
         if (fetched != null) watchlistCompanies.profileFetched(target.profile, key.source, symbol, fetched)
-        val identity = identities.identify(symbol, target.lookup.listing, target.profile.watchlistEntry(symbol)?.name)
+        val identity = identities.identify(
+            symbol = symbol,
+            listing = target.lookup.listing,
+            fallbackName = target.profile.watchlistEntry(symbol)?.name,
+            fallbackType = profile.data?.securityType,
+        )
         val exchange = identities.exchangeOf(symbol, target.lookup.listing)
         val homeExchange = identity.stock && exchange?.isHomeOf(profile.data?.country) == true
         return CompanyProfileData(
