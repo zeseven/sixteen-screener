@@ -30,6 +30,7 @@ import com.sixteenscreener.adapter.outbound.secedgar.SecCikResolver
 import com.sixteenscreener.adapter.outbound.secedgar.SecEdgarClient
 import com.sixteenscreener.adapter.outbound.time.SystemClock
 import com.sixteenscreener.adapter.outbound.yahoo.YahooClient
+import com.sixteenscreener.adapter.outbound.yahoo.YahooProxyWarmUp
 import com.sixteenscreener.config.AppConfig
 import com.sixteenscreener.config.AppConfigLoader
 import com.sixteenscreener.config.AppConfigLoader.SEC_EDGAR_FILES_BASE_URL
@@ -76,6 +77,7 @@ import com.sixteenscreener.port.outbound.LogoMissRepository
 import com.sixteenscreener.port.outbound.MarketDataSource
 import com.sixteenscreener.port.outbound.ProfileRepository
 import com.sixteenscreener.port.outbound.SecCikRepository
+import com.sixteenscreener.port.outbound.SourceWarmUp
 import com.sixteenscreener.port.outbound.SymbolDirectory
 import io.ktor.client.HttpClient
 import io.ktor.server.application.Application
@@ -100,6 +102,7 @@ class AppServices(
     val balanceSheetSources: Map<SourceId, BalanceSheetSource>,
     val symbolDirectory: SymbolDirectory,
     val logoTiers: List<LogoTier>,
+    val sourceWarmUps: Map<SourceId, SourceWarmUp> = emptyMap(),
     val defaultLogo: ByteArray = bundledDefaultLogo(),
     private val resources: List<AutoCloseable> = emptyList(),
 ) : AutoCloseable {
@@ -133,6 +136,7 @@ class AppServices(
         watchlistCompanies = watchlistCompanies,
         indicatorSettings = indicatorSettings,
         clock = clock,
+        warmUps = sourceWarmUps,
     )
 
     val profileUseCase: ProfileUseCase =
@@ -216,7 +220,10 @@ fun wireServices(config: AppConfig): AppServices {
     val finnhub = finnhubClient(config, httpClient, clock)
     val eodhd = eodhdClient(config, httpClient, clock)
     val secEdgar = secEdgarClient(config, httpClient, FirestoreSecCikRepository(firestore), rateLimiter, clock)
-    val yahoo = yahooClient(config, httpClient, clock)
+    val yahooSource = config.enabledSources.firstOrNull { it.id == YAHOO }
+    val yahooIdToken = yahooSource?.let { proxyIdToken(it.baseUrl, httpClient, clock) }
+    val yahoo = yahooSource?.let { yahooClient(it, yahooIdToken, httpClient, clock) }
+    val yahooWarmUp = yahooSource?.let { YahooProxyWarmUp(httpClient, it.baseUrl, yahooIdToken, clock) }
     val marketDataSources = listOfNotNull<MarketDataSource>(finnhub, eodhd, yahoo).associateBy { it.id }
     val symbolDirectory = marketDataSources[config.defaultSources.search]?.let { source ->
         ExchangeDirectoryService(
@@ -255,7 +262,8 @@ fun wireServices(config: AppConfig): AppServices {
                 provider = finnhubLogoClient(config, httpClient, companyCache, clock),
             ),
         ),
-        resources = listOf(httpClient, storage, firestore),
+        sourceWarmUps = listOfNotNull(yahooWarmUp?.let { YAHOO to it }).toMap(),
+        resources = listOfNotNull(yahooWarmUp, httpClient, storage, firestore),
     )
 }
 
@@ -280,20 +288,18 @@ private fun eodhdClient(config: AppConfig, httpClient: HttpClient, clock: Clock)
         )
     }
 
-private fun yahooClient(config: AppConfig, httpClient: HttpClient, clock: Clock): YahooClient? =
-    config.enabledSources.firstOrNull { it.id == YAHOO }?.let { source ->
-        YahooClient(
-            id = source.id,
-            baseUrl = source.baseUrl,
-            call = SourceHttpCall(
-                client = httpClient,
-                timeout = source.timeout,
-                clock = clock,
-                pacer = source.minRequestInterval?.let(::RequestPacer),
-                bearerToken = proxyIdToken(source.baseUrl, httpClient, clock),
-            ),
-        )
-    }
+private fun yahooClient(source: SourceConfig, idToken: BearerTokenProvider?, httpClient: HttpClient, clock: Clock) =
+    YahooClient(
+        id = source.id,
+        baseUrl = source.baseUrl,
+        call = SourceHttpCall(
+            client = httpClient,
+            timeout = source.timeout,
+            clock = clock,
+            pacer = source.minRequestInterval?.let(::RequestPacer),
+            bearerToken = idToken,
+        ),
+    )
 
 /** ID token for a proxy deployed on Cloud Run (`https`); none for a proxy run locally (`http`). */
 internal fun proxyIdToken(proxyUrl: String, httpClient: HttpClient, clock: Clock): BearerTokenProvider? =

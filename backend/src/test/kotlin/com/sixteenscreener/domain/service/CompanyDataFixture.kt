@@ -38,14 +38,17 @@ import com.sixteenscreener.fakes.InMemorySymbolDirectory
 import com.sixteenscreener.fakes.MutableClock
 import com.sixteenscreener.port.outbound.MarketDataSource
 import com.sixteenscreener.port.outbound.RequestCounterRepository
+import com.sixteenscreener.port.outbound.SourceWarmUp
 import com.sixteenscreener.port.outbound.SymbolDirectory
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.util.concurrent.atomic.AtomicInteger
 
 val FINNHUB: SourceId = SourceId.of("finnhub")
 val SEC_EDGAR: SourceId = SourceId.of("sec-edgar")
 val EODHD: SourceId = SourceId.of("eodhd")
+val YAHOO: SourceId = SourceId.of("yahoo")
 
 val EODHD_CAPABILITIES = setOf(Capability.QUOTE, Capability.DIVIDENDS)
 
@@ -116,6 +119,9 @@ class CompanyDataFixture(
     val directory = InMemorySymbolDirectory()
     val source = FakeMarketDataSource(FINNHUB)
     val international = FakeMarketDataSource(EODHD)
+    val yahoo = FakeMarketDataSource(YAHOO)
+    val yahooBalanceSheets = FakeBalanceSheetSource(YAHOO)
+    val yahooWarmUps = AtomicInteger()
     val finnhubBalanceSheets = FakeBalanceSheetSource(FINNHUB)
     val secBalanceSheets = FakeBalanceSheetSource(SEC_EDGAR)
     val limiter = RateLimiter(
@@ -123,6 +129,7 @@ class CompanyDataFixture(
             FINNHUB to listOf(RequestLimit(LimitInterval.MINUTE, limit)),
             SEC_EDGAR to emptyList(),
             EODHD to listOf(RequestLimit(LimitInterval.DAY, 20)),
+            YAHOO to listOf(RequestLimit(LimitInterval.DAY, null)),
         ),
         countingCounters,
         clock,
@@ -133,13 +140,19 @@ class CompanyDataFixture(
             FINNHUB to capabilities,
             SEC_EDGAR to setOf(Capability.BALANCE_SHEET),
             EODHD to internationalCapabilities,
+            YAHOO to ALL_MARKET_DATA - Capability.SEARCH + Capability.DIVIDENDS,
         ),
         rolesBySource = mapOf(
             FINNHUB to setOf(SourceRole.SEARCH, SourceRole.US),
             SEC_EDGAR to emptySet(),
             EODHD to setOf(SourceRole.INTERNATIONAL),
+            YAHOO to setOf(SourceRole.US, SourceRole.INTERNATIONAL),
         ),
-        manualOnlySources = setOfNotNull(FINNHUB.takeUnless { automaticRequests }, EODHD.takeUnless { internationalAutomaticRequests }),
+        manualOnlySources = setOfNotNull(
+            FINNHUB.takeUnless { automaticRequests },
+            EODHD.takeUnless { internationalAutomaticRequests },
+            YAHOO,
+        ),
     )
     val marketResolver = MarketResolver()
     val identities = CompanyIdentityResolver(marketResolver)
@@ -156,8 +169,8 @@ class CompanyDataFixture(
 
     val service = CompanyDataService(
         catalog = catalog,
-        marketDataSources = mapOf(FINNHUB to marketDataSource(source), EODHD to international),
-        balanceSheetSources = mapOf(FINNHUB to finnhubBalanceSheets, SEC_EDGAR to secBalanceSheets),
+        marketDataSources = mapOf(FINNHUB to marketDataSource(source), EODHD to international, YAHOO to yahoo),
+        balanceSheetSources = mapOf(FINNHUB to finnhubBalanceSheets, SEC_EDGAR to secBalanceSheets, YAHOO to yahooBalanceSheets),
         profiles = profiles,
         symbolDirectory = directory,
         cache = cache,
@@ -170,6 +183,7 @@ class CompanyDataFixture(
         watchlistCompanies = watchlistCompanies,
         indicatorSettings = indicatorSettings,
         clock = clock,
+        warmUps = mapOf(YAHOO to SourceWarmUp { yahooWarmUps.incrementAndGet() }),
     )
 
     val now: Instant get() = clock.now()

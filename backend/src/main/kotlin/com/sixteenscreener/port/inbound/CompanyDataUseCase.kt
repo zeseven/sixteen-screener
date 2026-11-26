@@ -25,6 +25,8 @@ import com.sixteenscreener.domain.model.Symbol
  * capability, or not configured for the role of the company (`US` for US exchanges, `INTERNATIONAL` otherwise), gives
  * `NOT_SUPPORTED` without a call; SEC EDGAR is accepted for the balance sheet of a US company (ADR-083).
  *
+ * An `AUTO` request that doesn't call a source with a warm-up (Yahoo Finance) starts the warm-up in the background (ADR-088).
+ *
  * All operations throw [com.sixteenscreener.domain.model.ResourceNotFoundException] for an unknown profile, an unknown
  * symbol (neither in the exchange directory nor on a not covered exchange of the static exchange table) or an unknown
  * source. When `source` is null, the profile's default source of the company's role is used.

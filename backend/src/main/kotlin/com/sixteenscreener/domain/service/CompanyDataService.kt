@@ -32,6 +32,7 @@ import com.sixteenscreener.port.outbound.Clock
 import com.sixteenscreener.port.outbound.CompanyCache
 import com.sixteenscreener.port.outbound.MarketDataSource
 import com.sixteenscreener.port.outbound.ProfileRepository
+import com.sixteenscreener.port.outbound.SourceWarmUp
 import com.sixteenscreener.port.outbound.SymbolDirectory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
@@ -64,6 +65,7 @@ class CompanyDataService(
     private val indicatorSettings: IndicatorSettingsService,
     private val clock: Clock,
     private val maxConcurrentCalls: Int = DEFAULT_MAX_CONCURRENT_CALLS,
+    private val warmUps: Map<SourceId, SourceWarmUp> = emptyMap(),
 ) : CompanyDataUseCase {
 
     override suspend fun priceAndRatios(
@@ -76,8 +78,9 @@ class CompanyDataService(
         val quoteKey = CacheKey(target.source, symbol, DataType.QUOTE)
         val ratiosKey = CacheKey(target.source, symbol, DataType.RATIOS)
         val cached = cache.getAll(listOf(quoteKey, ratiosKey))
-        val loaded = load(
+        val loaded = loadDetailed(
             target.source,
+            trigger,
             listOf(
                 detailedPlan(quoteKey, cached[quoteKey], trigger) { quoteFetch(quoteKey, it, target.listing) },
                 detailedPlan(ratiosKey, cached[ratiosKey], trigger) { ratiosFetch(ratiosKey, it) },
@@ -100,7 +103,7 @@ class CompanyDataService(
         val quoteKey = CacheKey(target.source, symbol, DataType.QUOTE)
         val cached = if (supports(key)) cache.getAll(listOf(key, quoteKey)) else CacheEntries(emptyMap())
         val plan = detailedPlan(key, cached[key], trigger) { dividendsFetch(key, it) }
-        val dividends = load(key.source, listOf(plan))[key]
+        val dividends = loadDetailed(key.source, trigger, listOf(plan))[key]
         val quote = cached[quoteKey]?.data?.quote
         val asOf = LocalDate.ofInstant(clock.now(), ZoneOffset.UTC)
         return DividendsData(dividends, quote?.let { dividends.data?.trailingYield(it, asOf) })
@@ -115,7 +118,7 @@ class CompanyDataService(
         val target = target(profileId, symbol, source)
         val key = CacheKey(target.source, symbol, DataType.BALANCE_SHEET)
         val cached = if (supports(key)) cache.get(key) else null
-        return load(key.source, listOf(detailedPlan(key, cached, trigger) { balanceSheetFetch(key, it) }))[key]
+        return loadDetailed(key.source, trigger, listOf(detailedPlan(key, cached, trigger) { balanceSheetFetch(key, it) }))[key]
     }
 
     override suspend fun companyProfile(
@@ -128,7 +131,7 @@ class CompanyDataService(
         val key = CacheKey(target.source, symbol, DataType.COMPANY_PROFILE)
         val cached = if (supports(key)) cache.get(key) else null
         val plan = detailedPlan(key, cached, trigger) { profileFetch(key, it) }
-        val profile = load(key.source, listOf(plan))[key]
+        val profile = loadDetailed(key.source, trigger, listOf(plan))[key]
         val fetched = profile.data?.takeIf { plan is Fetch<*, *> && profile.status == DataStatus.FRESH }
         if (fetched != null) watchlistCompanies.profileFetched(target.profile, key.source, symbol, fetched)
         val identity = identities.identify(
@@ -292,6 +295,19 @@ class CompanyDataService(
 
     private fun oldestFirst(plans: List<Plan<*>>): List<Plan<*>> =
         plans.sortedWith(compareBy(nullsFirst()) { (it as? Fetch<*, *>)?.cached?.fetchedAt })
+
+    /**
+     * Loads the data of a detailed screen request; an `AUTO` request of a source with a warm-up that calls nothing (the data
+     * is cached or not requested) warms the source up for a later manual refresh (ADR-088).
+     */
+    private suspend fun loadDetailed(source: SourceId, trigger: RequestTrigger, plans: List<Plan<*>>): Loaded {
+        if (trigger == RequestTrigger.AUTO && plans.none { it is Fetch<*, *> } && plans.any { it.isSupported() }) {
+            warmUps[source]?.warmUp()
+        }
+        return load(source, plans)
+    }
+
+    private fun Plan<*>.isSupported(): Boolean = (this as? Settled<*>)?.data?.status != DataStatus.NOT_SUPPORTED
 
     private suspend fun load(source: SourceId, plans: List<Plan<*>>): Loaded {
         val settled = plans.filterIsInstance<Settled<*>>().associate { it.key to it.data }

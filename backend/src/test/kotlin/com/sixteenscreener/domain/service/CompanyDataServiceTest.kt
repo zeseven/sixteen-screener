@@ -11,6 +11,8 @@ import com.sixteenscreener.domain.model.ExchangeCode
 import com.sixteenscreener.domain.model.Indicator
 import com.sixteenscreener.domain.model.IndicatorLevel
 import com.sixteenscreener.domain.model.ListedSymbol
+import com.sixteenscreener.domain.model.RequestLimit
+import com.sixteenscreener.domain.model.LimitInterval
 import com.sixteenscreener.domain.model.Market
 import com.sixteenscreener.domain.model.PriceTrend
 import com.sixteenscreener.domain.model.ProfileId
@@ -936,6 +938,105 @@ class CompanyDataServiceTest : FunSpec({
             profile.status shouldBe DataStatus.CACHED
             profile.data shouldBe sampleProfile()
             f.source.calls.shouldBeEmpty()
+        }
+    }
+
+    context("Yahoo Finance") {
+        test("AUTO without cache requests nothing from the manual-only source and warms it up") {
+            val f = fixture()
+            f.yahoo.quotes[AAPL] = SourceResult.Success(Quote(190.0, "USD"), f.success())
+
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = YAHOO, trigger = RequestTrigger.AUTO)
+
+            result.status shouldBe DataStatus.NOT_REQUESTED
+            f.yahoo.calls.shouldBeEmpty()
+            f.yahooWarmUps.get() shouldBe 1
+        }
+
+        test("AUTO with cached data returns it as is and warms the source up") {
+            val f = fixture()
+            val dividends = Dividends(listOf(Dividend(LocalDate.parse("2026-05-01"), null, null, null, 1.0, "USD")))
+            f.cached(CacheKey(YAHOO, AAPL, DataType.DIVIDENDS), dividends, age = Duration.ofDays(3))
+
+            val result = f.service.dividends(f.profile.id, AAPL, source = YAHOO, trigger = RequestTrigger.AUTO)
+
+            result.dividends.status shouldBe DataStatus.CACHED
+            result.dividends.data shouldBe dividends
+            f.yahooWarmUps.get() shouldBe 1
+        }
+
+        test("every tab warms the source up on AUTO") {
+            val f = fixture()
+
+            f.service.balanceSheet(f.profile.id, AAPL, source = YAHOO, trigger = RequestTrigger.AUTO).status shouldBe
+                DataStatus.NOT_REQUESTED
+            f.service.companyProfile(f.profile.id, AAPL, source = YAHOO, trigger = RequestTrigger.AUTO).profile.status shouldBe
+                DataStatus.NOT_REQUESTED
+
+            f.yahooWarmUps.get() shouldBe 2
+            f.yahoo.calls.shouldBeEmpty()
+            f.yahooBalanceSheets.calls.shouldBeEmpty()
+        }
+
+        test("MANUAL calls the source with two counted requests for price and ratios and doesn't warm it up") {
+            val f = fixture()
+            f.yahoo.quotes[AAPL] = SourceResult.Success(Quote(190.0, "USD"), f.success())
+            f.yahoo.ratios[AAPL] = SourceResult.Success(sampleRatios(), f.success())
+
+            val result = f.service.priceAndRatios(f.profile.id, AAPL, source = YAHOO, trigger = RequestTrigger.MANUAL)
+
+            result.status shouldBe DataStatus.FRESH
+            f.yahoo.calls shouldContainExactlyInAnyOrder listOf("quote:AAPL", "ratios:AAPL")
+            f.counters.usage(YAHOO, listOf(RequestLimit(LimitInterval.DAY, null)), f.now).single().used shouldBe 2
+            f.yahooWarmUps.get() shouldBe 0
+        }
+
+        test("the daily counter never refuses a call") {
+            val f = fixture()
+            f.counters.setCount(YAHOO, LimitInterval.DAY, f.now, 1_000_000)
+            f.yahoo.dividends[AAPL] = SourceResult.Success(Dividends(emptyList()), f.success())
+
+            f.service.dividends(f.profile.id, AAPL, source = YAHOO, trigger = RequestTrigger.MANUAL).dividends.status shouldBe
+                DataStatus.FRESH
+        }
+
+        test("the dividend yield of an international company comes from the latest cached quote of the source") {
+            val f = fixture().apply { directory.notCovered(ExchangeCode("AS"), FINNHUB) }
+            f.cachedQuote("AD.AS", 40.0, age = Duration.ofDays(2), source = YAHOO)
+            f.yahoo.dividends[AD] = SourceResult.Success(
+                Dividends(
+                    listOf(
+                        Dividend(LocalDate.parse("2026-08-01"), null, null, null, 0.5, "USD"),
+                        Dividend(LocalDate.parse("2026-02-01"), null, null, null, 0.5, "USD"),
+                        Dividend(LocalDate.parse("2024-08-01"), null, null, null, 0.5, "USD"),
+                    ),
+                ),
+                f.success(),
+            )
+
+            val result = f.service.dividends(f.profile.id, AD, source = YAHOO, trigger = RequestTrigger.MANUAL)
+
+            result.dividends.data?.items?.size shouldBe 3
+            result.dividendYield shouldBe (2.5 plusOrMinus 1e-9)
+        }
+
+        test("a source without a warm-up is never warmed up") {
+            val f = fixture()
+            f.cachedQuote("AAPL", 190.0, age = Duration.ofMinutes(5))
+            f.cached(ratiosKey("AAPL"), sampleRatios(), age = Duration.ofMinutes(5))
+
+            f.service.priceAndRatios(f.profile.id, AAPL, source = null, trigger = RequestTrigger.AUTO)
+
+            f.source.calls.shouldBeEmpty()
+            f.yahooWarmUps.get() shouldBe 0
+        }
+
+        test("data the source doesn't provide doesn't warm it up") {
+            val f = fixture()
+
+            f.service.dividends(f.profile.id, AAPL, source = FINNHUB, trigger = RequestTrigger.AUTO).dividends.status shouldBe
+                DataStatus.NOT_SUPPORTED
+            f.yahooWarmUps.get() shouldBe 0
         }
     }
 
