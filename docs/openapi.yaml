@@ -293,6 +293,34 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /profiles/{profileId}/companies/{symbol}/sources:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+      - $ref: '#/components/parameters/Symbol'
+    get:
+      tags: [Companies]
+      operationId: getCompanySources
+      summary: Get selectable sources of the detailed screen tabs
+      description: |
+        Sources the source dropdown of each detailed screen tab offers for this company. A tab lists the sources configured
+        for the company's role that provide the tab's data (`QUOTE` or `RATIOS` for price and ratios, `DIVIDENDS`,
+        `BALANCE_SHEET`, `COMPANY_PROFILE`), plus `sec-edgar` for the balance sheet of US companies.
+        Order: the profile's default source of the role first when it provides the tab's data, then the other sources in
+        configuration order; Yahoo Finance is always last. The app selects the first source of each tab when the screen
+        opens. A tab with an empty list has no source for the company. No source is called and no cache is read.
+      x-milestone: beta
+      responses:
+        '200':
+          description: Selectable sources per tab
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanySources'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /profiles/{profileId}/companies/{symbol}/price-ratios:
     parameters:
       - $ref: '#/components/parameters/ProfileId'
@@ -683,7 +711,7 @@ components:
       type: string
       description: |
         Configured source identifier. Known values: `finnhub`, `sec-edgar`, `logoapi` (alpha); `finnhub-logos`,
-        `eodhd-logos`, `eodhd` (beta); `fmp`, `tiingo`, `alpha-vantage` (rc).
+        `eodhd-logos`, `eodhd`, `yahoo` (beta); `fmp`, `tiingo`, `alpha-vantage` (rc).
       pattern: '^[a-z0-9\-]{1,30}$'
       example: finnhub
 
@@ -1384,12 +1412,56 @@ components:
           enum: [REQUESTS, UNIQUE_SYMBOLS]
         limit:
           type: integer
+          nullable: true
+          description: |
+            Maximum per interval. Null for a counter without a limit (Yahoo Finance's daily counter): requests are counted
+            and the counter resets with the interval, but no request is refused because of it.
+          x-milestone: beta
         used:
           type: integer
         resetsAt:
           type: string
           format: date-time
           nullable: true
+
+    CompanySources:
+      type: object
+      required: [priceRatios, dividends, balanceSheet, profile]
+      properties:
+        priceRatios:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceOption'
+        dividends:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceOption'
+        balanceSheet:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceOption'
+        profile:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceOption'
+      x-milestone: beta
+
+    SourceOption:
+      type: object
+      required: [id, name, isDefault, automaticRequests]
+      properties:
+        id:
+          $ref: '#/components/schemas/SourceId'
+        name:
+          type: string
+          example: Yahoo Finance
+        isDefault:
+          type: boolean
+          description: Whether this is the profile's default source of the company's role.
+        automaticRequests:
+          type: boolean
+          description: False for sources called only on a manual refresh.
+      x-milestone: beta
 
     Capability:
       type: string

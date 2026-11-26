@@ -939,3 +939,18 @@ The static exchange table (ADR-062) gets an ISO 3166-1 alpha-2 country and a mai
 - Yahoo is reached only through the source dropdown of the detailed screen tabs, so the source and the dropdown are implemented together. No automatic fallback to Yahoo when the default source answers `NOT_SUPPORTED` (one source per role, ADR-083).
 
 **Consequences:** European companies can get dividends, profiles, ratios and balance sheets, and US companies can get dividends, after selecting Yahoo in the source dropdown. Most Yahoo changes are fixed by upgrading `yfinance` and redeploying the proxy; changes of `yfinance` result shapes need a proxy change only. A second service has to be built, deployed and kept up to date. Yahoo may block the Cloud Run egress addresses or break the library for days or weeks; the source then fails like any other, with cached data shown. The data is used for personal, non-commercial purposes only, in line with the user base of the app; a commercial use would require removing this source.
+
+## ADR-089: Yahoo Finance request pacing, an unlimited daily counter and the source dropdown options
+
+**Date:** 2026-11-26
+**Status:** Accepted
+
+**Context:** Yahoo has no published limits; it blocks clients that send requests too fast. Fixed limits per minute and day (ADR-088) would refuse manual refreshes for no known reason, while what protects the Yahoo session is the request rate. The source dropdown of the detailed screen needs the sources of the company's role per tab, but the app is unaware of the roles (ADR-083).
+
+**Decision:**
+- The Yahoo client sends at most 1 request per second per backend instance; further requests wait for their turn. This is a per-source setting (`minRequestIntervalMillis`), not a Firestore counter.
+- The Yahoo source has no request limits (supersedes the 20 per minute and 200 per day of ADR-088). Its requests are counted per day by a counter without a limit (`limit = null`), which resets daily and is shown on the Sources screen.
+- Proxy calls time out after 40 seconds. A proxy `404` (Yahoo has no such data) is a successful call with empty data.
+- `GET /profiles/{profileId}/companies/{symbol}/sources` returns the dropdown options of every tab: the sources of the company's role that provide the tab's data (plus SEC EDGAR for US balance sheets), the profile's default source first, Yahoo Finance last. The app selects the first option of each tab.
+
+**Consequences:** With 2 backend instances the proxy can get up to 2 requests per second. A `429` from Yahoo doesn't stop further manual requests; they keep failing until Yahoo lifts the block. Tabs whose default source has no such data (US dividends, international profiles and balance sheets) open with Yahoo Finance selected, showing cached data or a hint to refresh.

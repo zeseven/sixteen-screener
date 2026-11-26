@@ -132,22 +132,25 @@ Features are grouped by milestone. Each milestone produces a working, deployable
 
 ### Yahoo Finance source
 Implemented together with the source dropdown of the detailed screen (see Detailed screen): Yahoo Finance is never a default source, so the dropdown is the only way to reach it.
-- [ ] Yahoo proxy: Python service in `yahoo-proxy` (uv, FastAPI, `yfinance` pinned) with endpoints for quote, key statistics, dividends, company profile and annual balance sheet by Yahoo symbol, and `GET /health`
-- [ ] Yahoo proxy: own JSON contract independent of `yfinance` result shapes; minor currency units (`GBp`, `ZAc`, `ILA`) converted into the main unit; every amount returned with its currency
-- [ ] Yahoo proxy: Yahoo errors mapped to `404` (no data), `429` (rate-limited, including a failed crumb request), `502` (other failure or unexpected result shape), `504` (timeout)
-- [ ] Yahoo proxy: pytest tests against recorded `yfinance` results, no Yahoo calls
-- [ ] Yahoo proxy: Cloud Run service with min instances 0, max instances 1 and startup CPU boost; own runtime service account without roles; `roles/run.invoker` granted to the backend's runtime service account only
-- [ ] `yahoo-proxy/README.md` (local run, tests, Cloud Build and deploy commands, `yfinance` upgrade) and `yahoo-proxy/SETUP.md` (service account, IAM, Artifact Registry access)
-- [ ] Backend: Yahoo client calling the proxy with a Google-signed ID token from the metadata server (cached until shortly before expiry); proxy URL from `YAHOO_PROXY_URL`
-- [ ] Backend: `yahoo` source configured with roles `US` and `INTERNATIONAL`, automatic requests off, never a default source, limits 20 per minute and 200 per day
+- [x] Yahoo proxy: Python service in `yahoo-proxy` (uv, FastAPI, `yfinance` pinned) with endpoints for quote, key statistics, dividends, company profile and annual balance sheet by Yahoo symbol, and `GET /health`
+- [x] Yahoo proxy: own JSON contract independent of `yfinance` result shapes; minor currency units (`GBp`, `ZAc`, `ILA`) converted into the main unit; every amount returned with its currency
+- [x] Yahoo proxy: Yahoo errors mapped to `404` (no data), `429` (rate-limited, including a failed crumb request), `502` (other failure or unexpected result shape), `504` (timeout)
+- [x] Yahoo proxy: pytest tests against recorded `yfinance` results, no Yahoo calls
+- [x] Yahoo proxy: Cloud Run service with min instances 0, max instances 1 and startup CPU boost; own runtime service account without roles; `roles/run.invoker` granted to the backend's runtime service account only
+- [x] `yahoo-proxy/README.md` (local run, tests, Cloud Build and deploy commands, `yfinance` upgrade) and `yahoo-proxy/SETUP.md` (service account, IAM, Artifact Registry access)
+- [ ] Backend: Yahoo client calling the proxy with a Google-signed ID token from the metadata server (cached until shortly before expiry, none for an `http` proxy URL); proxy URL from `YAHOO_PROXY_URL`; 40 s timeout; proxy `404` handled as empty data
+- [ ] Backend: `yahoo` source configured with roles `US` and `INTERNATIONAL`, automatic requests off, never a default source, last in configuration order
+- [ ] Backend: at most 1 request per second per backend instance to the Yahoo proxy (requests wait for their turn), as a per-source `minRequestIntervalMillis` setting
+- [ ] Backend: daily request counter without a limit (`limit = null`, resets daily) for the Yahoo source
 - [ ] Backend: Yahoo suffix per symbol suffix in the static exchange table, used to build Yahoo symbols (US dots become dashes); `NOT_SUPPORTED` without a request for exchanges without a Yahoo suffix
 - [ ] Backend: Yahoo key statistics mapped to the shared ratio codes (fractions of percent ratios multiplied by 100); dividend yield from the last 12 months of dividends and the latest cached Yahoo quote
 - [ ] Backend: fire-and-forget `GET /health` warm-up of the proxy on an `AUTO` request of Yahoo data that doesn't call Yahoo (at most once per minute per backend instance)
-- [ ] Sources screen and source dropdowns: Yahoo Finance listed last
+- [ ] Backend: `GET /profiles/{profileId}/companies/{symbol}/sources` with the dropdown options of each detailed screen tab (default source first, Yahoo Finance last)
+- [ ] Sources screen: Yahoo Finance listed last, with its daily counter shown without a limit
 
 ### Detailed screen
 - [x] Dividends tab (EODHD for international stocks; no dividends for US stocks until a US dividends source is added)
-- [ ] Source dropdown on each tab, limited to the sources configured for the company's market; one source displayed at a time (implemented together with the Yahoo Finance source)
+- [ ] Source dropdown on each tab, with the options from the company sources endpoint; the first option selected when the screen opens; selecting a source loads the tab from it (`AUTO`); the refresh button refreshes every tab from its selected source (`MANUAL`); one source displayed at a time (implemented together with the Yahoo Finance source)
 - [x] Hint to refresh when a source with automatic requests off has no cached data (`NOT_REQUESTED`)
 
 ### Watchlist screen
