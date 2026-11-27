@@ -13,14 +13,12 @@ class ExchangeService(private val marketResolver: MarketResolver) : ExchangesUse
     override fun exchanges(): List<ExchangeEntry> = entries
 
     private fun suffixEntries(): List<ExchangeEntry> =
-        KnownExchangeCodes.mics.mapNotNull { (code, mic) -> entryOf(code.value, mic, KnownExchangeCodes.eodhdCodeOf(code)) }
+        KnownExchangeCodes.mics.mapNotNull { (code, mic) -> entryOf(code.value, mic, code) }
 
-    private fun usEntries(): List<ExchangeEntry> {
-        val eodhdCode = KnownExchangeCodes.eodhdCodeOf(ExchangeCode.US)
-        return marketResolver.usMics.mapNotNull { mic -> entryOf(US_SUFFIX, mic, eodhdCode) }
-    }
+    private fun usEntries(): List<ExchangeEntry> =
+        marketResolver.usMics.mapNotNull { mic -> entryOf(US_SUFFIX, mic, ExchangeCode.US) }
 
-    private fun entryOf(suffix: String, mic: String, eodhdCode: String?): ExchangeEntry? {
+    private fun entryOf(suffix: String, mic: String, code: ExchangeCode): ExchangeEntry? {
         val info = marketResolver.find(mic) ?: return null
         val fullName = marketResolver.fullNameOf(mic) ?: return null
         return ExchangeEntry(
@@ -28,7 +26,8 @@ class ExchangeService(private val marketResolver: MarketResolver) : ExchangesUse
             shortName = info.name,
             fullName = fullName,
             mic = mic,
-            eodhdCode = eodhdCode,
+            eodhdCode = KnownExchangeCodes.eodhdCodeOf(code),
+            yahooSuffix = KnownExchangeCodes.yahooSuffixOf(code),
             currency = info.currency,
             timeZone = info.timeZone,
             market = info.market,

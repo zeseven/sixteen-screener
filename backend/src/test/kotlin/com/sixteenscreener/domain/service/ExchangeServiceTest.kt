@@ -66,6 +66,7 @@ class ExchangeServiceTest : FunSpec({
             fullName = "TSX Venture Exchange",
             mic = "XTSX",
             eodhdCode = "V",
+            yahooSuffix = "V",
             currency = "CAD",
             timeZone = ZoneId.of("America/Toronto"),
             market = null,
@@ -81,6 +82,7 @@ class ExchangeServiceTest : FunSpec({
             fullName = "Euronext Amsterdam",
             mic = "XAMS",
             eodhdCode = "AS",
+            yahooSuffix = "AS",
             currency = "EUR",
             timeZone = ZoneId.of("Europe/Amsterdam"),
             market = Market.EU,
@@ -96,6 +98,7 @@ class ExchangeServiceTest : FunSpec({
             fullName = "Nasdaq Global Select Market",
             mic = "XNGS",
             eodhdCode = "US",
+            yahooSuffix = "",
             currency = "USD",
             timeZone = ZoneId.of("America/New_York"),
             market = Market.US,
@@ -146,6 +149,24 @@ class ExchangeServiceTest : FunSpec({
 
     test("exchanges EODHD no longer lists have no EODHD code") {
         listOf("BE", "IC", "HK", "TA").map { suffix -> entry(suffix).eodhdCode }.toSet() shouldBe setOf(null)
+    }
+
+    test("every row carries the Yahoo suffix of its suffix, US rows an empty one") {
+        entries.filter { row ->
+            val code = if (row.suffix.isEmpty()) ExchangeCode.US else ExchangeCode(row.suffix)
+            row.yahooSuffix != KnownExchangeCodes.yahooSuffixOf(code)
+        }.shouldBeEmpty()
+        entries.filter { it.suffix.isEmpty() }.map { it.yahooSuffix }.toSet() shouldBe setOf("")
+    }
+
+    test("the Yahoo suffix equals the symbol suffix where Yahoo is used, even where the EODHD code differs") {
+        listOf("DE", "L", "IL", "T", "HK").forEach { suffix -> entry(suffix).yahooSuffix shouldBe suffix }
+        entries.mapNotNull { it.yahooSuffix }.filter { it.isNotEmpty() }.toSet() shouldBe
+            entries.filter { it.yahooSuffix?.isNotEmpty() == true }.map { it.suffix }.toSet()
+    }
+
+    test("exchanges Yahoo is not used for have no Yahoo suffix") {
+        listOf("ME", "PM", "VN", "QA", "CS", "BC").map { suffix -> entry(suffix).yahooSuffix }.toSet() shouldBe setOf(null)
     }
 
     test("the table is the same on every call") {

@@ -10,6 +10,8 @@ import java.time.ZoneId
  * @property fullName official exchange name
  * @property mic ISO 10383 market identifier code
  * @property eodhdCode EODHD exchange code of the suffix; null for exchanges EODHD doesn't cover (ADR-083)
+ * @property yahooSuffix Yahoo Finance suffix of the exchange without the dot; empty for US exchanges, null for exchanges
+ * Yahoo Finance is not used for (ADR-090)
  * @property currency ISO 4217 trading currency of the exchange
  * @property timeZone time zone of the exchange
  * @property market market of the exchange; null outside the US and EU markets (ADR-035)
@@ -23,6 +25,7 @@ data class ExchangeEntry(
     val fullName: String,
     val mic: String,
     val eodhdCode: String?,
+    val yahooSuffix: String?,
     val currency: String,
     val timeZone: ZoneId,
     val market: Market?,
