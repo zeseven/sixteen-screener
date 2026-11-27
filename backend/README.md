@@ -21,7 +21,8 @@ capabilities, roles (`SEARCH`, `US`, `INTERNATIONAL`), `automaticRequests` (off 
 refresh, such as EODHD and Yahoo Finance), request limits and timeouts, and optionally `directoryExchanges`, the exchange
 codes whose symbol lists a source is asked for (`[US]` for the Finnhub free plan, `[]` for none; without it, any
 exchange), and `minRequestIntervalMillis`, the minimum time between the starts of two requests to the source per
-instance (`1000` for Yahoo Finance; later requests wait for their turn). A limit entry without `limit`
+instance (`1000` for Yahoo Finance; later requests wait for their turn), and `pauseAfterRateLimitMinutes`, how long the
+source is not called after it answered `429` (`15` for Yahoo Finance; without it, no pause). A limit entry without `limit`
 (`{ interval = DAY }`) is a counter without a limit: requests are counted and shown, but never refused.
 `defaultSources` names the default source of each role (`search`, `us`, `international`); each must be enabled and
 configured for its role. Environment variables override or complete it:
@@ -222,7 +223,11 @@ curl -s -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/profiles/${PROFILE_I
 `PROFILE_ID` is the `id` returned by `POST /profiles`. Identity tokens expire after one hour.
 The EODHD free plan allows 20 requests per day; requests to EODHD are made only with `trigger=MANUAL`.
 Yahoo Finance has no limit; its requests are counted per day (`"limit": null` on the sources endpoint) and sent at most
-once per second per instance. A `trigger=AUTO` request of Yahoo data calls nothing and warms the proxy up instead.
+once per second per instance. The Yahoo proxy paces its Yahoo calls as well, to at most one per second for all backend
+instances together. A `trigger=AUTO` request of Yahoo data calls nothing and warms the proxy up instead.
+After a `429` of the proxy, Yahoo Finance is paused for 15 minutes: requests return cached data with `LIMIT_REACHED`
+without calling the proxy and are not counted. The pause is derived from the last call outcome stored in Firestore, so
+all instances respect it; the sources endpoint returns its end as `pausedUntil` (`null` when the source is not paused).
 
 ## Native image notes
 
