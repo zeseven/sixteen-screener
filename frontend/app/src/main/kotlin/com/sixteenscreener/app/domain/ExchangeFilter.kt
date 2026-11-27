@@ -16,9 +16,14 @@ object ExchangeFilter {
     fun matches(exchange: Exchange, query: String): Boolean = searchableTexts(exchange).any { it.contains(query.trim(), ignoreCase = true) }
 
     /** Suffix as displayed, with a leading dot; empty for US exchanges. */
-    fun displaySuffix(exchange: Exchange): String = exchange.suffix.takeIf { it.isNotEmpty() }?.let { ".$it" }.orEmpty()
+    fun displaySuffix(exchange: Exchange): String = withDot(exchange.suffix).orEmpty()
+
+    /** Yahoo suffix as displayed, with a leading dot; `null` when empty (US exchanges) or when Yahoo Finance isn't used. */
+    fun displayYahooSuffix(exchange: Exchange): String? = exchange.yahooSuffix?.let(::withDot)
+
+    private fun withDot(suffix: String): String? = suffix.takeIf { it.isNotEmpty() }?.let { ".$it" }
 
     private fun searchableTexts(exchange: Exchange): List<String> = with(exchange) {
-        listOfNotNull(displaySuffix(this), shortName, fullName, mic, eodhdCode, country, currency, timeZone)
+        listOfNotNull(displaySuffix(this), shortName, fullName, mic, eodhdCode, displayYahooSuffix(this), country, currency, timeZone)
     }
 }

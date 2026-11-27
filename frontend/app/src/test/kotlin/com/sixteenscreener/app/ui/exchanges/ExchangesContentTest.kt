@@ -12,6 +12,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -67,7 +68,7 @@ class ExchangesContentTest {
         composeRule.onNodeWithTag(ExchangesScreenTags.HEADER).assert(isHeading())
         rows().assertCountEquals(all.size)
         composeRule.onNodeWithText("New York Stock Exchange", useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithText(".V", useUnmergedTree = true).assertExists()
+        composeRule.onAllNodesWithText(".V", useUnmergedTree = true).assertCountEquals(2)
         composeRule.onNodeWithText("America/Toronto", useUnmergedTree = true).assertExists()
     }
 
@@ -89,7 +90,7 @@ class ExchangesContentTest {
     fun `row shows the market flag between suffix and short name`() {
         setContent(ExchangesUiState(exchanges = listOf(paris)))
 
-        val suffix = leftOfText(".PA")
+        val suffix = composeRule.onAllNodesWithText(".PA", useUnmergedTree = true)[0].getUnclippedBoundsInRoot().left
         val flag = leftOfTag(ExchangesScreenTags.FLAG)
         val shortName = leftOfText("Paris")
         val fullName = leftOfText("Euronext Paris")
@@ -148,6 +149,57 @@ class ExchangesContentTest {
         setContent(ExchangesUiState(exchanges = listOf(xetra.copy(eodhdCode = null))))
 
         composeRule.onNodeWithTag(ExchangesScreenTags.EODHD_CODE, useUnmergedTree = true).assertTextEquals("")
+    }
+
+    @Test
+    fun `header shows the Yahoo column between the EODHD column and country`() {
+        setContent(ExchangesUiState(exchanges = listOf(xetra)))
+
+        assertTrue(leftOfText("EODHD") < leftOfText("Yahoo"))
+        assertTrue(leftOfText("Yahoo") < leftOfText("Country"))
+    }
+
+    @Test
+    fun `row shows the Yahoo suffix with a dot between the EODHD code and country`() {
+        setContent(ExchangesUiState(exchanges = listOf(xetra)))
+
+        val yahooSuffix = leftOfTag(ExchangesScreenTags.YAHOO_SUFFIX)
+
+        composeRule.onNodeWithTag(ExchangesScreenTags.YAHOO_SUFFIX, useUnmergedTree = true).assertTextEquals(".DE")
+        assertTrue(leftOfTag(ExchangesScreenTags.EODHD_CODE) < yahooSuffix)
+        assertTrue(yahooSuffix < leftOfTag(ExchangesScreenTags.COUNTRY))
+    }
+
+    @Test
+    fun `US exchange shows none as its Yahoo suffix`() {
+        setContent(ExchangesUiState(exchanges = listOf(nyse)))
+
+        composeRule.onNodeWithTag(ExchangesScreenTags.YAHOO_SUFFIX, useUnmergedTree = true).assertTextEquals("none")
+        rows()[0].assert(hasText("none"))
+    }
+
+    @Test
+    fun `exchange Yahoo Finance is not used for shows an empty Yahoo suffix`() {
+        setContent(ExchangesUiState(exchanges = listOf(stuttgart)))
+
+        composeRule.onNodeWithTag(ExchangesScreenTags.YAHOO_SUFFIX, useUnmergedTree = true).assertTextEquals("")
+    }
+
+    @Test
+    fun `typing a Yahoo suffix filters the rows`() {
+        setContent(ExchangesUiState(exchanges = all + stuttgart.copy(yahooSuffix = "QQY")))
+
+        composeRule.onNodeWithTag(ExchangesScreenTags.QUERY_FIELD).performTextInput("qqy")
+
+        rows().assertCountEquals(1)
+        composeRule.onNodeWithText(stuttgart.fullName, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `typing none does not match US exchanges by their Yahoo placeholder`() {
+        setContent(ExchangesUiState(exchanges = listOf(nyse), query = "none"))
+
+        composeRule.onNodeWithText("No exchanges match").assertExists()
     }
 
     @Test

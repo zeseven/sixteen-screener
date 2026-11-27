@@ -8,6 +8,7 @@ import com.sixteenscreener.app.testing.Exchanges.paris
 import com.sixteenscreener.app.testing.Exchanges.tsxVenture
 import com.sixteenscreener.app.testing.Exchanges.xetra
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ExchangeFilterTest {
@@ -77,6 +78,35 @@ class ExchangeFilterTest {
 
         assertEquals(listOf(uncovered), ExchangeFilter.apply(listOf(uncovered), "xtsx"))
         assertEquals(emptyList<Exchange>(), ExchangeFilter.apply(listOf(uncovered), "null"))
+    }
+
+    @Test
+    fun `matches the Yahoo suffix with or without the dot`() {
+        val byYahooSuffixOnly = tsxVenture.copy(yahooSuffix = "QQY")
+
+        assertEquals(listOf(byYahooSuffixOnly), ExchangeFilter.apply(all + byYahooSuffixOnly, "qqy"))
+        assertEquals(listOf(byYahooSuffixOnly), ExchangeFilter.apply(all + byYahooSuffixOnly, ".QQY"))
+    }
+
+    @Test
+    fun `US exchange is not matched by the none placeholder of its empty Yahoo suffix`() {
+        assertEquals(emptyList<Exchange>(), ExchangeFilter.apply(listOf(nyse), "none"))
+        assertEquals(emptyList<Exchange>(), ExchangeFilter.apply(listOf(nyse), "."))
+    }
+
+    @Test
+    fun `exchange without a Yahoo suffix matches its other fields only`() {
+        val uncovered = tsxVenture.copy(yahooSuffix = null)
+
+        assertEquals(listOf(uncovered), ExchangeFilter.apply(listOf(uncovered), "xtsx"))
+        assertEquals(emptyList<Exchange>(), ExchangeFilter.apply(listOf(uncovered), "null"))
+    }
+
+    @Test
+    fun `Yahoo suffix is displayed with a dot, and not at all when empty or missing`() {
+        assertEquals(".DE", ExchangeFilter.displayYahooSuffix(xetra))
+        assertNull(ExchangeFilter.displayYahooSuffix(nyse))
+        assertNull(ExchangeFilter.displayYahooSuffix(xetra.copy(yahooSuffix = null)))
     }
 
     @Test

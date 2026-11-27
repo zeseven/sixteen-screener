@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -69,6 +70,7 @@ object ExchangesScreenTags {
     const val FLAG = "exchanges_flag"
     const val COUNTRY = "exchanges_country"
     const val EODHD_CODE = "exchanges_eodhd_code"
+    const val YAHOO_SUFFIX = "exchanges_yahoo_suffix"
     const val RETRY = "exchanges_retry"
 }
 
@@ -78,12 +80,13 @@ private val ShortNameColumnWidth = 104.dp
 private val FullNameColumnWidth = 240.dp
 private val MicColumnWidth = 64.dp
 private val EodhdCodeColumnWidth = 72.dp
+private val YahooSuffixColumnWidth = 64.dp
 private val CountryColumnWidth = 80.dp
 private val CurrencyColumnWidth = 80.dp
 private val TimeZoneColumnWidth = 176.dp
 private val CellPadding = 8.dp
 private val TableWidth = SuffixColumnWidth + MarketColumnWidth + ShortNameColumnWidth + FullNameColumnWidth +
-    MicColumnWidth + EodhdCodeColumnWidth + CountryColumnWidth + CurrencyColumnWidth + TimeZoneColumnWidth + CellPadding * 2
+    MicColumnWidth + EodhdCodeColumnWidth + YahooSuffixColumnWidth + CountryColumnWidth + CurrencyColumnWidth + TimeZoneColumnWidth + CellPadding * 2
 
 /** Exchanges tab; loads the exchange table when opened and again when shown after a failed load. */
 @Composable
@@ -182,6 +185,7 @@ private fun HeaderRow() {
         Cell(stringResource(R.string.exchange_column_full_name), FullNameColumnWidth, style)
         Cell(stringResource(R.string.exchange_column_mic), MicColumnWidth, style)
         Cell(stringResource(R.string.exchange_column_eodhd_code), EodhdCodeColumnWidth, style)
+        Cell(stringResource(R.string.exchange_column_yahoo_suffix), YahooSuffixColumnWidth, style)
         Cell(stringResource(R.string.exchange_column_country), CountryColumnWidth, style)
         Cell(stringResource(R.string.exchange_column_currency), CurrencyColumnWidth, style)
         Cell(stringResource(R.string.exchange_column_time_zone), TimeZoneColumnWidth, style)
@@ -198,6 +202,7 @@ private fun ExchangeRow(exchange: Exchange) {
         Cell(exchange.fullName, FullNameColumnWidth, style)
         Cell(exchange.mic, MicColumnWidth, style)
         Cell(exchange.eodhdCode.orEmpty(), EodhdCodeColumnWidth, style, modifier = Modifier.testTag(ExchangesScreenTags.EODHD_CODE))
+        YahooSuffixCell(exchange, style)
         Cell(
             text = if (exchange.mainVenue) stringResource(R.string.exchange_country_main_venue, exchange.country) else exchange.country,
             width = CountryColumnWidth,
@@ -228,16 +233,30 @@ private fun Cell(
     style: TextStyle,
     modifier: Modifier = Modifier,
     textAlign: TextAlign = TextAlign.Start,
+    color: Color = Color.Unspecified,
 ) {
     Text(
         text = text,
         style = style,
+        color = color,
         textAlign = textAlign,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = modifier
             .width(width)
             .padding(end = CellPadding),
+    )
+}
+
+@Composable
+private fun YahooSuffixCell(exchange: Exchange, style: TextStyle) {
+    val hasNoSuffix = exchange.yahooSuffix?.isEmpty() == true
+    Cell(
+        text = if (hasNoSuffix) stringResource(R.string.exchange_yahoo_suffix_none) else ExchangeFilter.displayYahooSuffix(exchange).orEmpty(),
+        width = YahooSuffixColumnWidth,
+        style = style,
+        color = if (hasNoSuffix) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
+        modifier = Modifier.testTag(ExchangesScreenTags.YAHOO_SUFFIX),
     )
 }
 
