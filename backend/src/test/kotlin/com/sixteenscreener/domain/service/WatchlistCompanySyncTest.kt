@@ -1,5 +1,10 @@
 package com.sixteenscreener.domain.service
 
+import com.sixteenscreener.domain.model.CompanyProfile
+import com.sixteenscreener.domain.model.DataStatus
+import com.sixteenscreener.domain.model.Profile
+import com.sixteenscreener.domain.model.ProfileId
+import com.sixteenscreener.domain.model.ProfileName
 import com.sixteenscreener.domain.model.RequestTrigger
 import com.sixteenscreener.domain.model.SourceCallOutcome
 import com.sixteenscreener.domain.model.SourceId
@@ -11,6 +16,7 @@ import com.sixteenscreener.domain.service.CompanyDataFixture.Companion.profileKe
 import com.sixteenscreener.watchlistEntry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import java.time.Duration
@@ -30,6 +36,13 @@ private class CompanyFixture(vararg entries: WatchlistEntry) {
         data.service.companyProfile(data.profile.id, AAPL, source, trigger)
 
     suspend fun watchlist() = data.profiles.findById(data.profile.id)!!.watchlist
+
+    fun yahooProfile(symbol: Symbol = AAPL, profile: CompanyProfile) {
+        data.yahoo.profiles[symbol] = SourceResult.Success(profile, data.success())
+    }
+
+    suspend fun yahooRefresh(symbol: Symbol = AAPL) =
+        data.service.companyProfile(data.profile.id, symbol, YAHOO, RequestTrigger.MANUAL)
 }
 
 class WatchlistCompanySyncTest : FunSpec({
@@ -193,5 +206,136 @@ class WatchlistCompanySyncTest : FunSpec({
 
         f.companyProfile().profile.data?.sector shouldBe "Technology"
         f.watchlist() shouldContainExactly listOf(apple(sector = "Old"))
+    }
+
+    context("Yahoo Finance profile") {
+        test("sets the sector of a watchlist entry without one and keeps the name") {
+            val f = CompanyFixture(apple(name = "Stored name", tags = listOf(Tag("star", "core"))), watchlistEntry("MSFT"))
+            f.yahooProfile(profile = sampleProfile(name = "Apple Inc.", sector = "Technology"))
+
+            f.yahooRefresh().profile.status shouldBe DataStatus.FRESH
+
+            f.watchlist() shouldContainExactly listOf(
+                apple(sector = "Technology", name = "Stored name", tags = listOf(Tag("star", "core"))),
+                watchlistEntry("MSFT"),
+            )
+            f.data.profiles.companyUpdates shouldBe 1
+            f.data.profiles.findById(f.data.profile.id)!!.updatedAt shouldBe f.data.now
+        }
+
+        test("never replaces an existing sector") {
+            val f = CompanyFixture(apple(sector = "Information Technology"))
+            f.yahooProfile(profile = sampleProfile(sector = "Technology"))
+
+            f.yahooRefresh()
+
+            f.watchlist() shouldContainExactly listOf(apple(sector = "Information Technology"))
+            f.data.profiles.companyUpdates shouldBe 0
+        }
+
+        context("without a sector doesn't change the entry") {
+            withData(nameFn = { "sector = ${it?.let { s -> "'$s'" }}" }, null, "", "   ") { sector ->
+                val f = CompanyFixture(apple())
+                f.yahooProfile(profile = sampleProfile(sector = sector))
+
+                f.yahooRefresh()
+
+                f.watchlist() shouldContainExactly listOf(apple())
+                f.data.profiles.companyUpdates shouldBe 0
+            }
+        }
+
+        test("sets the sector of an international company, whose default source has no profiles") {
+            val sap = Symbol.of("SAP.DE")
+            val f = CompanyFixture(watchlistEntry("SAP.DE", name = "SAP"))
+            f.data.listed(listing("SAP.DE", mic = "XETR", currency = "EUR"))
+            f.yahooProfile(sap, sampleProfile(name = "SAP SE", sector = "Technology"))
+
+            f.yahooRefresh(sap)
+
+            f.watchlist() shouldContainExactly listOf(watchlistEntry("SAP.DE", sector = "Technology", name = "SAP"))
+        }
+
+        test("cached profile returned without a call doesn't change the entry") {
+            val f = CompanyFixture(apple())
+            f.data.cached(profileKey("AAPL", YAHOO), sampleProfile(sector = "Technology"), age = Duration.ofMinutes(5))
+            f.yahooProfile(profile = sampleProfile(sector = "Technology"))
+
+            f.yahooRefresh().profile.data?.sector shouldBe "Technology"
+            f.data.service.companyProfile(f.data.profile.id, AAPL, YAHOO, RequestTrigger.AUTO)
+
+            f.data.yahoo.calls.shouldBeEmpty()
+            f.watchlist() shouldContainExactly listOf(apple())
+            f.data.profiles.companyUpdates shouldBe 0
+        }
+
+        test("stale cached profile returned by an automatic request without a call doesn't change the entry") {
+            val f = CompanyFixture(apple())
+            f.data.cached(profileKey("AAPL", YAHOO), sampleProfile(sector = "Technology"), age = Duration.ofDays(3))
+
+            f.data.service.companyProfile(f.data.profile.id, AAPL, YAHOO, RequestTrigger.AUTO)
+
+            f.data.yahoo.calls.shouldBeEmpty()
+            f.watchlist() shouldContainExactly listOf(apple())
+        }
+
+        test("failed call returning a cached profile doesn't change the entry") {
+            val f = CompanyFixture(apple())
+            f.data.cached(profileKey("AAPL", YAHOO), sampleProfile(sector = "Technology"), age = Duration.ofDays(1))
+            f.data.yahoo.profiles[AAPL] = SourceResult.SourceError(SourceCallOutcome.httpError(429, f.data.now))
+
+            f.yahooRefresh().profile.data?.sector shouldBe "Technology"
+
+            f.watchlist() shouldContainExactly listOf(apple())
+            f.data.profiles.companyUpdates shouldBe 0
+        }
+
+        test("doesn't touch the watchlists of other profiles") {
+            val f = CompanyFixture(apple())
+            val other = Profile(
+                id = ProfileId.random(),
+                name = ProfileName.of("Bob"),
+                watchlist = listOf(apple()),
+                createdAt = f.data.now,
+                updatedAt = f.data.now,
+            ).also(f.data.profiles::save)
+            f.yahooProfile(profile = sampleProfile(sector = "Technology"))
+
+            f.yahooRefresh()
+
+            f.watchlist() shouldContainExactly listOf(apple(sector = "Technology"))
+            f.data.profiles.findById(other.id)!!.watchlist shouldContainExactly listOf(apple())
+        }
+
+        test("of a company outside the watchlist doesn't change the watchlist") {
+            val f = CompanyFixture(watchlistEntry("MSFT"))
+            f.yahooProfile(profile = sampleProfile(sector = "Technology"))
+
+            f.yahooRefresh()
+
+            f.watchlist() shouldContainExactly listOf(watchlistEntry("MSFT"))
+            f.data.profiles.companyUpdates shouldBe 0
+        }
+
+        test("sector set from Yahoo is overwritten by the next profile of the default source") {
+            val f = CompanyFixture(apple(name = "AAPL"))
+            f.yahooProfile(profile = sampleProfile(sector = "Technology"))
+            f.yahooRefresh()
+            f.data.profileFromSource("AAPL", sampleProfile(name = "Apple Inc", sector = "Information Technology"))
+
+            f.companyProfile()
+
+            f.watchlist() shouldContainExactly listOf(apple(sector = "Information Technology", name = "Apple Inc"))
+        }
+
+        test("a missing sector is not filled from a source that is neither the default source nor Yahoo") {
+            val f = CompanyFixture(apple())
+            val profile = f.data.profiles.findById(f.data.profile.id)!!
+
+            f.data.watchlistCompanies.profileFetched(profile, EODHD, AAPL, sampleProfile(sector = "Technology"))
+
+            f.watchlist() shouldContainExactly listOf(apple())
+            f.data.profiles.companyUpdates shouldBe 0
+        }
     }
 })

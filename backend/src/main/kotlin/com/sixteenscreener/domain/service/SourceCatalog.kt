@@ -45,5 +45,8 @@ class SourceCatalog(
 
         /** Source listed after all others in the source dropdown: the last option for data others don't provide (ADR-089). */
         val LAST_OPTION_SOURCE: SourceId = SourceId.of("yahoo")
+
+        /** Source whose company profile sets the watchlist sector of a company that has none (ADR-090). */
+        val SECTOR_FALLBACK_SOURCE: SourceId = SourceId.of("yahoo")
     }
 }
