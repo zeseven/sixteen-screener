@@ -1,3 +1,4 @@
+import asyncio
 import time
 from collections.abc import Callable
 
@@ -6,16 +7,27 @@ import pytest
 from fastapi.testclient import TestClient
 from yfinance.exceptions import YFRateLimitError
 
-from tests.support import RecordedTicker, failing_tickers, http_error, load_fixture, recorded_tickers
+from tests.support import (
+    FakeClock,
+    RecordedTicker,
+    failing_tickers,
+    http_error,
+    instant_pacer,
+    load_fixture,
+    recorded_tickers,
+)
 from yahoo_proxy.api import create_app
 from yahoo_proxy.caller import YahooCaller
 from yahoo_proxy.contract import BalanceSheet, Dividends, ErrorBody, Health, Profile, Quote, Statistics
+from yahoo_proxy.pacer import Pacer
 from yahoo_proxy.service import YahooService
 from yahoo_proxy.yfinance_source import TickerLike, YfinanceSource, classify_yfinance_error
 
 
 def client_for(ticker_factory: Callable[[str], TickerLike], timeout_seconds: float = 5) -> TestClient:
-    caller = YahooCaller(classify_yfinance_error, timeout_seconds=timeout_seconds, max_concurrent_calls=2)
+    caller = YahooCaller(
+        classify_yfinance_error, timeout_seconds=timeout_seconds, max_concurrent_calls=2, pacer=instant_pacer()
+    )
     return TestClient(create_app(YahooService(YfinanceSource(ticker_factory), caller)))
 
 
@@ -28,6 +40,18 @@ def test_health_answers_without_yahoo() -> None:
 
     assert response.status_code == 200
     assert decode(response.content, Health) == Health(status="ok")
+
+
+def test_health_is_not_paced() -> None:
+    async def never_wake(_seconds: float) -> None:
+        await asyncio.Event().wait()
+
+    pacer = Pacer(1.0, clock=FakeClock().time, sleep=never_wake)
+    caller = YahooCaller(classify_yfinance_error, timeout_seconds=5, max_concurrent_calls=2, pacer=pacer)
+    client = TestClient(create_app(YahooService(YfinanceSource(recorded_tickers()), caller)))
+
+    assert client.get("/symbols/SAP.DE/quote").status_code == 200
+    assert [client.get("/health").status_code for _ in range(3)] == [200, 200, 200]
 
 
 def test_quote_in_main_currency_unit_with_camel_case_fields() -> None:

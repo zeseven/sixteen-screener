@@ -1,5 +1,6 @@
-"""Replays recorded yfinance results as pandas objects, the way yfinance returns them."""
+"""Replays recorded yfinance results as pandas objects, the way yfinance returns them, and fakes time for pacing."""
 
+import asyncio
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,6 +10,7 @@ import msgspec
 import pandas as pd
 from curl_cffi.requests.exceptions import HTTPError
 
+from yahoo_proxy.pacer import Pacer
 from yahoo_proxy.yfinance_source import TickerLike
 
 FIXTURES_DIR: Final = Path(__file__).resolve().parent / "fixtures"
@@ -127,3 +129,27 @@ def failing_tickers(error: Exception) -> Callable[[str], TickerLike]:
 def http_error(status_code: int) -> HTTPError:
     """An HTTP error of the yfinance HTTP client with the given response status."""
     return HTTPError(f"HTTP Error {status_code}", 0, SimpleNamespace(status_code=status_code))
+
+
+class FakeClock:
+    """A monotonic clock that only moves when the code under test sleeps or the test advances it."""
+
+    def __init__(self, start: float = 1000.0) -> None:
+        self.now = start
+        self.sleeps: list[float] = []
+
+    def time(self) -> float:
+        """Current time in seconds."""
+        return self.now
+
+    async def sleep(self, seconds: float) -> None:
+        """Records the sleep, moves the clock and lets other tasks run, without real waiting."""
+        self.sleeps.append(seconds)
+        self.now += seconds
+        await asyncio.sleep(0)
+
+
+def instant_pacer(clock: FakeClock | None = None, min_interval_seconds: float = 1.0) -> Pacer:
+    """A pacer on a fake clock: reads are spaced in fake time, tests never wait for real."""
+    fake = clock if clock is not None else FakeClock()
+    return Pacer(min_interval_seconds, clock=fake.time, sleep=fake.sleep)
