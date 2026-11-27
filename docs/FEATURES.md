@@ -147,12 +147,12 @@ Implemented together with the source dropdown of the detailed screen (see Detail
 - [x] Backend: fire-and-forget `GET /health` warm-up of the proxy on an `AUTO` request of Yahoo data that doesn't call Yahoo (at most once per minute per backend instance)
 - [x] Backend: `GET /profiles/{profileId}/companies/{symbol}/sources` with the dropdown options of each detailed screen tab (default source first, Yahoo Finance last)
 - [x] Sources screen: Yahoo Finance listed last, with its daily counter shown without a limit
-- [ ] Yahoo proxy: at most 1 Yahoo read per second for the whole proxy (`YAHOO_MIN_CALL_INTERVAL_SECONDS`, default 1); a balance sheet read paced as two reads; waiting counts towards the proxy timeout
-- [ ] Backend: 15-minute pause of the Yahoo source after a proxy `429` (`pauseAfterRateLimitMinutes`), derived from the last call outcome so it is shared between instances; requests during the pause return cached data with `LIMIT_REACHED`; `pausedUntil` returned by the sources endpoint
-- [ ] Sources screen: 'paused until HH:MM' for a paused source
-- [ ] Backend: Yahoo suffix of each exchange returned by `GET /exchanges` (`yahooSuffix`: empty for US exchanges, null when Yahoo isn't used)
-- [ ] Exchanges screen: Yahoo suffix column after the EODHD code column ('none' for US exchanges, empty when Yahoo isn't used), included in the text filter
-- [ ] Watchlist: a Yahoo profile fetched by the detailed screen sets the sector of the requesting profile's watchlist entry when it has none; an existing sector is never replaced, the name is not changed
+- [x] Yahoo proxy: at most 1 Yahoo read per second for the whole proxy (`YAHOO_MIN_CALL_INTERVAL_SECONDS`, default 1); a balance sheet read paced as two reads; waiting counts towards the proxy timeout
+- [x] Backend: 15-minute pause of the Yahoo source after a proxy `429` (`pauseAfterRateLimitMinutes`), derived from the last call outcome so it is shared between instances; requests during the pause return cached data with `LIMIT_REACHED`; `pausedUntil` returned by the sources endpoint
+- [x] Sources screen: 'paused until HH:MM' for a paused source
+- [x] Backend: Yahoo suffix of each exchange returned by `GET /exchanges` (`yahooSuffix`: empty for US exchanges, null when Yahoo isn't used)
+- [x] Exchanges screen: Yahoo suffix column after the EODHD code column ('none' for US exchanges, empty when Yahoo isn't used), included in the text filter
+- [x] Watchlist: a Yahoo profile fetched by the detailed screen sets the sector of the requesting profile's watchlist entry when it has none; an existing sector is never replaced, the name is not changed
 
 ### Detailed screen
 - [x] Dividends tab (EODHD for international stocks; no dividends for US stocks until a US dividends source is added)

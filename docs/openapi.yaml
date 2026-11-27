@@ -1600,7 +1600,7 @@ components:
           description: |
             Suffix of Yahoo Finance symbols without the dot (`DE` for `SAP.DE`); an empty string for US exchanges, whose
             Yahoo symbols have no suffix; null for exchanges Yahoo Finance is not used for. Shown next to the EODHD code.
-          example: V
+          example: DE
           x-milestone: beta
         country:
           type: string
