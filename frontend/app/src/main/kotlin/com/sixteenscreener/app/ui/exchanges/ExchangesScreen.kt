@@ -298,9 +298,9 @@ private fun ExchangesContentPreview() {
         ExchangesContent(
             uiState = ExchangesUiState(
                 exchanges = listOf(
-                    Exchange("", "NYSE", "New York Stock Exchange", "XNYS", "US", "US", true, "USD", "America/New_York", Market.US),
-                    Exchange("DE", "XETRA", "Deutsche Boerse Xetra", "XETR", "XETRA", "DE", true, "EUR", "Europe/Berlin", Market.EU),
-                    Exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", "V", "CA", true, "CAD", "America/Toronto", null),
+                    Exchange("", "NYSE", "New York Stock Exchange", "XNYS", "US", "", "US", true, "USD", "America/New_York", Market.US),
+                    Exchange("DE", "XETRA", "Deutsche Boerse Xetra", "XETR", "XETRA", "DE", "DE", true, "EUR", "Europe/Berlin", Market.EU),
+                    Exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", "V", "V", "CA", true, "CAD", "America/Toronto", null),
                 ),
             ),
             onQueryChange = {},

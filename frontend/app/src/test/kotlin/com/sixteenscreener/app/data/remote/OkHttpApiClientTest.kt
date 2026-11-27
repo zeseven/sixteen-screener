@@ -941,6 +941,9 @@ class OkHttpApiClientTest {
             listOf(RequestLimit(LimitInterval.DAY, LimitUnit.REQUESTS, null, 12, Instant.parse("2026-11-15T00:00:00Z"))),
             yahoo.limits,
         )
+        assertEquals(Instant.parse("2026-11-14T15:45:00Z"), yahoo.pausedUntil)
+        assertNull(secEdgar.pausedUntil)
+        assertNull(finnhub.pausedUntil)
     }
 
     @Test
@@ -969,6 +972,13 @@ class OkHttpApiClientTest {
     }
 
     @Test
+    fun `getSources parses a source without pausedUntil as not paused`() = runTest {
+        enqueue(body = """{"items":[{"id":"yahoo","name":"Yahoo Finance","capabilities":[],"isDefault":false,"limits":[]}]}""")
+
+        assertNull(client.getSources(profileId).value().single().pausedUntil)
+    }
+
+    @Test
     fun `getExchanges requests the exchanges without a profile and keeps the backend order`() = runTest {
         enqueueFixture("exchanges.json")
 
@@ -979,9 +989,9 @@ class OkHttpApiClientTest {
         assertEquals("/exchanges", request.pathAndQuery())
         assertEquals(
             listOf(
-                Exchange("", "NYSE", "New York Stock Exchange", "XNYS", "US", "US", true, "USD", "America/New_York", Market.US),
-                Exchange("DE", "XETRA", "Deutsche Boerse Xetra", "XETR", "XETRA", "DE", true, "EUR", "Europe/Berlin", Market.EU),
-                Exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", null, "CA", false, "CAD", "America/Toronto", null),
+                Exchange("", "NYSE", "New York Stock Exchange", "XNYS", "US", "", "US", true, "USD", "America/New_York", Market.US),
+                Exchange("DE", "XETRA", "Deutsche Boerse Xetra", "XETR", "XETRA", "DE", "DE", true, "EUR", "Europe/Berlin", Market.EU),
+                Exchange("V", "TSXV", "TSX Venture Exchange", "XTSX", null, null, "CA", false, "CAD", "America/Toronto", null),
             ),
             exchanges,
         )
@@ -1000,7 +1010,7 @@ class OkHttpApiClientTest {
     }
 
     @Test
-    fun `getExchanges defaults country, main venue and EODHD code when absent`() = runTest {
+    fun `getExchanges defaults country, main venue, EODHD code and Yahoo suffix when absent`() = runTest {
         enqueue(
             body = """
                 {"items":[{"suffix":"HK","shortName":"HKEX","fullName":"Hong Kong Exchanges","mic":"XHKG","currency":"HKD",
@@ -1013,6 +1023,7 @@ class OkHttpApiClientTest {
         assertEquals("", exchange.country)
         assertFalse(exchange.mainVenue)
         assertNull(exchange.eodhdCode)
+        assertNull(exchange.yahooSuffix)
     }
 
     @Test

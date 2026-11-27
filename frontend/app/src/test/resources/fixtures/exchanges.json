@@ -1,7 +1,7 @@
 {
   "items": [
-    {"suffix": "", "shortName": "NYSE", "fullName": "New York Stock Exchange", "mic": "XNYS", "eodhdCode": "US", "country": "US", "mainVenue": true, "currency": "USD", "timeZone": "America/New_York", "market": "US"},
-    {"suffix": "DE", "shortName": "XETRA", "fullName": "Deutsche Boerse Xetra", "mic": "XETR", "eodhdCode": "XETRA", "country": "DE", "mainVenue": true, "currency": "EUR", "timeZone": "Europe/Berlin", "market": "EU"},
-    {"suffix": "V", "shortName": "TSXV", "fullName": "TSX Venture Exchange", "mic": "XTSX", "eodhdCode": null, "country": "CA", "mainVenue": false, "currency": "CAD", "timeZone": "America/Toronto", "market": null}
+    {"suffix": "", "shortName": "NYSE", "fullName": "New York Stock Exchange", "mic": "XNYS", "eodhdCode": "US", "yahooSuffix": "", "country": "US", "mainVenue": true, "currency": "USD", "timeZone": "America/New_York", "market": "US"},
+    {"suffix": "DE", "shortName": "XETRA", "fullName": "Deutsche Boerse Xetra", "mic": "XETR", "eodhdCode": "XETRA", "yahooSuffix": "DE", "country": "DE", "mainVenue": true, "currency": "EUR", "timeZone": "Europe/Berlin", "market": "EU"},
+    {"suffix": "V", "shortName": "TSXV", "fullName": "TSX Venture Exchange", "mic": "XTSX", "eodhdCode": null, "yahooSuffix": null, "country": "CA", "mainVenue": false, "currency": "CAD", "timeZone": "America/Toronto", "market": null}
   ]
 }

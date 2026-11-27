@@ -12,7 +12,7 @@ import org.junit.Test
 
 class ExchangeFilterTest {
 
-    private val onlyMarketMentions = Exchange("CO", "CPH", "Copenhagen", "XCSE", "CO", "DK", true, "DKK", "CET", Market.US)
+    private val onlyMarketMentions = Exchange("CO", "CPH", "Copenhagen", "XCSE", "CO", "CO", "DK", true, "DKK", "CET", Market.US)
 
     private fun filtered(query: String): List<Exchange> = ExchangeFilter.apply(all, query)
 

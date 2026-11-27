@@ -31,6 +31,7 @@ data class SourceDto(
     val limits: List<RequestLimitDto>,
     val lastCall: SourceCallOutcomeDto? = null,
     val totalCalls: Long? = null,
+    val pausedUntil: String? = null,
 )
 
 @Serializable
@@ -95,4 +96,5 @@ fun SourceDto.toDomain() = Source(
     },
     lastCall = lastCall?.let { SourceCallOutcome(result = it.result.toEnumOr(CallResult.UNKNOWN), httpStatus = it.httpStatus, at = Instant.parse(it.at)) },
     totalCalls = totalCalls,
+    pausedUntil = pausedUntil?.let(Instant::parse),
 )

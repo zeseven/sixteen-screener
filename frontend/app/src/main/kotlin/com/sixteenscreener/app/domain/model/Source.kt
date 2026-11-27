@@ -69,4 +69,6 @@ data class Source(
     val lastCall: SourceCallOutcome?,
     /** Calls to the source since the counter was introduced, `null` if the source has no total counter. */
     val totalCalls: Long? = null,
+    /** End of the pause after the source answered `429`, `null` when the source is not paused. */
+    val pausedUntil: Instant? = null,
 )
