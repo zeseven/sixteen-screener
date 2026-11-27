@@ -34,6 +34,7 @@ object Sources {
         limits: List<RequestLimit> = listOf(limit()),
         lastCall: SourceCallOutcome? = null,
         totalCalls: Long? = null,
+        pausedUntil: Instant? = null,
     ) = Source(
         id = SourceId(id),
         name = name,
@@ -45,5 +46,6 @@ object Sources {
         limits = limits,
         lastCall = lastCall,
         totalCalls = totalCalls,
+        pausedUntil = pausedUntil,
     )
 }

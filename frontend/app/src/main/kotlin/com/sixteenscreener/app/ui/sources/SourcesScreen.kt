@@ -40,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sixteenscreener.app.R
 import com.sixteenscreener.app.domain.ConnectionIndicator
 import com.sixteenscreener.app.domain.LimitResetTime
+import com.sixteenscreener.app.domain.SourcePause
 import com.sixteenscreener.app.domain.model.ApiError
 import com.sixteenscreener.app.domain.model.CallResult
 import com.sixteenscreener.app.domain.model.Capability
@@ -61,6 +62,7 @@ object SourcesScreenTags {
     const val NAME = "source_name"
     const val DEFAULT_MARKER = "source_default_marker"
     const val MANUAL_ONLY_MARKER = "source_manual_only_marker"
+    const val PAUSED_UNTIL = "source_paused_until"
     const val DEFAULT_FOR = "source_default_for"
     const val CONNECTION_INDICATOR = "source_connection_indicator"
     const val LIMIT = "source_limit"
@@ -155,6 +157,9 @@ fun SourceCard(source: Source, modifier: Modifier = Modifier) {
                     if (!source.automaticRequests) Marker(stringResource(R.string.source_manual_only), SourcesScreenTags.MANUAL_ONLY_MARKER)
                 }
                 ConnectionIndicatorText(source.lastCall)
+            }
+            SourcePause.endText(source.pausedUntil, LocalClock.current)?.let {
+                Marker(stringResource(R.string.source_paused_until, it), SourcesScreenTags.PAUSED_UNTIL)
             }
             defaultForText(source.defaultFor)?.let {
                 Text(text = it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag(SourcesScreenTags.DEFAULT_FOR))
@@ -333,7 +338,8 @@ private fun SourcesContentPreview() {
                         isDefault = false,
                         automaticRequests = false,
                         limits = listOf(RequestLimit(LimitInterval.DAY, LimitUnit.REQUESTS, null, 12, null)),
-                        lastCall = null,
+                        lastCall = SourceCallOutcome(CallResult.HTTP_ERROR, 429, Instant.now()),
+                        pausedUntil = Instant.now().plusSeconds(900),
                     ),
                 ),
             ),

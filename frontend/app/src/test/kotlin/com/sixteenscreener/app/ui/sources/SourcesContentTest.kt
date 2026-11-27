@@ -125,6 +125,45 @@ class SourcesContentTest {
     }
 
     @Test
+    fun `paused source shows the end of the pause`() {
+        setSources(source(id = "yahoo", name = "Yahoo Finance", automaticRequests = false, pausedUntil = Instant.parse("2026-11-14T10:15:00Z")))
+
+        composeRule.onNodeWithTag(SourcesScreenTags.PAUSED_UNTIL, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Paused until 10:15").assertExists()
+    }
+
+    @Test
+    fun `pause ending on another day shows its date`() {
+        setSources(source(pausedUntil = Instant.parse("2026-11-15T00:05:00Z")))
+
+        composeRule.onNodeWithText("Paused until Nov 15, 00:05").assertExists()
+    }
+
+    @Test
+    fun `source without a pause shows no pause`() {
+        setSources(source(pausedUntil = null))
+
+        composeRule.onNodeWithTag(SourcesScreenTags.PAUSED_UNTIL, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `pause that has already ended is not shown`() {
+        setSources(source(pausedUntil = Instant.parse("2026-11-14T09:45:00Z")))
+
+        composeRule.onNodeWithTag(SourcesScreenTags.PAUSED_UNTIL, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `pause is shown only for the paused source`() {
+        setSources(
+            source(id = "finnhub", name = "Finnhub"),
+            source(id = "yahoo", name = "Yahoo Finance", pausedUntil = Instant.parse("2026-11-14T10:15:00Z")),
+        )
+
+        composeRule.onAllNodesWithTag(SourcesScreenTags.PAUSED_UNTIL, useUnmergedTree = true).fetchSemanticsNodes().single()
+    }
+
+    @Test
     fun `limits are shown for each interval`() {
         setSources(
             source(
