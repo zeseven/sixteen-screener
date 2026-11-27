@@ -38,6 +38,11 @@ def source_for(symbol: str) -> YfinanceSource:
     return YfinanceSource(lambda _symbol: RecordedTicker(load_fixture(symbol)))
 
 
+def recorded_balance_sheet(symbol: str) -> YahooBalanceSheet:
+    source = source_for(symbol)
+    return YahooBalanceSheet(source.balance_sheet(symbol), source.financial_currency(symbol))
+
+
 class TestQuote:
     def test_london_price_is_converted_from_pence(self) -> None:
         quote: Quote = ok(map_quote("SHEL.L", source_for("SHEL.L").price_metadata("SHEL.L")))
@@ -191,7 +196,7 @@ class TestDividends:
 
 class TestBalanceSheet:
     def test_maps_years_newest_first_with_camel_case_keys(self) -> None:
-        sheet: BalanceSheet = ok(map_balance_sheet("SAP.DE", source_for("SAP.DE").balance_sheet("SAP.DE")))
+        sheet: BalanceSheet = ok(map_balance_sheet("SAP.DE", recorded_balance_sheet("SAP.DE")))
 
         assert sheet.currency == "EUR"
         assert sheet.years[0].fiscal_year_end == date(2025, 12, 31)
@@ -202,7 +207,7 @@ class TestBalanceSheet:
         assert "Total Assets" not in sheet.years[0].items
 
     def test_missing_values_are_left_out(self) -> None:
-        sheet = ok(map_balance_sheet("AAPL", source_for("AAPL").balance_sheet("AAPL")))
+        sheet = ok(map_balance_sheet("AAPL", recorded_balance_sheet("AAPL")))
         oldest = sheet.years[-1]
 
         assert oldest.fiscal_year_end == date(2022, 9, 30)

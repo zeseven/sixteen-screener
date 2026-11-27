@@ -41,7 +41,7 @@ class YahooBalanceSheet:
 
 
 class YahooSource(Protocol):
-    """Blocking access to Yahoo data of one symbol per call.
+    """Blocking access to Yahoo data of one symbol per call; every call is one Yahoo read.
 
     Implementations raise the exceptions of the underlying library; callers classify them.
     """
@@ -58,6 +58,10 @@ class YahooSource(Protocol):
         """Returns the full dividend history."""
         ...
 
-    def balance_sheet(self, symbol: str) -> YahooBalanceSheet:
-        """Returns the annual balance sheets, newest first."""
+    def balance_sheet(self, symbol: str) -> tuple[YahooBalanceSheetColumn, ...]:
+        """Returns the annual balance sheets."""
+        ...
+
+    def financial_currency(self, symbol: str) -> str | None:
+        """Returns the Yahoo currency code of the financial statements, read from the quote summary."""
         ...

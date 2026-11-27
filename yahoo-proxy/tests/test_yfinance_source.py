@@ -55,23 +55,26 @@ class TestYfinanceSource:
 
         assert [payment.ex_date for payment in dividends.payments] == [date(2025, 1, 2)]
 
-    def test_balance_sheet_drops_missing_values_and_reads_financial_currency(self) -> None:
-        sheet = YfinanceSource(lambda _symbol: RecordedTicker(load_fixture("SHEL.L"))).balance_sheet("SHEL.L")
+    def test_balance_sheet_drops_missing_values(self) -> None:
+        columns = YfinanceSource(lambda _symbol: RecordedTicker(load_fixture("SHEL.L"))).balance_sheet("SHEL.L")
 
-        assert sheet.financial_currency == "USD"
-        assert {column.fiscal_year_end for column in sheet.columns} >= {date(2025, 12, 31)}
-        assert all(not math.isnan(value) for column in sheet.columns for value in column.items.values())
+        assert {column.fiscal_year_end for column in columns} >= {date(2025, 12, 31)}
+        assert all(not math.isnan(value) for column in columns for value in column.items.values())
 
-    def test_empty_balance_sheet_does_not_read_info(self) -> None:
-        class EmptyTicker(FailingTicker):
+    def test_balance_sheet_does_not_read_info(self) -> None:
+        class BalanceSheetOnlyTicker(FailingTicker):
             @property
             def balance_sheet(self) -> pd.DataFrame:
                 return pd.DataFrame()
 
-        sheet = YfinanceSource(lambda _symbol: EmptyTicker(AssertionError("info must not be read"))).balance_sheet("X")
+        source = YfinanceSource(lambda _symbol: BalanceSheetOnlyTicker(AssertionError("info must not be read")))
 
-        assert sheet.columns == ()
-        assert sheet.financial_currency is None
+        assert source.balance_sheet("X") == ()
+
+    def test_financial_currency_comes_from_the_quote_summary(self) -> None:
+        source = YfinanceSource(lambda _symbol: RecordedTicker(load_fixture("SHEL.L")))
+
+        assert source.financial_currency("SHEL.L") == "USD"
 
     def test_unexpected_date_label_raises(self) -> None:
         class TickerWithTextLabels(RecordedTicker):

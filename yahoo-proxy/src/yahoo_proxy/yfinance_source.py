@@ -14,12 +14,7 @@ from yfinance.exceptions import YFRateLimitError, YFTickerMissingError  # noqa: 
 
 from yahoo_proxy.errors import YahooError, YahooErrorKind
 from yahoo_proxy.record import YahooRecord, text
-from yahoo_proxy.source import (
-    YahooBalanceSheet,
-    YahooBalanceSheetColumn,
-    YahooDividend,
-    YahooDividends,
-)
+from yahoo_proxy.source import YahooBalanceSheetColumn, YahooDividend, YahooDividends
 
 _logger = logging.getLogger(__name__)
 
@@ -73,19 +68,19 @@ class YfinanceSource:
         payments = tuple(YahooDividend(_to_date(label), amount) for label, amount in _finite_values(series))
         return YahooDividends(payments=payments, currency=text(ticker.get_history_metadata(), "currency"))
 
-    def balance_sheet(self, symbol: str) -> YahooBalanceSheet:
-        """Returns the annual balance sheets with the currency of the financial statements."""
-        ticker = self._ticker_factory(symbol)
-        frame = ticker.balance_sheet
-        columns = tuple(
+    def balance_sheet(self, symbol: str) -> tuple[YahooBalanceSheetColumn, ...]:
+        """Returns the annual balance sheets."""
+        return tuple(
             YahooBalanceSheetColumn(
                 fiscal_year_end=_to_date(label),
                 items={str(item): value for item, value in _finite_values(column)},
             )
-            for label, column in frame.items()
+            for label, column in self._ticker_factory(symbol).balance_sheet.items()
         )
-        financial_currency = text(ticker.info, "financialCurrency") if columns else None
-        return YahooBalanceSheet(columns=columns, financial_currency=financial_currency)
+
+    def financial_currency(self, symbol: str) -> str | None:
+        """Returns the currency of the financial statements from the quote summary."""
+        return text(self._ticker_factory(symbol).info, "financialCurrency")
 
 
 def create_yfinance_source(cache_dir: Path) -> YfinanceSource:
