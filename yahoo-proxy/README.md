@@ -110,7 +110,7 @@ Every response outside 2XX has the body `{"error": "<code>", "message": "<text>"
 | Variable                          | Default            | Description                                                                 |
 |-----------------------------------|--------------------|-----------------------------------------------------------------------------|
 | `PORT`                            | `8080`             | HTTP port (set by Cloud Run)                                                |
-| `YAHOO_TIMEOUT_SECONDS`           | `25`               | Time limit of one Yahoo read, including the wait for a free slot and turn   |
+| `YAHOO_TIMEOUT_SECONDS`           | `25`               | Time limit of a request: its Yahoo reads and their waits for slot and turn  |
 | `YAHOO_MAX_CONCURRENT_CALLS`      | `2`                | Yahoo reads running at the same time; further requests wait                 |
 | `YAHOO_MIN_CALL_INTERVAL_SECONDS` | `1`                | Minimum time between the starts of two Yahoo reads; must be above 0         |
 | `YFINANCE_CACHE_DIR`              | `$TMPDIR/yfinance` | Cache of exchange time zones kept by `yfinance` (lost on restart)           |
@@ -125,9 +125,9 @@ The proxy starts at most one Yahoo read per `YAHOO_MIN_CALL_INTERVAL_SECONDS`, i
 the service runs with max instances 1, this is a global limit, whatever the number of backend instances.
 
 - The balance sheet needs two Yahoo reads (the balance sheet, then the quote summary for the financial currency, only
-  when there is a balance sheet); each is paced and has its own `YAHOO_TIMEOUT_SECONDS`. Every other endpoint is one
-  read.
-- Waiting for the turn counts towards `YAHOO_TIMEOUT_SECONDS`, so a long queue ends in `504 TIMEOUT`.
+  when there is a balance sheet); each is paced separately. Every other endpoint is one read.
+- `YAHOO_TIMEOUT_SECONDS` limits the whole request: all its Yahoo reads and the waits for a free slot and for their
+  turns together. A slow or long queued request ends in `504 TIMEOUT`.
 - The cookie and crumb requests `yfinance` makes on its own are part of the read that triggers them and are not paced
   separately.
 - `GET /health` is never paced.
@@ -240,8 +240,8 @@ gcloud run deploy "$SERVICE_NAME" \
 - `--cpu-boost`: extra CPU during startup, which shortens the cold start
 - `--concurrency=10`: matches the backend's limit of 10 requests at a time per source; Yahoo itself is called by at
   most `YAHOO_MAX_CONCURRENT_CALLS` of them at once
-- `--timeout=60`: longer than twice `YAHOO_TIMEOUT_SECONDS` (the balance sheet is two reads), so a slow Yahoo answers
-  `504` from the proxy rather than a Cloud Run timeout
+- `--timeout=60`: longer than `YAHOO_TIMEOUT_SECONDS`, so a slow Yahoo answers `504` from the proxy rather than a
+  Cloud Run timeout
 - `--service-account`: runtime service account without any roles
 
 The service URL, which the backend needs as `YAHOO_PROXY_URL`:
