@@ -16,7 +16,7 @@ run from the `yahoo-proxy` folder unless stated otherwise.
 
 All endpoints are `GET`, take a Yahoo symbol (`AAPL`, `BRK-B`, `SAP.DE`, `SHEL.L`) and return JSON with camelCase
 fields. Symbols are upper case letters, digits, `.` and `-`, at most 25 characters; anything else is rejected with
-`400` without calling Yahoo. Every endpoint makes one or two Yahoo requests.
+`400` without calling Yahoo. Every endpoint makes one or two Yahoo requests (see Pacing).
 
 | Path                               | Data                                                                     |
 |------------------------------------|--------------------------------------------------------------------------|
@@ -107,16 +107,30 @@ Every response outside 2XX has the body `{"error": "<code>", "message": "<text>"
 
 ## Configuration
 
-| Variable                     | Default           | Description                                                                 |
-|------------------------------|-------------------|-----------------------------------------------------------------------------|
-| `PORT`                       | `8080`            | HTTP port (set by Cloud Run)                                                |
-| `YAHOO_TIMEOUT_SECONDS`      | `25`              | Time limit of one Yahoo read, including the wait for a free slot            |
-| `YAHOO_MAX_CONCURRENT_CALLS` | `2`               | Yahoo reads running at the same time; further requests wait                 |
-| `YFINANCE_CACHE_DIR`         | `$TMPDIR/yfinance`| Cache of exchange time zones kept by `yfinance` (lost on restart)           |
+| Variable                          | Default            | Description                                                                 |
+|-----------------------------------|--------------------|-----------------------------------------------------------------------------|
+| `PORT`                            | `8080`             | HTTP port (set by Cloud Run)                                                |
+| `YAHOO_TIMEOUT_SECONDS`           | `25`               | Time limit of one Yahoo read, including the wait for a free slot and turn   |
+| `YAHOO_MAX_CONCURRENT_CALLS`      | `2`                | Yahoo reads running at the same time; further requests wait                 |
+| `YAHOO_MIN_CALL_INTERVAL_SECONDS` | `1`                | Minimum time between the starts of two Yahoo reads; must be above 0         |
+| `YFINANCE_CACHE_DIR`              | `$TMPDIR/yfinance` | Cache of exchange time zones kept by `yfinance` (lost on restart)           |
 
 The service validates the configuration on start and exits with a list of all problems found. Logs are written to
 stdout as JSON in the Cloud Logging format. The backend's timeout for proxy calls must cover a cold start plus
 `YAHOO_TIMEOUT_SECONDS` (40 seconds or more).
+
+### Pacing
+
+The proxy starts at most one Yahoo read per `YAHOO_MIN_CALL_INTERVAL_SECONDS`, in the order the requests arrive. As
+the service runs with max instances 1, this is a global limit, whatever the number of backend instances.
+
+- The balance sheet needs two Yahoo reads (the balance sheet, then the quote summary for the financial currency, only
+  when there is a balance sheet); each is paced and has its own `YAHOO_TIMEOUT_SECONDS`. Every other endpoint is one
+  read.
+- Waiting for the turn counts towards `YAHOO_TIMEOUT_SECONDS`, so a long queue ends in `504 TIMEOUT`.
+- The cookie and crumb requests `yfinance` makes on its own are part of the read that triggers them and are not paced
+  separately.
+- `GET /health` is never paced.
 
 ## Prerequisites
 
@@ -226,8 +240,8 @@ gcloud run deploy "$SERVICE_NAME" \
 - `--cpu-boost`: extra CPU during startup, which shortens the cold start
 - `--concurrency=10`: matches the backend's limit of 10 requests at a time per source; Yahoo itself is called by at
   most `YAHOO_MAX_CONCURRENT_CALLS` of them at once
-- `--timeout=60`: longer than `YAHOO_TIMEOUT_SECONDS`, so a slow Yahoo answers `504` from the proxy rather than a
-  Cloud Run timeout
+- `--timeout=60`: longer than twice `YAHOO_TIMEOUT_SECONDS` (the balance sheet is two reads), so a slow Yahoo answers
+  `504` from the proxy rather than a Cloud Run timeout
 - `--service-account`: runtime service account without any roles
 
 The service URL, which the backend needs as `YAHOO_PROXY_URL`:
