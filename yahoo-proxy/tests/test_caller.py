@@ -115,3 +115,26 @@ def test_timed_out_waiter_does_not_hold_up_the_next_read() -> None:
         return timed_out.is_err and late == Ok("third")
 
     assert asyncio.run(call_after_a_timeout())
+
+
+def test_reads_with_one_deadline_share_the_timeout() -> None:
+    caller = YahooCaller(classify, timeout_seconds=0.3, max_concurrent_calls=1, pacer=instant_pacer())
+
+    async def two_reads_of_one_request() -> list[bool]:
+        deadline = caller.deadline()
+        first = await caller.call(lambda: sleep_then_return(0.2, "first"), deadline)
+        second = await caller.call(lambda: sleep_then_return(0.2, "second"), deadline)
+        return [first.is_ok, second.is_err and second.unwrap_err().kind is YahooErrorKind.TIMEOUT]
+
+    assert asyncio.run(two_reads_of_one_request()) == [True, True]
+
+
+def test_reads_without_a_deadline_get_the_whole_timeout_each() -> None:
+    caller = YahooCaller(classify, timeout_seconds=0.3, max_concurrent_calls=1, pacer=instant_pacer())
+
+    async def two_requests() -> list[bool]:
+        first = await caller.call(lambda: sleep_then_return(0.2, "first"))
+        second = await caller.call(lambda: sleep_then_return(0.2, "second"))
+        return [first.is_ok, second.is_ok]
+
+    assert asyncio.run(two_requests()) == [True, True]

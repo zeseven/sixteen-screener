@@ -1,4 +1,5 @@
 import asyncio
+import time
 from collections.abc import Callable
 
 import pandas as pd
@@ -36,8 +37,29 @@ class RateLimitedInfoTicker(RecordedTicker):
         raise YFRateLimitError
 
 
-def service_for(ticker_factory: Callable[[str], TickerLike], clock: FakeClock) -> YahooService:
-    caller = YahooCaller(classify_yfinance_error, timeout_seconds=5, max_concurrent_calls=2, pacer=instant_pacer(clock))
+class SlowTicker(RecordedTicker):
+    """A recorded ticker whose balance sheet and quote summary reads take 0.2 s each."""
+
+    @property
+    def info(self) -> dict[str, object]:
+        time.sleep(0.2)
+        return dict(super().info)
+
+    @property
+    def balance_sheet(self) -> pd.DataFrame:
+        time.sleep(0.2)
+        return super().balance_sheet
+
+
+def service_for(
+    ticker_factory: Callable[[str], TickerLike], clock: FakeClock, timeout_seconds: float = 5
+) -> YahooService:
+    caller = YahooCaller(
+        classify_yfinance_error,
+        timeout_seconds=timeout_seconds,
+        max_concurrent_calls=2,
+        pacer=instant_pacer(clock),
+    )
     return YahooService(YfinanceSource(ticker_factory), caller)
 
 
@@ -86,3 +108,19 @@ def test_single_read_endpoints_take_one_turn_each() -> None:
     asyncio.run(reads())
 
     assert clock.sleeps == [1.0, 1.0, 1.0]
+
+
+def test_balance_sheet_reads_share_one_timeout() -> None:
+    service = service_for(lambda symbol: SlowTicker(load_fixture(symbol)), FakeClock(), timeout_seconds=0.3)
+
+    result = asyncio.run(service.balance_sheet("SHEL.L"))
+
+    assert result.unwrap_err().kind is YahooErrorKind.TIMEOUT
+
+
+def test_single_read_endpoint_gets_the_whole_timeout() -> None:
+    service = service_for(lambda symbol: SlowTicker(load_fixture(symbol)), FakeClock(), timeout_seconds=0.3)
+
+    result = asyncio.run(service.profile("SHEL.L"))
+
+    assert result.is_ok

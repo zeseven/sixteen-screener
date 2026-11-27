@@ -2,7 +2,7 @@
 
 from rusty_results.prelude import Err, Ok, Result
 
-from yahoo_proxy.caller import YahooCaller
+from yahoo_proxy.caller import Deadline, YahooCaller
 from yahoo_proxy.contract import BalanceSheet, Dividends, Profile, Quote, Statistics
 from yahoo_proxy.errors import YahooError
 from yahoo_proxy.mapping import map_balance_sheet, map_dividends, map_profile, map_quote, map_statistics
@@ -37,19 +37,23 @@ class YahooService:
         return history.and_then(lambda payments: map_dividends(symbol, payments))
 
     async def balance_sheet(self, symbol: str) -> Result[BalanceSheet, YahooError]:
-        """Annual balance sheets; the financial currency is a second Yahoo read, made only when there are columns."""
-        columns_result = await self._caller.call(lambda: self._source.balance_sheet(symbol))
+        """Annual balance sheets; the financial currency is a second Yahoo read, made only when there are columns.
+
+        Both reads share one deadline, so the whole request ends within the timeout.
+        """
+        deadline = self._caller.deadline()
+        columns_result = await self._caller.call(lambda: self._source.balance_sheet(symbol), deadline)
         if columns_result.is_err:
             return Err(columns_result.unwrap_err())
         columns = columns_result.unwrap()
-        currency = await self._financial_currency(symbol, columns)
+        currency = await self._financial_currency(symbol, columns, deadline)
         return currency.and_then(
             lambda financial_currency: map_balance_sheet(symbol, YahooBalanceSheet(columns, financial_currency))
         )
 
     async def _financial_currency(
-        self, symbol: str, columns: tuple[YahooBalanceSheetColumn, ...]
+        self, symbol: str, columns: tuple[YahooBalanceSheetColumn, ...], deadline: Deadline
     ) -> Result[str | None, YahooError]:
         if not columns:
             return Ok(None)
-        return await self._caller.call(lambda: self._source.financial_currency(symbol))
+        return await self._caller.call(lambda: self._source.financial_currency(symbol), deadline)
