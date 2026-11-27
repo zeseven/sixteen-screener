@@ -49,6 +49,7 @@ val FINNHUB: SourceId = SourceId.of("finnhub")
 val SEC_EDGAR: SourceId = SourceId.of("sec-edgar")
 val EODHD: SourceId = SourceId.of("eodhd")
 val YAHOO: SourceId = SourceId.of("yahoo")
+val YAHOO_PAUSE: Duration = Duration.ofMinutes(15)
 
 val EODHD_CAPABILITIES = setOf(Capability.QUOTE, Capability.DIVIDENDS)
 
@@ -108,6 +109,7 @@ class CompanyDataFixture(
     automaticRequests: Boolean = true,
     internationalCapabilities: Set<Capability> = EODHD_CAPABILITIES,
     internationalAutomaticRequests: Boolean = false,
+    yahooMarketDataSource: (FakeMarketDataSource) -> MarketDataSource = { it },
     marketDataSource: (FakeMarketDataSource) -> MarketDataSource = { it },
 ) {
     val clock = MutableClock()
@@ -169,7 +171,7 @@ class CompanyDataFixture(
 
     val service = CompanyDataService(
         catalog = catalog,
-        marketDataSources = mapOf(FINNHUB to marketDataSource(source), EODHD to international, YAHOO to yahoo),
+        marketDataSources = mapOf(FINNHUB to marketDataSource(source), EODHD to international, YAHOO to yahooMarketDataSource(yahoo)),
         balanceSheetSources = mapOf(FINNHUB to finnhubBalanceSheets, SEC_EDGAR to secBalanceSheets, YAHOO to yahooBalanceSheets),
         profiles = profiles,
         symbolDirectory = directory,
@@ -177,6 +179,7 @@ class CompanyDataFixture(
         rateLimiter = limiter,
         guard = SourceCallGuard(limiter),
         outcomes = SourceCallOutcomes(sourceCalls),
+        pauses = SourcePauses(mapOf(YAHOO to YAHOO_PAUSE), SourceCallOutcomes(sourceCalls), clock),
         freshness = FreshnessPolicy(clock),
         marketResolver = marketResolver,
         identities = identities,

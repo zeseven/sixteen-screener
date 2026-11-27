@@ -24,6 +24,9 @@ data class AppConfig(
 
     val manualOnlySources: Set<SourceId> get() = enabledSources.filterNot { it.automaticRequests }.map { it.id }.toSet()
 
+    val pausesAfterRateLimit: Map<SourceId, Duration>
+        get() = enabledSources.mapNotNull { source -> source.pauseAfterRateLimit?.let { source.id to it } }.toMap()
+
     fun source(id: SourceId): SourceConfig? = sources.firstOrNull { it.id == id }
 }
 
@@ -41,6 +44,7 @@ data class SourceConfig(
     val directoryExchanges: Set<ExchangeCode>? = null,
     val automaticRequests: Boolean = true,
     val minRequestInterval: Duration? = null,
+    val pauseAfterRateLimit: Duration? = null,
 )
 
 data class SourceSecrets(

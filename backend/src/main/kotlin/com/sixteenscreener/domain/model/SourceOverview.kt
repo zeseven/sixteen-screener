@@ -1,5 +1,7 @@
 package com.sixteenscreener.domain.model
 
+import java.time.Instant
+
 /**
  * Configured source as described to the domain.
  *
@@ -25,6 +27,7 @@ data class SourceDescription(
  * @property limits request limits with their usage in the current windows
  * @property lastCall outcome of the last call to the source; null when it was never called
  * @property totalCalls number of calls to the source that never resets; null when the source has no total counter
+ * @property pausedUntil end of the pause after a `429` of a source configured with a pause; null when it is not paused (ADR-090)
  */
 data class SourceOverview(
     val source: SourceDescription,
@@ -32,6 +35,7 @@ data class SourceOverview(
     val limits: List<RequestUsage>,
     val lastCall: SourceCallOutcome?,
     val totalCalls: Long? = null,
+    val pausedUntil: Instant? = null,
 ) {
     /** Whether it is the profile's default [SourceRole.SEARCH] source. */
     val isDefault: Boolean get() = SourceRole.SEARCH in defaultFor

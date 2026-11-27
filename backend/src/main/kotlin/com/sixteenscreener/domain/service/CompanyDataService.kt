@@ -58,6 +58,7 @@ class CompanyDataService(
     private val rateLimiter: RateLimiter,
     private val guard: SourceCallGuard,
     private val outcomes: SourceCallOutcomes,
+    private val pauses: SourcePauses,
     private val freshness: FreshnessPolicy,
     private val marketResolver: MarketResolver,
     private val identities: CompanyIdentityResolver,
@@ -313,28 +314,30 @@ class CompanyDataService(
         val settled = plans.filterIsInstance<Settled<*>>().associate { it.key to it.data }
         val fetches = plans.filterIsInstance<Fetch<*, *>>()
         if (fetches.isEmpty()) return Loaded(settled)
+        if (pauses.isPaused(source)) return Loaded(settled + fetches.associate { it.key to it.limitReached() })
         val granted = rateLimiter.tryAcquire(source, fetches.size)
-        val fetched = outcomes.recording { recorder -> runGranted(fetches, granted, recorder) }
+        val fetched = outcomes.recording { recorder -> runGranted(source, fetches, granted, recorder) }
         return Loaded(settled + fetched)
     }
 
     private suspend fun runGranted(
+        source: SourceId,
         fetches: List<Fetch<*, *>>,
         granted: Int,
         recorder: SourceCallRecorder,
     ): Map<CacheKey<*>, SourceData<*>> = coroutineScope {
-        val semaphore = Semaphore(maxConcurrentCalls)
-        val rejectedBySource = AtomicBoolean(false)
+        val semaphore = Semaphore(if (pauses.hasPause(source)) 1 else maxConcurrentCalls)
+        val callsStopped = AtomicBoolean(false)
         fetches.mapIndexed { index, fetch ->
             async(start = CoroutineStart.UNDISPATCHED) {
                 val data = if (index >= granted) {
                     fetch.limitReached()
                 } else {
                     semaphore.withPermit {
-                        if (rejectedBySource.get()) {
+                        if (callsStopped.get()) {
                             fetch.limitReached()
                         } else {
-                            fetch.execute(recorder, onRejectedBySource = { rejectedBySource.set(true) })
+                            fetch.execute(recorder, onStopCalls = { callsStopped.set(true) })
                         }
                     }
                 }
@@ -367,9 +370,9 @@ class CompanyDataService(
 
         fun limitReached(): SourceData<T> = fallback(key, cached, DataStatus.LIMIT_REACHED)
 
-        suspend fun execute(recorder: SourceCallRecorder, onRejectedBySource: () -> Unit): SourceData<T> {
+        suspend fun execute(recorder: SourceCallRecorder, onStopCalls: () -> Unit): SourceData<T> {
             val result = guard.completed(key.source, recorder, call())
-            if (result is SourceResult.LimitReached && result.rejectedBySource) onRejectedBySource()
+            if (result.stopsFurtherCalls()) onStopCalls()
             return when (result) {
                 is SourceResult.Success -> {
                     val entry = storeOrKeep(result.data, clock.now())
@@ -378,6 +381,10 @@ class CompanyDataService(
                 else -> fallback(key, cached, result.dataStatus)
             }
         }
+
+        private fun SourceResult<*>.stopsFurtherCalls(): Boolean =
+            (this is SourceResult.LimitReached && rejectedBySource) ||
+                (pauses.hasPause(key.source) && outcome?.isRateLimited == true)
 
         private suspend fun storeOrKeep(data: R, at: Instant): CacheEntry<T> =
             try {

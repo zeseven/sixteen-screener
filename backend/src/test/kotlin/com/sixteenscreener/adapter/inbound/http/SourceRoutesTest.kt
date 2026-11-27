@@ -26,6 +26,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
+import kotlin.time.Duration.Companion.minutes
 
 private val finnhub = SourceId.of("finnhub")
 private val tiingo = SourceId.of("tiingo")
@@ -34,6 +35,7 @@ private val secEdgar = SourceId.of("sec-edgar")
 private val logoapi = SourceId.of("logoapi")
 private val eodhdLogos = SourceId.of("eodhd-logos")
 private val finnhubLogos = SourceId.of("finnhub-logos")
+private val yahoo = SourceId.of("yahoo")
 
 private fun sourcesConfig(): AppConfig = testConfig().let { config ->
     val (finnhubSource, eodhdSource) = config.sources
@@ -71,6 +73,7 @@ private fun sourcesConfig(): AppConfig = testConfig().let { config ->
                 roles = setOf(SourceRole.US, SourceRole.INTERNATIONAL),
                 automaticRequests = false,
                 limits = listOf(RequestLimit(LimitInterval.DAY, null)),
+                pauseAfterRateLimit = 15.minutes,
             ),
             finnhubSource.copy(
                 id = logoapi,
@@ -138,6 +141,7 @@ class SourceRoutesTest : FunSpec({
                     "automaticRequests" to JsonPrimitive(true),
                     "limits" to JsonArray(listOf(limit("MINUTE", 60, 0, "2026-11-14T12:01:00Z"))),
                     "lastCall" to JsonNull,
+                    "pausedUntil" to JsonNull,
                     "totalCalls" to JsonNull,
                 ),
             )
@@ -263,6 +267,60 @@ class SourceRoutesTest : FunSpec({
                     ),
                 )
                 body.item(secEdgar)["lastCall"] shouldBe JsonNull
+            }
+        }
+    }
+
+    context("pause after a 429") {
+        test("a source with a pause answered 429 within the pause is paused until the outcome time plus the pause") {
+            routeTest(config = sourcesConfig()) { ports ->
+                val saved = ports.savedProfile()
+                ports.sourceCalls.record(yahoo, SourceCallOutcome.httpError(429, Instant.parse("2026-11-14T11:55:00Z")))
+                ports.sourceCalls.record(finnhub, SourceCallOutcome.httpError(429, Instant.parse("2026-11-14T11:55:00Z")))
+
+                val body = client.get("/profiles/${saved.id}/sources").json()
+
+                body.item(yahoo)["pausedUntil"] shouldBe JsonPrimitive("2026-11-14T12:10:00Z")
+                body.item(finnhub)["pausedUntil"] shouldBe JsonNull
+                body.item(eodhd)["pausedUntil"] shouldBe JsonNull
+            }
+        }
+
+        test("a source is still paused just before the end of the pause") {
+            routeTest(config = sourcesConfig()) { ports ->
+                val saved = ports.savedProfile()
+                ports.sourceCalls.record(yahoo, SourceCallOutcome.httpError(429, Instant.parse("2026-11-14T11:45:00.001Z")))
+
+                client.get("/profiles/${saved.id}/sources").json().item(yahoo)["pausedUntil"] shouldBe
+                    JsonPrimitive("2026-11-14T12:00:00.001Z")
+            }
+        }
+
+        context("a source is not paused") {
+            withData(
+                nameFn = { it.first },
+                "429 that is exactly as old as the pause" to SourceCallOutcome.httpError(429, Instant.parse("2026-11-14T11:45:00Z")),
+                "429 older than the pause" to SourceCallOutcome.httpError(429, Instant.parse("2026-11-14T10:00:00Z")),
+                "recent other HTTP error" to SourceCallOutcome.httpError(503, Instant.parse("2026-11-14T11:59:00Z")),
+                "recent timeout" to SourceCallOutcome.timeout(Instant.parse("2026-11-14T11:59:00Z")),
+                "recent success" to SourceCallOutcome.success(Instant.parse("2026-11-14T11:59:00Z")),
+            ) { (_, outcome) ->
+                routeTest(config = sourcesConfig()) { ports ->
+                    val saved = ports.savedProfile()
+                    ports.sourceCalls.record(yahoo, outcome)
+
+                    client.get("/profiles/${saved.id}/sources").json().item(yahoo)["pausedUntil"] shouldBe JsonNull
+                }
+            }
+        }
+
+        test("unreadable call outcomes give no pause") {
+            routeTest(config = sourcesConfig()) { ports ->
+                val saved = ports.savedProfile()
+                ports.sourceCalls.record(yahoo, SourceCallOutcome.httpError(429, ports.clock.now()))
+                ports.sourceCalls.failReads = true
+
+                client.get("/profiles/${saved.id}/sources").json().item(yahoo)["pausedUntil"] shouldBe JsonNull
             }
         }
     }

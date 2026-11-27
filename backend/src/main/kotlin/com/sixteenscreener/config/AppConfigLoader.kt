@@ -11,6 +11,7 @@ import com.sixteenscreener.domain.model.SourceId
 import com.sixteenscreener.domain.model.SourceRole
 import io.ktor.server.config.ApplicationConfig
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 
 object AppConfigLoader {
 
@@ -34,6 +35,7 @@ object AppConfigLoader {
     private const val DIRECTORY_EXCHANGES = "directoryExchanges"
     private const val DEFAULT_SOURCES = "defaultSources"
     private const val MIN_REQUEST_INTERVAL_MILLIS = "minRequestIntervalMillis"
+    private const val PAUSE_AFTER_RATE_LIMIT_MINUTES = "pauseAfterRateLimitMinutes"
 
     private val REQUIRED_ADDITIONAL_BASE_URLS: Map<String, List<String>> = mapOf(
         "sec-edgar" to listOf(SEC_EDGAR_FILES_BASE_URL),
@@ -202,6 +204,10 @@ object AppConfigLoader {
                 raw.toLongOrNull()?.takeIf { it > 0 }
                     ?: null.also { errors += "$label: invalid $MIN_REQUEST_INTERVAL_MILLIS '$raw'" }
             }
+            val pauseAfterRateLimitMinutes = block.stringOrNull(PAUSE_AFTER_RATE_LIMIT_MINUTES)?.let { raw ->
+                raw.toLongOrNull()?.takeIf { it > 0 }
+                    ?: null.also { errors += "$label: invalid $PAUSE_AFTER_RATE_LIMIT_MINUTES '$raw'" }
+            }
 
             if (errors.size > errorCount) {
                 rawId?.let(invalidSourceIds::add)
@@ -221,6 +227,7 @@ object AppConfigLoader {
                 directoryExchanges = directoryExchanges,
                 automaticRequests = automaticRequests,
                 minRequestInterval = minRequestIntervalMillis?.milliseconds,
+                pauseAfterRateLimit = pauseAfterRateLimitMinutes?.minutes,
             )
         }
 

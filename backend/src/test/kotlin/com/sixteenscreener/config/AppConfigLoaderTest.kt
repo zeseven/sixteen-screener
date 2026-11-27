@@ -21,6 +21,7 @@ import io.kotest.matchers.string.shouldNotContain
 import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.config.HoconApplicationConfig
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 private val FULL_ENV = mapOf(
@@ -296,6 +297,37 @@ class AppConfigLoaderTest : FunSpec({
         }
     }
 
+    test("pause after a rate limit of a source; absent by default") {
+        val config = AppConfigLoader.load(
+            configWith(source("finnhub", roles = ALL_ROLES), source("yahoo", extra = "pauseAfterRateLimitMinutes = 15")),
+            FULL_ENV,
+        )
+
+        config.source(SourceId.of("finnhub"))!!.pauseAfterRateLimit shouldBe null
+        config.source(SourceId.of("yahoo"))!!.pauseAfterRateLimit shouldBe 15.minutes
+        config.pausesAfterRateLimit shouldBe mapOf(SourceId.of("yahoo") to 15.minutes)
+    }
+
+    test("a disabled source has no pause") {
+        val config = AppConfigLoader.load(
+            configWith(
+                source("finnhub", roles = ALL_ROLES),
+                source("yahoo", enabled = false, extra = "pauseAfterRateLimitMinutes = 15"),
+            ),
+            FULL_ENV,
+        )
+
+        config.source(SourceId.of("yahoo"))!!.pauseAfterRateLimit shouldBe 15.minutes
+        config.pausesAfterRateLimit shouldBe emptyMap()
+    }
+
+    context("fails for an invalid pause after a rate limit") {
+        withData("0", "-5", "1.5", "soon") { raw ->
+            loadErrors(configWith(source("finnhub", roles = ALL_ROLES, extra = "pauseAfterRateLimitMinutes = \"$raw\""))) shouldContainExactly
+                listOf("Source 'finnhub': invalid pauseAfterRateLimitMinutes '$raw'")
+        }
+    }
+
     test("the bundled Yahoo Finance source: manual only, never a default, paced, counted per day without a limit") {
         val config = AppConfigLoader.load(ApplicationConfig("application.conf"), FULL_ENV)
 
@@ -315,6 +347,8 @@ class AppConfigLoaderTest : FunSpec({
         yahoo.limits shouldContainExactly listOf(RequestLimit(LimitInterval.DAY, null))
         yahoo.timeout shouldBe 40.seconds
         yahoo.minRequestInterval shouldBe 1000.milliseconds
+        yahoo.pauseAfterRateLimit shouldBe 15.minutes
+        config.pausesAfterRateLimit shouldBe mapOf(SourceId.of("yahoo") to 15.minutes)
         config.manualOnlySources shouldContain SourceId.of("yahoo")
         config.defaultSources.rolesOf(SourceId.of("yahoo")) shouldBe emptyList()
         config.sources.filter { it.roles.isNotEmpty() || Capability.BALANCE_SHEET in it.capabilities }.last().id shouldBe

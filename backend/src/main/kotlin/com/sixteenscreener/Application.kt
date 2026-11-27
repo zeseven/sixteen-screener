@@ -56,6 +56,7 @@ import com.sixteenscreener.domain.service.SearchService
 import com.sixteenscreener.domain.service.SourceCallGuard
 import com.sixteenscreener.domain.service.SourceCallOutcomes
 import com.sixteenscreener.domain.service.SourceCatalog
+import com.sixteenscreener.domain.service.SourcePauses
 import com.sixteenscreener.domain.service.SourceService
 import com.sixteenscreener.domain.service.TagService
 import com.sixteenscreener.domain.service.WatchlistCompanySync
@@ -87,6 +88,7 @@ import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.engine.embeddedServer
 import org.slf4j.LoggerFactory
 import kotlin.system.exitProcess
+import kotlin.time.toJavaDuration
 
 class AppServices(
     val config: AppConfig,
@@ -114,6 +116,12 @@ class AppServices(
     )
     val marketResolver = MarketResolver()
 
+    private val sourcePauses = SourcePauses(
+        pauseAfterRateLimit = config.pausesAfterRateLimit.mapValues { (_, pause) -> pause.toJavaDuration() },
+        outcomes = sourceCallOutcomes,
+        clock = clock,
+    )
+
     private val identities = CompanyIdentityResolver(marketResolver)
 
     private val watchlistCompanies = WatchlistCompanySync(profiles, sourceCatalog, clock)
@@ -130,6 +138,7 @@ class AppServices(
         rateLimiter = rateLimiter,
         guard = sourceCallGuard,
         outcomes = sourceCallOutcomes,
+        pauses = sourcePauses,
         freshness = FreshnessPolicy(clock),
         marketResolver = marketResolver,
         identities = identities,
@@ -166,6 +175,7 @@ class AppServices(
         catalog = sourceCatalog,
         rateLimiter = rateLimiter,
         outcomes = sourceCallOutcomes,
+        pauses = sourcePauses,
         clock = clock,
     )
 

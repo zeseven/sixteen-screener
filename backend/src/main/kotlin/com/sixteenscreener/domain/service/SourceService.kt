@@ -26,6 +26,7 @@ class SourceService(
     private val catalog: SourceCatalog,
     private val rateLimiter: RateLimiter,
     private val outcomes: SourceCallOutcomes,
+    private val pauses: SourcePauses,
     private val clock: Clock,
 ) : SourcesUseCase {
 
@@ -35,12 +36,14 @@ class SourceService(
         val totalCalls = async { totalCalls() }
         val usages = sources.map { source -> async { usage(source.id) } }
         sources.zip(usages.awaitAll()) { source, usage ->
+            val lastCall = lastCalls.await()[source.id]
             SourceOverview(
                 source = source,
                 defaultFor = catalog.defaultSources.rolesOf(source.id),
                 limits = usage,
-                lastCall = lastCalls.await()[source.id],
+                lastCall = lastCall,
                 totalCalls = totalCalls.await()[source.id],
+                pausedUntil = pauses.pausedUntil(source.id, lastCall),
             )
         }
     }

@@ -23,6 +23,7 @@ data class SourceDto(
     val automaticRequests: Boolean,
     val limits: List<RequestLimitDto>,
     val lastCall: SourceCallOutcomeDto?,
+    val pausedUntil: String?,
     val totalCalls: Long?,
 )
 
@@ -84,6 +85,7 @@ fun SourceOverview.toDto() = SourceDto(
     automaticRequests = source.automaticRequests,
     limits = limits.map { it.toDto() },
     lastCall = lastCall?.toDto(),
+    pausedUntil = pausedUntil?.toString(),
     totalCalls = totalCalls,
 )
 
