@@ -1516,6 +1516,15 @@ components:
             - $ref: '#/components/schemas/SourceCallOutcome'
           nullable: true
           description: Outcome of the last call to the source, for the connection indicator. Null if the source hasn't been called yet.
+        pausedUntil:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            End of the pause after the source answered `429`, for sources configured with a pause (Yahoo Finance, 15 minutes).
+            While paused, the source is not called and company data requests return cached data with `LIMIT_REACHED`.
+            Null when the source is not paused.
+          x-milestone: beta
         totalCalls:
           type: integer
           format: int64
@@ -1583,6 +1592,14 @@ components:
           description: |
             EODHD exchange code used to build EODHD symbols (`SAP.DE` is `SAP.XETRA`); null for exchanges EODHD doesn't
             cover. Shown next to the MIC.
+          example: V
+          x-milestone: beta
+        yahooSuffix:
+          type: string
+          nullable: true
+          description: |
+            Suffix of Yahoo Finance symbols without the dot (`DE` for `SAP.DE`); an empty string for US exchanges, whose
+            Yahoo symbols have no suffix; null for exchanges Yahoo Finance is not used for. Shown next to the EODHD code.
           example: V
           x-milestone: beta
         country:

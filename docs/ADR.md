@@ -954,3 +954,18 @@ The static exchange table (ADR-062) gets an ISO 3166-1 alpha-2 country and a mai
 - `GET /profiles/{profileId}/companies/{symbol}/sources` returns the dropdown options of every tab: the sources of the company's role that provide the tab's data (plus SEC EDGAR for US balance sheets), the profile's default source first, Yahoo Finance last. The app selects the first option of each tab.
 
 **Consequences:** With 2 backend instances the proxy can get up to 2 requests per second. A `429` from Yahoo doesn't stop further manual requests; they keep failing until Yahoo lifts the block. Tabs whose default source has no such data (US dividends, international profiles and balance sheets) open with Yahoo Finance selected, showing cached data or a hint to refresh.
+
+## ADR-090: Pause after a Yahoo 429, pacing in the proxy, Yahoo suffixes on the Exchanges screen and the Yahoo sector fallback
+
+**Date:** 2026-11-27
+**Status:** Accepted
+
+**Context:** After a `429`, Yahoo keeps blocking a client that goes on sending requests, and every manual refresh still called it (ADR-089). The 1 request per second of the backend applies per instance, so 2 backend instances can send 2 requests per second, and one proxy call can make two Yahoo requests. International companies get no watchlist sector, because their default source (EODHD) has no company profiles and Yahoo is never a default source.
+
+**Decision:**
+- A source can be configured with a pause after a `429` (`pauseAfterRateLimitMinutes`); Yahoo Finance is paused for 15 minutes. The pause is derived from the last call outcome in Firestore (an HTTP `429` younger than the pause), so all instances respect it without a new document. During the pause the source is not called and requests return cached data with `LIMIT_REACHED`; the sources endpoint returns `pausedUntil`.
+- The Yahoo proxy starts at most 1 Yahoo read per second; a read needing two Yahoo requests is paced as two. The proxy runs as one instance, so this is a global limit. The backend's pacing per instance stays as a first filter.
+- `GET /exchanges` returns the Yahoo suffix of each exchange, shown in its own column after the EODHD code.
+- A Yahoo profile fetched by the detailed screen sets the watchlist sector of the requesting profile only when the entry has none. The default source's profile still overwrites the sector.
+
+**Consequences:** While Yahoo blocks the Cloud Run addresses, at most one call per 15 minutes reaches it. Requests queued in the proxy for more than its timeout fail with `504`. Watchlist sectors may mix the sector names of the default source and Yahoo for companies whose default source has no profile.
